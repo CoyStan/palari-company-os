@@ -42,8 +42,8 @@ reimplement them in the skill.
    palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
    ```
 
-   Add `--strict-git` only with `--host cursor` and only when structural commit
-   gating was explicitly selected.
+   Add `--no-git-hook` only with `--host cursor` and only when the human
+   asked to skip the git commit gate.
 6. Inspect the JSON result. Confirm the reported files and any bootstrap commit
    exclude unrelated pre-existing changes and preserve existing instructions.
    Do not assume the current `HEAD` was created by adoption unless Palari says so.

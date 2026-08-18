@@ -137,9 +137,9 @@ overwriting existing instructions. In a Git worktree it also makes one local,
 path-limited starter commit containing only new Palari records and generated
 agent docs. With `--host claude` or `--host codex`, that commit includes new
 repository-local host settings and installs the assignment-bound Git commit
-check. With `--host cursor`, it installs an advisory project rule; pass
-`--strict-git` to include the Git commit check. Unrelated staged and unstaged
-work is excluded.
+check. With `--host cursor`, that commit includes the advisory project rule
+and the Git commit check. Pass `--no-git-hook` to skip the Git check.
+Unrelated staged and unstaged work is excluded.
 
 Choose `claude`, `codex`, or `cursor`. Codex asks you to trust the exact
 repository hook once through `/hooks`; Palari cannot grant that host trust
@@ -167,8 +167,8 @@ palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
 
 Other agent tools can follow the provider-neutral repository rules and use the
 host-neutral Git check. Claude and Codex have tested structural session
-profiles; Cursor has a tested advisory host profile (`palari init --host cursor`)
-with an opt-in git commit gate. No profile grants permission to review, approve,
+profiles; Cursor has a tested host profile (`palari init --host cursor`)
+with a default git commit gate. No profile grants permission to review, approve,
 merge, push, deploy, call a provider, or perform an external write.
 
 Tell Palari what kind of file change the task must make:
@@ -258,6 +258,7 @@ then records approval and local completion in one transaction. If relevant
 state changed, approval fails safely with the next correction. A manually
 entered bare `approve` command instead derives current state at invocation.
 
+`palari inbox` shows work waiting for a human yes or no.
 `palari queue --approval-inbox --json` and its
 `palari human-decision pack ...` actions remain available for advanced and
 batched approval. Agents may present human actions but must not run them.
@@ -282,7 +283,8 @@ Implemented now:
 - canonical path and symlink checks, including traversal and sibling-prefix
   defenses;
 - an assignment-bound Git commit check and tested Claude and Codex hooks;
-- Cursor host adoption via `palari init --host cursor` (advisory rule by default; opt-in git gate with `--strict-git` or `palari cursor install`);
+- Cursor host adoption via `palari init --host cursor` (advisory session rule plus
+  default git commit gate; skip the gate with `--no-git-hook`);
 - replayable, tamper-evident history with corruption and crash detection;
 - deterministic PCAW v1 export and offline verification;
 - an Approval Inbox that safely groups eligible human actions;
@@ -321,9 +323,12 @@ exact digest mismatch.
 ## Useful commands
 
 ```bash
+# Human inbox
+palari inbox
+palari detail WORK-ID
+
 # Status views
 palari queue
-palari detail WORK-ID
 palari state
 
 # Tamper-evident history audit and recovery
@@ -371,9 +376,8 @@ tests/                             Unit and fixture tests
 
 - **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
 - **Agent workflow:** read [Agent Workflow Smoke](docs/product/agent-workflow-smoke.md).
-- **Human loop:** inspect `palari agent status WORK-ID --as PALARI-REVIEWER
-  --mode review --json`, then have the human run its exact emitted
-  `human_action_commands[].command` once.
+- **Human loop:** run `palari inbox`, inspect the current task, then have the
+  human run its exact emitted `palari approve ...` command once.
 - **Linear:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
 - **Checks and approval:** read [Checks And Approval](docs/product/authority-and-gates.md).
 - **Product map:** read [Public Surface](docs/product/public-surface.md).

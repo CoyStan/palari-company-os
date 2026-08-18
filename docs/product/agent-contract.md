@@ -58,7 +58,8 @@ perform external writes. Add `--host claude`, `--host codex`, or
 `--host cursor` in the same anchored action. Claude and Codex install the
 portable session rules, task-lock-bound Git check, and tested repository-local
 session hooks (strict no-claim on adoption). Cursor installs an advisory project
-rule only unless `--strict-git` is also passed. Existing guidance, host
+rule and the Git commit gate by default. Pass `--no-git-hook` to skip the gate.
+Existing guidance, host
 configuration, and unrelated staged or unstaged paths are preserved rather than
 absorbed into the bootstrap commit. This is an immutable baseline bootstrap, not
 review, approval, or authenticated human attribution.
@@ -77,10 +78,11 @@ An existing Palari workspace uses the same idempotent action: `palari init
 WORKSPACE-DIR --host HOST --as PALARI-ID --json`, where `HOST` is `claude`,
 `codex`, or `cursor`. Without explicit `--host`, `init` still refuses an existing
 workspace. Claude and Codex have tested structural session adapters; Codex
-project hooks require explicit `/hooks` trust. Cursor has a tested advisory host
-profile with an opt-in Git commit gate (`--strict-git`, `cursor install`, or
-`git install`). Other harnesses may consume the provider-neutral session rules
-and host-neutral Git check without a named session profile. Adoption grants no
+project hooks require explicit `/hooks` trust. Cursor has a tested host
+profile with a default Git commit gate (`init --host cursor`; skip with
+`--no-git-hook`, or later `cursor install --no-git-hook`). Other harnesses
+may consume the provider-neutral session rules and host-neutral Git check
+without a named session profile. Adoption grants no
 review, approval, merge, push, deployment, provider, or external-write
 permission.
 
@@ -348,7 +350,7 @@ Implemented:
 - `palari git install` (IDE-agnostic pre-commit boundary enforcement)
 - `palari git status`
 - `palari git pre-commit`
-- `palari init --host cursor` (advisory Cursor rule; optional `--strict-git`)
+- `palari init --host cursor` (advisory Cursor rule plus default git gate)
 - `palari cursor install` (Cursor rule; git pre-commit gate on by default)
 - `palari cursor status`
 - compact agent-specific task discovery
@@ -515,11 +517,11 @@ hook calls; it can also be run manually before committing.
 ## Cursor Enforcement
 
 `palari init --host cursor` installs an always-applied advisory Cursor project
-rule (`.cursor/rules/palari-boundary.mdc`) without the git commit gate. Because
-Cursor has no pre-write deny hook, structural enforcement is opt-in via
-`--strict-git`, `palari cursor install`, or `palari git install`. Pass
-`--no-git-hook` on `cursor install` to write only the rule; use `--remove` to
-uninstall the managed rule and hook. With no active claim, commits are allowed.
+rule (`.cursor/rules/palari-boundary.mdc`) and the git commit gate. Because
+Cursor has no pre-write deny hook, structural enforcement is at commit time.
+Pass `--no-git-hook` on `init` or `cursor install` to write only the rule; use
+`--remove` to uninstall the managed rule and hook. `--strict-git` remains a
+no-op alias. With no active claim, commits are allowed.
 `palari cursor status` reports the rule, the git hook, and the active task locks
 with their allowed write paths. See
 [Cursor Integration](cursor-integration.md).

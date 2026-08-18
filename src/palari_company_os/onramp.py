@@ -131,6 +131,7 @@ def initialize_starter_workspace(
     palari_name: str = "Claude",
     host: str = "",
     strict_git: bool = False,
+    no_git_hook: bool = False,
 ) -> dict[str, Any]:
     """Create a starter workspace ready for ``work add`` and ``agent start``."""
     directory = Path(target).expanduser().resolve()
@@ -150,6 +151,10 @@ def initialize_starter_workspace(
             raise WorkspaceError("host must be one of: " + ", ".join(SUPPORTED_HOSTS))
     if strict_git and selected_host != "cursor":
         raise WorkspaceError("--strict-git is only valid with --host cursor")
+    if no_git_hook and selected_host != "cursor":
+        raise WorkspaceError("--no-git-hook is only valid with --host cursor")
+    if strict_git and no_git_hook:
+        raise WorkspaceError("--strict-git and --no-git-hook cannot be combined")
     bootstrap_adoption_blocker = _bootstrap_adoption_blocker(
         directory, adoption_root, selected_host
     )
@@ -282,6 +287,7 @@ def initialize_starter_workspace(
                     host=selected_host,
                     palari_id=palari_id,
                     strict_git=strict_git,
+                    no_git_hook=no_git_hook,
                 )
             except WorkspaceError as exc:
                 adoption = {

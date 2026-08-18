@@ -54,8 +54,8 @@ can read it as the task brief.
 `--host` accepts `claude`, `codex`, or `cursor`. Claude and Codex install
 portable instructions, the task-lock Git check, and a tested session-hook
 adapter (strict no-claim on adoption). Cursor installs an advisory project rule
-by default; pass `--strict-git` (or later `cursor install` / `git install`) for
-the commit gate. Existing workspaces use
+and the Git commit gate by default; pass `--no-git-hook` to skip the gate.
+Existing workspaces use
 `palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json`; initialization
 still refuses an existing workspace when no host is given. Other unnamed agent
 hosts may consume the provider-neutral session rules without a named profile.

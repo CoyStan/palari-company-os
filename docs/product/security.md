@@ -192,8 +192,9 @@ Safety rules:
   reuse the portable contract, claim-bound Git commit gate, and tested
   repository-local session hooks (strict no-claim on adoption) without granting
   authority; Codex hooks activate only after explicit host `/hooks` review.
-  Cursor installs an advisory project rule by default; the Git commit gate is
-  opt-in via `--strict-git`, `palari cursor install`, or `palari git install`.
+  Cursor installs an advisory project rule and the Git commit gate by default.
+  Pass `--no-git-hook` to skip the gate. `palari cursor install` and
+  `palari git install` remain available.
   No profile is an OS sandbox, and an unrestricted same-user process can still
   rewrite local files or Git metadata. Nested workspace adoption resolves and
   preflights the enclosing Git root before any write, so existing root

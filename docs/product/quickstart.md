@@ -127,8 +127,8 @@ palari init WORKSPACE-DIR --host codex --as PALARI-AGENT --json
 Claude and Codex install the portable repository rules, structural Git commit
 boundary, and tested session hooks (strict no-claim on adoption). Codex requires
 one native `/hooks` review before its repository hooks activate. Cursor installs
-an advisory project rule by default; opt into the Git gate with `--strict-git`
-or later `palari cursor install`. Other unnamed agent tools can consume the
+an advisory project rule and the Git commit gate. Skip the Git gate with
+`--no-git-hook`. Other unnamed agent tools can consume the
 provider-neutral rules and Git boundary without a named session profile.
 
 No profile grants review, human approval, merge, push, deployment, provider,

@@ -4,9 +4,10 @@ Adoption installs only local, inspectable guardrails:
 
 * a small managed contract in ``AGENTS.md``;
 * a Git commit boundary gate for hosts that support structural commit checks
-  (Claude/Codex always; Cursor only with ``strict_git`` / explicit install);
+  (Claude, Codex, and Cursor by default; Cursor may skip the gate with
+  ``no_git_hook``);
 * a native session hook only for hosts whose protocol Palari implements
-  (Claude/Codex). Cursor uses an advisory project rule instead.
+  (Claude/Codex). Cursor uses an advisory project rule plus the shared Git gate.
 
 It never writes user-global configuration, credentials, provider state, or
 human authority. Only hosts with a tested local profile are exposed as
@@ -57,6 +58,7 @@ def adopt_agent_host(
     host: str,
     palari_id: str = "",
     strict_git: bool = False,
+    no_git_hook: bool = False,
 ) -> dict[str, Any]:
     """Install the strongest honest local profile available for ``host``.
 
@@ -66,8 +68,10 @@ def adopt_agent_host(
     instructions or host settings are changed.
 
     For ``cursor``, the session boundary is advisory and the Git commit gate is
-    opt-in via ``strict_git=True`` (or a later ``palari cursor install`` /
-    ``palari git install``). Claude and Codex always install the Git gate.
+    installed by default. Pass ``no_git_hook=True`` (or later
+    ``palari cursor install --no-git-hook``) to skip it. ``strict_git=True``
+    remains a no-op alias for the default Cursor gate. Claude and Codex always
+    install the Git gate.
     """
     selected_host = host.strip().lower()
     if selected_host not in SUPPORTED_HOSTS:
@@ -76,6 +80,10 @@ def adopt_agent_host(
         )
     if strict_git and selected_host != "cursor":
         raise WorkspaceError("--strict-git is only valid with --host cursor")
+    if no_git_hook and selected_host != "cursor":
+        raise WorkspaceError("--no-git-hook is only valid with --host cursor")
+    if strict_git and no_git_hook:
+        raise WorkspaceError("--strict-git and --no-git-hook cannot be combined")
 
     root = Path(project_dir).expanduser().resolve()
     repo_root = git_repo_root(root)
@@ -99,7 +107,7 @@ def adopt_agent_host(
         raise WorkspaceError(f"{agents_path} cannot be inspected safely: {exc}") from exc
     agents_after = _merge_agents_contract(agents_before, actor)
 
-    install_commit_gate = selected_host != "cursor" or strict_git
+    install_commit_gate = selected_host != "cursor" or not no_git_hook
     if selected_host == "cursor":
         host_target, host_before_text, host_after_text, host_plan_kind = _prepare_cursor_profile(
             root,
@@ -183,9 +191,9 @@ def adopt_agent_host(
                 "status": "skipped",
                 "changed": False,
                 "message": (
-                    "Cursor host defaults to an advisory commit boundary; "
-                    "pass --strict-git or run palari cursor install / "
-                    "palari git install for structural enforcement."
+                    "Cursor git commit gate skipped (--no-git-hook); "
+                    "run palari cursor install / palari git install for "
+                    "structural enforcement."
                 ),
             }
     except Exception as exc:  # noqa: BLE001 - restore exact pre-adoption state
@@ -211,10 +219,17 @@ def adopt_agent_host(
         settings_file = str(host_target)
     else:
         activation = "advisory-project-rule"
-        next_action = (
-            "Open this repository in Cursor; the managed project rule is advisory. "
-            "Optional structural commits: palari cursor install or palari git install."
-        )
+        if install_commit_gate:
+            next_action = (
+                "Open this repository in Cursor. The git pre-commit hook blocks "
+                "out-of-boundary commits; session rules remain advisory."
+            )
+        else:
+            next_action = (
+                "Open this repository in Cursor; the managed project rule is "
+                "advisory. Structural commits: palari cursor install or "
+                "palari git install."
+            )
         settings_file = str(host_target)
     host_result = {
         "status": "installed" if host_changed else "unchanged",
@@ -224,7 +239,7 @@ def adopt_agent_host(
         "next_action": next_action,
     }
 
-    profile = _host_profile(selected_host, strict_git=strict_git)
+    profile = _host_profile(selected_host, install_commit_gate=install_commit_gate)
     limitations = [
         "Git enforcement applies at commit time and is not a filesystem sandbox.",
         "Repository-local host hooks may require the host user to review and trust them.",
@@ -235,7 +250,7 @@ def adopt_agent_host(
         limitations.insert(
             0,
             "Cursor session boundary is advisory; commits are not gated until "
-            "--strict-git / palari cursor install / palari git install.",
+            "palari cursor install / palari git install.",
         )
     return {
         "schema_version": "palari.agent_adoption.v1",
@@ -819,12 +834,12 @@ def _resolve_palari(workspace: Workspace, explicit: str) -> str:
     )
 
 
-def _host_profile(host: str, *, strict_git: bool = False) -> dict[str, Any]:
+def _host_profile(host: str, *, install_commit_gate: bool = True) -> dict[str, Any]:
     if host == "cursor":
         return {
             "profile": "palari.cursor.v1",
             "portable_contract": "declared",
-            "commit_boundary": "structural" if strict_git else "optional",
+            "commit_boundary": "structural" if install_commit_gate else "optional",
             "session_boundary": "advisory",
             "session_activation": "advisory-project-rule",
             "human_authority": "palari-enforced",

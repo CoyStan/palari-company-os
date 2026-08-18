@@ -247,8 +247,8 @@ code change must match them. See
 - Supported host adoption installs or reuses the portable repository contract.
   Claude and Codex also install the claim-bound Git commit gate and tested
   session hooks (strict no-claim on adoption); Codex requires explicit
-  repository-hook trust. Cursor is a tested advisory host profile — the Git
-  commit gate is opt-in (`--strict-git`, `cursor install`, or `git install`).
+  repository-hook trust. Cursor is a tested host profile — the Git
+  commit gate is on by default (`init --host cursor`; skip with `--no-git-hook`).
   No profile may grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.

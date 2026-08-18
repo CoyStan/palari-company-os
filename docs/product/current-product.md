@@ -70,9 +70,9 @@ An operator initializes a repository once, creates a bounded task, and checks
 its status:
 
 ```text
-palari init [--host claude|codex|cursor] [--strict-git]
+palari init [--host claude|codex|cursor]
 palari work add TITLE --create PATH | --modify PATH | --delete PATH
-palari queue
+palari inbox
 palari detail WORK-ID
 ```
 
@@ -126,6 +126,7 @@ zero. The sole exception is R1/light/zero-count work with no external effects.
 An agent may display the human action, but cannot execute it, create a human
 decision, or manufacture approval.
 
+`inbox` is the ordinary human view of work waiting for a yes or no.
 `queue --approval-inbox` and `human-decision pack` remain the advanced surfaces
 for batching, mixed decisions, and explicit recovery. They emit executable
 commands only for viable named human actors. Current machine outputs are
@@ -206,8 +207,8 @@ Supported connections consume the same central decisions:
 - the local CLI;
 - the Git commit boundary;
 - tested Claude and Codex session setup (structural hooks + git gate);
-- tested Cursor advisory host setup (opt-in git gate via `--strict-git` /
-  `cursor install`);
+- tested Cursor host setup (advisory session rule plus default git gate; skip
+  with `--no-git-hook` / `cursor install --no-git-hook`);
 - MCP stdio with explicit capability limits;
 - Linear issue, comment, and webhook translation through the required
   plan, approval, and outbox steps;
@@ -232,8 +233,8 @@ execution backlog. The Palari Blueprint is `EXPERIMENTAL` research for possible
 future protocol work, not a supported product promise.
 
 Unsupported Devin, GLM, and generic session aliases have been removed. A
-current Cursor host profile remains (`init --host cursor`: advisory rule by
-default; git gate opt-in). Provider-specific Slack, GitHub, Jira, and email
+current Cursor host profile remains (`init --host cursor`: advisory session
+rule plus default git gate; skip with `--no-git-hook`). Provider-specific Slack, GitHub, Jira, and email
 preview shapes, the desktop prototype, its demo schema and showcase, and Pages
 deployment are also removed. Mission Control is the one supported local human
 UI, including guarded one-task Approve for eligible reversible local work.

@@ -19,7 +19,8 @@ palari init [REPOSITORY] [--host claude|codex|cursor]
 `demo` uses a throwaway workspace and no network. `init` creates
 `workspace.json`, the current tamper-evident journal, a builder, a distinct
 reviewer, and a founder. A host selection also installs its tested local
-boundary. Cursor's Git gate remains opt-in with `--strict-git`.
+boundary. Cursor's Git gate is installed by default; pass `--no-git-hook` to
+skip it.
 
 ## Tasks
 
@@ -149,7 +150,15 @@ non-batchable: the one-task command does not widen it into an Approval Pack
 batch. External or irreversible work is not eligible for this local completion
 path. Agents may display the command; they may not execute it.
 
-The advanced batch path remains:
+The ordinary human view is:
+
+```bash
+palari inbox [--json]
+palari inbox --select WORK-ID --json
+```
+
+`inbox` is an alias for `queue --approval-inbox`. The advanced batch path
+remains:
 
 ```bash
 palari queue --approval-inbox --json
@@ -165,6 +174,7 @@ palari human-decision pack --pack-digest DIGEST \
 ## Operator Views
 
 ```bash
+palari inbox [--json]
 palari queue [--include-closed] [--json]
 palari detail WORK-ID [--json]
 palari state [--json]

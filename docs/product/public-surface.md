@@ -33,7 +33,7 @@ matrix.
 | Work ideas, task creation, and exact review recording | operator | Agents may store authority-free bounded ideas; a human approves an idea before task creation. Proof records are produced by `agent advance`. |
 | Linear issue/comment/webhook adapter | adapter | Checked adapter behavior; Linear is not Palari's source of truth. |
 | Git commit boundary | adapter | Optional structural enforcement of a task's allowed file changes. |
-| Cursor host profile | adapter | `init --host cursor` installs an advisory project rule; git commit gate is opt-in (`--strict-git` / `cursor install`). See [Cursor Integration](cursor-integration.md). |
+| Cursor host profile | adapter | `init --host cursor` installs an advisory project rule and the git commit gate; skip the gate with `--no-git-hook`. See [Cursor Integration](cursor-integration.md). |
 | Claude and Codex session setup | adapter | Tested repository-local session enforcement using portable session rules. |
 | MCP stdio | adapter | Bounded protocol translation with explicit capability limits. |
 | Opaque provider declarations | core boundary | Provider-neutral previews only; no provider API shape or execution. |
@@ -48,20 +48,20 @@ matrix.
 
 ## Command surface
 
-Current CLI command count from parser inspection: **81**. The August 2026
+Current CLI command count from parser inspection: **82**. The August 2026
 minimality pass removed 65 commands: generic record mutation, restore-point
 recovery, and advisory data-map, maintainer, gate, and playbook views. The
 ordinary journey, supported adapters, and safety boundaries remain.
 
 The agent surface uses `agent status` as its single read-only task projection.
 
-The default help is intentionally narrow. It leads with `init`, `work`,
-`agent`, `approve`, `queue`, `detail`, `proof`, `validate`, and `docs`, plus this ordinary
+The default help is intentionally narrow. It leads with `demo`, `init`, `work`,
+`agent`, `approve`, `inbox`, `queue`, `detail`, and `validate`, plus this ordinary
 journey:
 
 ```text
 init -> work add -> agent start --next -> agent advance
--> independent agent review -> approve -> proof verify
+-> inbox -> approve
 ```
 
 There is no blanket compatibility promise for pre-1.0 commands. Superseded

@@ -7,6 +7,15 @@ repository milestones, not a production Company OS release.
 
 ## [Unreleased]
 
+### Changed
+
+- `palari init --host cursor` now installs the git commit gate by default, matching
+  Claude and Codex. Pass `--no-git-hook` to keep only the advisory Cursor rule.
+  `--strict-git` remains a no-op alias.
+- Added `palari inbox` as the human front door for work waiting on a yes or no.
+  Default `--help` now leads with `demo`, `init`, `work`, `agent`, `approve`,
+  `inbox`, `queue`, `detail`, and `validate`.
+
 ## [0.2.1] - 2026-08-05
 
 ### Fixed

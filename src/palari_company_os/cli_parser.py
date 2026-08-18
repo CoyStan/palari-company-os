@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Make AI work reviewable with clear limits, recorded checks, and human approval.",
         epilog=(
             "Ordinary journey: init -> work add -> agent start --next -> agent advance -> "
-            "review -> approve -> proof verify.\n"
+            "inbox -> approve.\n"
             "Additional expert and recovery commands remain available through direct --help."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -84,8 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--strict-git",
         action="store_true",
         help=(
-            "With --host cursor, also install the git pre-commit commit gate "
-            "(opt-in; Cursor defaults to advisory-only)."
+            "Deprecated no-op with --host cursor: the git commit gate is now "
+            "installed by default. Use --no-git-hook to skip it."
+        ),
+    )
+    init_parser.add_argument(
+        "--no-git-hook",
+        action="store_true",
+        help=(
+            "With --host cursor, skip the git pre-commit commit gate and keep "
+            "only the advisory project rule."
         ),
     )
     init_parser.add_argument(
@@ -150,6 +158,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Narrow the Approval Inbox to specific tasks. Repeatable.",
     )
     queue_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    inbox_parser = subparsers.add_parser(
+        "inbox",
+        help="Show work waiting for a human yes or no.",
+    )
+    inbox_parser.add_argument(
+        "--select",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Narrow the inbox to specific tasks. Repeatable.",
+    )
+    inbox_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     state_parser = subparsers.add_parser("state", help="Show compact workspace status.")
     state_parser.add_argument("--json", action="store_true", help="Emit JSON.")
@@ -251,15 +272,15 @@ def _focus_default_help(subparsers: Any) -> None:
     """Keep expert commands parseable while making the ordinary journey obvious."""
 
     ordinary = (
+        "demo",
         "init",
         "work",
         "agent",
         "approve",
+        "inbox",
         "queue",
         "detail",
-        "proof",
         "validate",
-        "docs",
     )
     actions = {action.dest: action for action in subparsers._choices_actions}
     subparsers._choices_actions = [actions[name] for name in ordinary]
@@ -505,7 +526,7 @@ def _add_git_parser(subparsers: Any) -> None:
 def _add_cursor_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "cursor",
-        help="Install Cursor advisory boundary rule (optional git commit gate).",
+        help="Install the Cursor boundary rule and git commit gate.",
     )
     nested = parser.add_subparsers(dest="cursor_command", required=True)
 
