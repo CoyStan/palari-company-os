@@ -43,6 +43,10 @@ authority. The response emits `palari approve IDEA-ID --as HUMAN-ID --json` for
 a human to create the active task. Agents may add and show ideas; they may not
 approve them.
 
+`detail`, `approve`, `inbox --select`, and agent commands that take a task id
+accept a unique `WORK-` or `IDEA-` prefix of the stored opaque ID. Human text
+shows that short form. JSON keeps the full ID. Ambiguous prefixes fail closed.
+
 Generic record creation and update commands are deliberately absent. Palari
 creates run, run-record, and check-result records through `agent advance` so
 they cannot drift apart.

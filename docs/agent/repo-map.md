@@ -64,7 +64,8 @@ names stay exact because this is also a source-code map.
 - `src/palari_company_os/proposals.py`: human approval of an idea into active
   work, plus older proposal decisions and scope questions.
 - `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed task and idea
-  identity generation with no lifecycle ordering semantics.
+  identity generation with no lifecycle ordering semantics, plus unique-prefix
+  resolve and short display forms.
 
 ## CLI
 

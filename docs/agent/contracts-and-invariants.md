@@ -12,7 +12,8 @@ code change must match them. See
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
 - Task IDs are identity only. New work uses collision-resistant opaque IDs.
-  Dependency authority exists only through explicit, reference-valid,
+  Commands accept a unique prefix of the stored ID; ambiguous prefixes fail
+  closed. Dependency authority exists only through explicit, reference-valid,
   duplicate-free, acyclic `dependency_ids` edges.
 - New workspaces begin replayable v2 tamper-evident history. Existing
   workspaces without it require an explicit v2 restore point. Prepared and

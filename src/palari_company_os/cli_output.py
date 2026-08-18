@@ -36,6 +36,7 @@ from .cli_output_utils import (
     yes_no as _yes_no,
 )
 from .models import to_plain
+from .work_identity import replace_opaque_ids, short_opaque_id
 from .workspace import Workspace
 
 
@@ -767,16 +768,19 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
     print(f"Palari Tasks: {workspace.name}")
     print("Flow: start -> check -> review -> approve -> verify")
     print("")
+    known_ids = _opaque_ids(workspace)
     for item in items:
         next_command = item.next_commands[0] if item.next_commands else ""
+        display_id = short_opaque_id(item.id, known_ids)
         display_step, display_command, display_action = _execution_entry_action(
             next_step_type=item.next_step_type,
             next_command=next_command,
             next_action=item.next_action,
-            work_id=item.id,
+            work_id=display_id,
             palari_id=item.palari,
         )
-        print(f"{item.id} [{item.intensity} / {item.risk}] {item.title}")
+        display_command = replace_opaque_ids(display_command, known_ids)
+        print(f"{display_id} [{item.intensity} / {item.risk}] {item.title}")
         print(
             "  status: "
             f"{plain_status(item.attention, next_step_type=display_step, next_command=display_command)}"
@@ -813,19 +817,25 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
         if item.agent_status_command:
-            print(f"  agent status: {item.agent_status_command}")
+            print(f"  agent status: {replace_opaque_ids(item.agent_status_command, known_ids)}")
         if item.terminal_disposition:
             print(f"  retired: {item.terminal_disposition} ({item.terminal_reason})")
             if item.successor_work_item_id:
-                print(f"  successor: {item.successor_work_item_id}")
+                print(
+                    f"  successor: {short_opaque_id(item.successor_work_item_id, known_ids)}"
+                )
         print("")
 
 
 def print_approval_inbox(payload: dict[str, Any]) -> None:
     counts = payload["counts"]
     print(f"Approval Inbox: {payload['workspace']}")
+    known_ids = _payload_opaque_ids(payload)
     primary = payload.get("primary_action", {})
-    commands = list(primary.get("commands", []))
+    commands = [
+        replace_opaque_ids(str(command), known_ids)
+        for command in list(primary.get("commands", []))
+    ]
     if primary.get("available"):
         state = "decision-ready"
         owner = "qualified human"
@@ -854,7 +864,7 @@ def print_approval_inbox(payload: dict[str, Any]) -> None:
         explanation = str(primary.get("next_safe_action") or "Resolve the current exceptions.")
         next_action = next(
             (
-                str(item.get("next_safe_action"))
+                replace_opaque_ids(str(item.get("next_safe_action")), known_ids)
                 for item in payload.get("individual_items", [])
                 if item.get("next_safe_action")
             ),
@@ -898,7 +908,10 @@ def print_approval_pack_decision(payload: dict[str, Any]) -> None:
 
 
 def print_simple_approval(payload: dict[str, Any]) -> None:
-    print(f"Task {payload['work_item']}: {plain_status(payload['status'])}")
+    work_id = str(payload.get("work_item") or "")
+    print(
+        f"Task {short_opaque_id(work_id, [work_id])}: {plain_status(payload['status'])}"
+    )
     print(f"Approved by: {payload['human']}")
     print(f"Completed: {_yes_no(bool(payload['completed']))}")
     print(
@@ -911,19 +924,25 @@ def print_simple_approval(payload: dict[str, Any]) -> None:
 
 def print_detail(payload: dict[str, Any]) -> None:
     work = payload["work_item"]
+    known_ids = _detail_opaque_ids(payload)
+    display_id = short_opaque_id(str(work.get("id") or ""), known_ids)
     goal = payload["goal"] or {}
     palari = payload["palari"] or {}
     workbench = payload.get("workbench") or {}
-    next_commands = payload.get("next_commands") or []
+    next_commands = [
+        replace_opaque_ids(str(command), known_ids)
+        for command in (payload.get("next_commands") or [])
+    ]
     next_command = str(next_commands[0]) if next_commands else ""
     display_step, display_command, display_action = _execution_entry_action(
         next_step_type=str(payload.get("next_step_type") or "inspect"),
         next_command=next_command,
         next_action=str(payload.get("next_action") or ""),
-        work_id=str(work.get("id") or ""),
+        work_id=display_id,
         palari_id=str(work.get("palari") or ""),
     )
-    print(f"Task {work['id']}: {work['title']}")
+    display_command = replace_opaque_ids(display_command, known_ids)
+    print(f"Task {display_id}: {work['title']}")
     print(
         "Status: "
         f"{plain_status(payload['attention'], next_step_type=display_step, next_command=display_command)} "
@@ -935,7 +954,7 @@ def print_detail(payload: dict[str, Any]) -> None:
             f"Reason: {work.get('terminal_reason', '')}"
         )
         if work.get("successor_work_item_id"):
-            print(f"Successor: {work['successor_work_item_id']}")
+            print(f"Successor: {short_opaque_id(work['successor_work_item_id'], known_ids)}")
     if workbench:
         print(f"Project: {workbench.get('label', work['workbench_id'])}")
     print(f"Goal: {goal.get('title', work['goal'])}")
@@ -972,7 +991,7 @@ def print_detail(payload: dict[str, Any]) -> None:
     if payload.get("agent_commands"):
         print("Agent commands:")
         for label, command in payload["agent_commands"].items():
-            print(f"  {label}: {command}")
+            print(f"  {label}: {replace_opaque_ids(str(command), known_ids)}")
     print("")
     print("Task limits")
     print(f"  {work['scope']}")
@@ -997,7 +1016,7 @@ def print_detail(payload: dict[str, Any]) -> None:
     print("")
     if payload.get("parent_work_item"):
         parent = payload["parent_work_item"]
-        print(f"Parent task: {parent['id']} - {parent['title']}")
+        print(f"Parent task: {short_opaque_id(parent['id'], known_ids)} - {parent['title']}")
         print("")
     if payload.get("child_work_items"):
         print("Child Tasks")
@@ -1085,18 +1104,30 @@ def print_state(payload: dict[str, Any]) -> None:
         print(f"  {key}: {value}")
     top = payload.get("top_attention")
     if top:
-        commands = top.get("next_commands") or []
+        known_ids = [
+            str(item.get("id") or "")
+            for item in queue
+            if item.get("id")
+        ]
+        if top.get("id"):
+            known_ids.append(str(top["id"]))
+        commands = [
+            replace_opaque_ids(str(command), known_ids)
+            for command in (top.get("next_commands") or [])
+        ]
         next_command = str(commands[0]) if commands else ""
+        display_id = short_opaque_id(str(top.get("id") or ""), known_ids)
         display_step, display_command, _ = _execution_entry_action(
             next_step_type=str(top.get("next_step_type") or "inspect"),
             next_command=next_command,
             next_action=str(top.get("next_action") or ""),
-            work_id=str(top.get("id") or ""),
+            work_id=display_id,
             palari_id=str(top.get("palari") or ""),
         )
+        display_command = replace_opaque_ids(display_command, known_ids)
         print("Next task")
         print(
-            f"  {top['id']}: {top['title']} "
+            f"  {display_id}: {top['title']} "
             f"({plain_status(top['attention'], next_step_type=display_step, next_command=display_command)})"
         )
         if display_step:
@@ -1106,13 +1137,19 @@ def print_state(payload: dict[str, Any]) -> None:
             )
         print(f"  why: {plain_message(top['why'])}")
         if top.get("agent_status_command"):
-            print(f"  agent status: {top['agent_status_command']}")
+            print(
+                "  agent status: "
+                f"{replace_opaque_ids(str(top['agent_status_command']), known_ids)}"
+            )
         if display_command:
             print(f"  command: {display_command}")
     if payload.get("active_parallel_work"):
         print("Active parallel work")
         for item in payload["active_parallel_work"]:
-            print(f"  {item['work_item_id']} / {item['attempt_id']}: {item['actor']}")
+            print(
+                f"  {short_opaque_id(str(item['work_item_id']), [str(item['work_item_id'])])} "
+                f"/ {item['attempt_id']}: {item['actor']}"
+            )
     if payload.get("coordination_warnings"):
         print("Coordination warnings")
         for warning in payload["coordination_warnings"]:
@@ -1120,14 +1157,43 @@ def print_state(payload: dict[str, Any]) -> None:
 
 
 def print_scope(payload: dict[str, Any]) -> None:
+    work_id = str(payload.get("work_item_id") or "")
     print(
-        f"Task limits for {payload['work_item_id']}: "
+        f"Task limits for {short_opaque_id(work_id, [work_id])}: "
         f"{'allowed' if payload['allowed'] else 'blocked'}"
     )
     for violation in payload["violations"]:
         print(f"  violation: {violation}")
     for note in payload["notes"]:
         print(f"  note: {note}")
+
+
+def _opaque_ids(workspace: Workspace) -> list[str]:
+    ids = [item.id for item in workspace.work_items]
+    ids.extend(item.id for item in workspace.proposals)
+    return ids
+
+
+def _payload_opaque_ids(payload: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    for item in payload.get("individual_items") or []:
+        item_id = str(item.get("id") or "")
+        if item_id:
+            ids.append(item_id)
+    return ids
+
+
+def _detail_opaque_ids(payload: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    work = payload.get("work_item") or {}
+    if work.get("id"):
+        ids.append(str(work["id"]))
+    if work.get("successor_work_item_id"):
+        ids.append(str(work["successor_work_item_id"]))
+    parent = payload.get("parent_work_item") or {}
+    if parent.get("id"):
+        ids.append(str(parent["id"]))
+    return ids
 
 
 def _execution_entry_action(

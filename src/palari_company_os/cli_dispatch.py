@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .work_identity import resolve_opaque_id
 from .workspace import Workspace, WorkspaceError
 
 
@@ -19,6 +20,7 @@ class CommandResult:
 
 
 def run_command(args: argparse.Namespace) -> CommandResult:
+    _canonicalize_work_refs(args)
     if args.command == "demo":
         from .demo import run_demo
         from .demo import run_solo_journey_demo
@@ -985,6 +987,32 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     raise WorkspaceError("unknown command")
+
+
+def _canonicalize_work_refs(args: argparse.Namespace) -> None:
+    """Resolve unique WORK-/IDEA- prefixes before command handlers see stored IDs."""
+
+    list_fields = ("select", "approve", "reject", "defer", "pack_member")
+    work_id = getattr(args, "work_id", None)
+    lists = {name: list(getattr(args, name, None) or []) for name in list_fields}
+    if not (isinstance(work_id, str) and work_id) and not any(lists.values()):
+        return
+    if getattr(args, "command", "") in {"demo", "init"}:
+        return
+    workspace_path = getattr(args, "workspace", None)
+    if not workspace_path:
+        return
+    try:
+        workspace = Workspace.load(workspace_path)
+    except (OSError, WorkspaceError):
+        return
+    known = [item.id for item in workspace.work_items]
+    known.extend(item.id for item in workspace.proposals)
+    if isinstance(work_id, str) and work_id:
+        args.work_id = resolve_opaque_id(work_id, known)
+    for name, values in lists.items():
+        if values:
+            setattr(args, name, [resolve_opaque_id(item, known) for item in values])
 
 
 def _workspace_counts(workspace: Workspace) -> dict[str, int]:

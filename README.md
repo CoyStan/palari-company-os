@@ -152,13 +152,14 @@ These technical names remain stable for compatibility; ordinary messages use
 the plain words.
 
 After doing and committing the bounded work, use the opaque task ID returned by
-`start`:
+`start`, or the unique short prefix shown in queue, inbox, and detail:
 
 ```bash
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 ```
 
 Do not infer a sequential task ID. Unrelated opaque IDs can run in parallel.
+Ambiguous prefixes fail closed.
 For a repository that already has Palari records, run this once:
 
 ```bash

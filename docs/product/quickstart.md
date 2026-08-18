@@ -53,7 +53,10 @@ founder can finish local R2 work with ordinary product commands—builder
 start/advance, then `inbox` and one founder `approve`—without adding identities
 first. The review-only agent stays for R3+ and external-write work. Run
 `palari demo --journey --no-pause` to see the full closeout. `work add` returns
-an opaque, collision-resistant task ID.
+an opaque, collision-resistant task ID. Queue, inbox, detail, and `approve`
+show a unique short prefix of that ID; you can type the prefix instead of the
+full value. JSON keeps the stored ID.
+
 `start --next` selects one eligible task, first verifies that a viable
 reviewer and qualified final approver remain, saves its task brief and portable
 session rules, and creates a local assignment. The stored files retain the
@@ -79,7 +82,8 @@ The agent follows the returned task brief, changes only allowed files, and may
 run task-specific checks while editing. After it commits the bounded change,
 Palari uses fixed built-in verification profiles for authoritative evidence
 (R1 is exact base-to-head `git diff --check` over changed paths). The agent then
-uses the opaque `WORK-...` ID returned by `start`:
+uses the opaque `WORK-...` ID returned by `start`, or the unique short prefix
+shown in queue and detail:
 
 ```bash
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json

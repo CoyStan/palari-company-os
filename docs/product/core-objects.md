@@ -123,7 +123,10 @@ playbooks.
 
 New quick-created tasks use opaque UUIDv4-backed IDs. An ID identifies a task;
 it does not set priority or order. Explicit dependency edges determine order.
-Historical and externally assigned IDs remain compatible.
+Historical and externally assigned IDs remain compatible. Commands accept a
+unique `WORK-` or `IDEA-` prefix of the stored ID; ambiguous prefixes fail
+closed. Human text shows that short unique prefix. JSON keeps the full stored
+ID.
 
 ## Work Idea (`proposal`)
 

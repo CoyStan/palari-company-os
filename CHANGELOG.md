@@ -21,6 +21,9 @@ repository milestones, not a production Company OS release.
 - `palari demo --journey` now narrates that local R2 closeout: start, advance,
   inbox, and one founder approve. Default `--help` continues to omit Linear
   and MCP from the ordinary command list.
+- Commands accept a unique `WORK-` or `IDEA-` prefix of the stored opaque ID.
+  Queue, inbox, detail, and emitted `approve` commands show that short form.
+  JSON keeps the full ID. Ambiguous prefixes fail closed.
 
 ## [0.2.1] - 2026-08-05
 

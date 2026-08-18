@@ -77,6 +77,13 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(queue_json["queue"][0]["attention"], "ready-for-ai-work")
         self.assertEqual(detail_json["attention"], "ready-for-ai-work")
         self.assertIn("work_item", detail_json)
+        self.assertEqual(detail_json["work_item"]["id"], WORK_ID)
+
+    def test_detail_accepts_case_insensitive_exact_ids_and_rejects_short_guesses(self) -> None:
+        matched = self.run_cli("detail", "work-cli")
+        self.assertIn(f"Task {WORK_ID}:", matched.stdout)
+        guessed = self.run_cli("detail", "WORK-CL", check=False)
+        self.assertNotEqual(guessed.returncode, 0)
 
     def test_scope_command_translates_allow_and_deny_decisions(self) -> None:
         allowed = self.run_json("scope", WORK_ID, "--changed", "README.md", "--json")
