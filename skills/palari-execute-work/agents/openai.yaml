@@ -1,0 +1,4 @@
+interface:
+  display_name: "Palari Execute Work"
+  short_description: "Execute bounded repository work safely"
+  default_prompt: "Use $palari-execute-work to complete the next bounded task in this repository."

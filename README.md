@@ -209,6 +209,19 @@ Most work needs two commands.
 `agent advance` never records a review result or human approval. Use
 `--dry-run` to inspect its plan.
 
+### Model-facing execution skill
+
+The canonical portable skill is
+[`palari-execute-work`](skills/palari-execute-work/SKILL.md). A compatible
+agent can load it to learn the ordinary start, bounded-edit, commit, advance,
+and stop workflow without loading Palari's implementation or full product
+documentation.
+
+The skill grants no authority and contains no duplicate governance logic.
+Palari's current task brief and CLI remain the enforcement boundary. The first
+skill intentionally excludes independent review, human approval, and repository
+installation.
+
 If a task is interrupted, record why before releasing the assignment:
 
 ```bash
