@@ -373,7 +373,7 @@ def _check_review_record(
                         f"review head {reviewed_head} does not match current exact proof head",
                     )
                 )
-    if authority_plan["requires_review"] and not authority_plan["viable"]:
+    if not authority_plan["viable"]:
         blockers.append(
             TransitionBlocker(
                 str(authority_plan["code"] or "AUTHORITY_PLAN_UNSATISFIABLE"),
@@ -483,7 +483,7 @@ def _check_acceptance_prerequisites(
             builder_id=attempt.actor if attempt is not None else "",
             reviewer_id=review.reviewer,
         )
-        if authority_plan["requires_review"] and not authority_plan["viable"]:
+        if not authority_plan["viable"]:
             blockers.append(
                 TransitionBlocker(
                     str(authority_plan["code"] or "AUTHORITY_PLAN_UNSATISFIABLE"),

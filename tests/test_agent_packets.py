@@ -256,7 +256,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
         data = _workspace_data()
         data["work_items"][0].update(
             {
-                "risk": "R2",
+                "risk": "R3",
                 "intensity": "standard",
                 "required_approval_count": 1,
                 "required_approval_capability": "product",
@@ -299,7 +299,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
         data = _workspace_data()
         data["work_items"][0].update(
             {
-                "risk": "R2",
+                "risk": "R3",
                 "intensity": "standard",
                 "required_approval_count": 1,
                 "required_approval_capability": "product",
@@ -406,7 +406,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
         packet = build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute")
 
         self.assertEqual(packet["status"], "blocked")
-        self.assertTrue(packet["authority_plan"]["requires_review"])
+        self.assertFalse(packet["authority_plan"]["requires_review"])
         self.assertTrue(packet["authority_plan"]["requires_human_approval"])
         self.assertEqual(
             packet["authority_plan"]["effective_final_approval_count"],
@@ -590,7 +590,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
         self.assertEqual(packet["state"]["safety"]["integration_state"], "not-ready")
         self.assertNotIn("TERMINALIZATION_PENDING", blocker_codes)
         self.assertTrue(packet["completion_contract"]["review_mode"])
-        self.assertTrue(packet["completion_contract"]["requires_review"])
+        self.assertFalse(packet["authority_plan"]["requires_review"])
         self.assertTrue(packet["completion_contract"]["requires_human_decision"])
         self.assertEqual(finish["status"], "handoff-ready")
         self.assertEqual(finish["next_step_type"], "human-decision")

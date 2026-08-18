@@ -186,8 +186,9 @@ code change must match them. See
   to the exact attempt, receipt, head, and output artifacts and evaluated
   against the current work contract.
   Only R1/light/0-approval work with no allowed, planned, queued, or actual
-  external writes may omit independent review and human acceptance; every
-  other item stops at the next required authority boundary.
+  external writes may omit independent review and human acceptance. Other local
+  R1/R2 work omits only the agent review and still stops for one human. R3+ and
+  any external write keep independent review.
   After a current separate review and qualified human decision already exist,
   the shared bounded fixed-point driver may derive the acceptance record and
   terminalize the work mechanically. Authority-producing functions invoke that

@@ -205,13 +205,19 @@ def evaluate_governance_case(
         )
         derived_state = "completed"
     else:
-        review_result, current_review_bound = _review_property(
-            case,
-            evidence_result,
-            receipt_result,
-            context,
-            errors,
-        )
+        if independent_review_required_for_case(case):
+            review_result, current_review_bound = _review_property(
+                case,
+                evidence_result,
+                receipt_result,
+                context,
+                errors,
+            )
+        else:
+            review_result = PropertyResult(
+                "independent_review", "not-required", ("$.contract.risk",)
+            )
+            current_review_bound = False
         properties["independent_review"] = review_result
         quorum_result, current_decisions, qualified_humans = _quorum_property(
             case, review_result, errors
@@ -398,7 +404,10 @@ def evaluate_human_authority_candidate(
         and not errors
         and not governance.errors
         and candidate_qualified
-        and governance.current_review_bound
+        and (
+            governance.current_review_bound
+            or _property_status(governance, "independent_review") == "not-required"
+        )
         and governance.fully_verified
         and governance.derived_state in {"accepted", "completed"}
     )
@@ -427,7 +436,10 @@ def _human_decision_ready(
         "journal_continuity",
     }
     return bool(
-        current_review_bound
+        (
+            current_review_bound
+            or properties["independent_review"].status == "not-required"
+        )
         and not case.open_decisions
         and case.attempt is not None
         and case.attempt.status in TERMINAL_ATTEMPT_STATUSES
@@ -896,8 +908,11 @@ def _quorum_property(
     review_result: PropertyResult,
     errors: list[Diagnostic],
 ) -> tuple[PropertyResult, dict[str, HumanDecisionSnapshot], set[str]]:
-    required_count = case.contract.required_approval_count
-    if review_result.status != "verified" or case.review is None:
+    required_count = effective_required_approval_count_for_case(case)
+    review_optional = review_result.status == "not-required"
+    if review_result.status not in {"verified", "not-required"} or (
+        not review_optional and case.review is None
+    ):
         if required_count == 0:
             return (
                 PropertyResult(
@@ -970,7 +985,10 @@ def _quorum_property(
         capability = case.contract.required_approval_capability
         if capability and capability not in human.approval_capabilities:
             continue
-        _require_order(case.review.timestamp, decision.timestamp, "$.human_decisions", errors)
+        if case.review is not None:
+            _require_order(
+                case.review.timestamp, decision.timestamp, "$.human_decisions", errors
+            )
         qualified.add(decision.human_id)
     if len(qualified) < required_count:
         _error(
@@ -1041,7 +1059,9 @@ def _acceptance_property(
     review = case.review
     expected = {
         "work_item_id": case.contract.id,
-        "reviewed_head": review.reviewed_head if review else "",
+        "reviewed_head": (
+            review.reviewed_head if review is not None else _attempt_head(case.attempt)
+        ),
         "evidence_id": case.evidence.id if case.evidence else "",
         "review_id": review.id if review else "",
         "receipt_digest": case.receipt_digest(),
@@ -1089,7 +1109,7 @@ def _acceptance_property(
         )
     elif decision.timestamp:
         _require_order(decision.timestamp, acceptance.accepted_at, "$.acceptance_records", errors)
-    if review_result.status != "verified" or quorum_result.status not in {
+    if review_result.status not in {"verified", "not-required"} or quorum_result.status not in {
         "verified",
         "not-required",
     }:
@@ -1156,11 +1176,120 @@ def low_risk_completion_policy_applies(
         risk == "R1"
         and intensity == "light"
         and required_approval_count == 0
-        and not (set(allowed_actions) & EXTERNAL_WRITE_ACTIONS)
-        and not planned_external_writes
-        and not queued_external_writes
-        and not external_writes
+        and not _has_external_write_surface(
+            allowed_actions=allowed_actions,
+            planned_external_writes=planned_external_writes,
+            queued_external_writes=queued_external_writes,
+            external_writes=external_writes,
+        )
     )
+
+
+def independent_review_required(
+    *,
+    risk: str,
+    intensity: str = "",
+    required_approval_count: int = 0,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    planned_external_writes: tuple[str, ...] | list[str] = (),
+    queued_external_writes: tuple[str, ...] | list[str] = (),
+    external_writes: tuple[str, ...] | list[str] = (),
+) -> bool:
+    """Return whether an independent agent review is required before human approval.
+
+    Exact evidence may still auto-complete the narrow R1/light/zero-count local
+    case. Local R1/R2 work without an external-write surface skips agent review
+    and still stops for a human. R3+ and any external-write surface keep review.
+    """
+
+    if low_risk_completion_policy_applies(
+        risk=risk,
+        intensity=intensity,
+        required_approval_count=required_approval_count,
+        allowed_actions=allowed_actions,
+        planned_external_writes=planned_external_writes,
+        queued_external_writes=queued_external_writes,
+        external_writes=external_writes,
+    ):
+        return False
+    if _has_external_write_surface(
+        allowed_actions=allowed_actions,
+        planned_external_writes=planned_external_writes,
+        queued_external_writes=queued_external_writes,
+        external_writes=external_writes,
+    ):
+        return True
+    return risk not in {"R1", "R2"}
+
+
+def independent_review_required_for_case(case: GovernanceCase) -> bool:
+    receipt = case.receipt
+    return independent_review_required(
+        risk=case.contract.risk,
+        intensity=case.contract.intensity,
+        required_approval_count=case.contract.required_approval_count,
+        allowed_actions=case.contract.allowed_actions,
+        planned_external_writes=receipt.planned_external_writes if receipt else (),
+        queued_external_writes=receipt.queued_external_writes if receipt else (),
+        external_writes=receipt.external_writes if receipt else (),
+    )
+
+
+def effective_required_approval_count(
+    *,
+    risk: str,
+    intensity: str = "",
+    required_approval_count: int = 0,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    planned_external_writes: tuple[str, ...] | list[str] = (),
+    queued_external_writes: tuple[str, ...] | list[str] = (),
+    external_writes: tuple[str, ...] | list[str] = (),
+) -> int:
+    """Return the human-approval floor, including review-optional local work."""
+
+    if low_risk_completion_policy_applies(
+        risk=risk,
+        intensity=intensity,
+        required_approval_count=required_approval_count,
+        allowed_actions=allowed_actions,
+        planned_external_writes=planned_external_writes,
+        queued_external_writes=queued_external_writes,
+        external_writes=external_writes,
+    ):
+        return 0
+    return max(int(required_approval_count), 1)
+
+
+def effective_required_approval_count_for_case(case: GovernanceCase) -> int:
+    receipt = case.receipt
+    return effective_required_approval_count(
+        risk=case.contract.risk,
+        intensity=case.contract.intensity,
+        required_approval_count=case.contract.required_approval_count,
+        allowed_actions=case.contract.allowed_actions,
+        planned_external_writes=receipt.planned_external_writes if receipt else (),
+        queued_external_writes=receipt.queued_external_writes if receipt else (),
+        external_writes=receipt.external_writes if receipt else (),
+    )
+
+
+def _has_external_write_surface(
+    *,
+    allowed_actions: tuple[str, ...] | list[str] = (),
+    planned_external_writes: tuple[str, ...] | list[str] = (),
+    queued_external_writes: tuple[str, ...] | list[str] = (),
+    external_writes: tuple[str, ...] | list[str] = (),
+) -> bool:
+    return bool(
+        (set(allowed_actions) & EXTERNAL_WRITE_ACTIONS)
+        or planned_external_writes
+        or queued_external_writes
+        or external_writes
+    )
+
+
+def _property_status(evaluation: GovernanceEvaluation, name: str) -> str:
+    return next(item.status for item in evaluation.properties if item.name == name)
 
 
 def evaluate_approval_batch_policy(
@@ -1228,7 +1357,7 @@ def _derive_state(
         return "blocked"
     if current_negative_review:
         return "blocked"
-    if properties["independent_review"].status != "verified":
+    if properties["independent_review"].status not in {"verified", "not-required"}:
         return "review-required"
     if properties["human_quorum"].status not in {"verified", "not-required"}:
         return "human-decision-required"
@@ -1307,7 +1436,13 @@ def _decision_matches_current_proof(
 ) -> bool:
     review = case.review
     if review is None:
-        return False
+        return (
+            decision.reviewed_head == _attempt_head(case.attempt)
+            and decision.review_id == ""
+            and decision.evidence_id == (case.evidence.id if case.evidence else "")
+            and decision.review_digest == ""
+            and decision.evidence_digest == (evidence_digest or case.evidence_digest())
+        )
     return (
         decision.reviewed_head == review.reviewed_head
         and decision.review_id == review.id

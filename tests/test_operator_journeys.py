@@ -286,6 +286,8 @@ class OperatorJourneyTests(unittest.TestCase):
             )
             work_id = str(added["work_item"]["id"])
             self.assertEqual(added["authority_plan"]["effective_final_approval_count"], 1)
+            self.assertFalse(added["authority_plan"]["requires_review"])
+            self.assertTrue(added["authority_plan"]["requires_human_approval"])
             self.assertEqual(added["authority_plan"]["qualified_approver_ids"], ["HUMAN-FOUNDER"])
 
             started = self._run_emitted_json(added["next_commands"][0])
@@ -334,49 +336,15 @@ class OperatorJourneyTests(unittest.TestCase):
                 observed_profiles,
                 ["complete", "install-smoke", "docs-check"],
             )
-            self.assertEqual(advanced["status"], "review-required")
-            review_actions = [
-                action
-                for action in advanced["handoff"]["agent_action_commands"]
-                if action["actor"] == "PALARI-REVIEWER"
-            ]
-            accept_action = next(
-                action
-                for action in review_actions
-                if "--verdict accept-ready" in action["command"]
-            )
-            reviewer_packet = self._run_emitted_json(
-                accept_action["packet_command"]
-            )
-            concrete_review = next(
-                item["command"]
-                for item in reviewer_packet["review_context"][
-                    "agent_review_commands"
-                ]
-                if item["reviewer"] == "PALARI-REVIEWER"
-                and item["verdict"] == "accept-ready"
-            )
-            review_result = self._run_emitted_json(concrete_review)
-            self.assertEqual(review_result["action"], "created")
-            self.assertEqual(review_result["collection"], "review_verdicts")
-
-            reviewer_status = self._run_emitted_json(
-                palari_workspace_command(
-                    workspace_file,
-                    "agent",
-                    "status",
-                    work_id,
-                    "--as",
-                    "PALARI-REVIEWER",
-                    "--mode",
-                    "review",
-                    "--json",
-                )
-            )
-            human_actions = reviewer_status["human_action_commands"]
+            self.assertEqual(advanced["status"], "human-decision-required")
+            self.assertFalse(advanced["handoff"].get("review_handoff"))
+            self.assertTrue(advanced["handoff"].get("human_approval_handoff"))
+            self.assertEqual(advanced["handoff"].get("agent_action_commands"), [])
+            human_actions = advanced["handoff"]["human_action_commands"]
             self.assertEqual(len(human_actions), 1)
             human_action = human_actions[0]
             self.assertEqual(human_action["actor"], "HUMAN-FOUNDER")
+            self.assertIn("approve", human_action["command"])
             self.assertIn("--presented", human_action["command"])
             self.assertNotIn("--pack-digest", human_action["command"])
 
@@ -389,15 +357,12 @@ class OperatorJourneyTests(unittest.TestCase):
             self.assertFalse(approved["performed_external_effects"])
             self.assertIsNotNone(work)
             self.assertEqual(work.status, "completed")
-            self.assertEqual(len(final.review_verdicts), 1)
+            self.assertEqual(len(final.review_verdicts), 0)
             self.assertEqual(len(final.human_decisions), 1)
             self.assertEqual(len(final.acceptance_records), 1)
             self.assertEqual(final.attempts[0].actor, "PALARI-CLAUDE")
-            self.assertEqual(
-                final.review_verdicts[0].reviewer,
-                "PALARI-REVIEWER",
-            )
             self.assertEqual(final.human_decisions[0].human_id, "HUMAN-FOUNDER")
+            self.assertEqual(final.human_decisions[0].review_reference, "")
             self.assertTrue(journal["chain_valid"])
             self.assertIsNone(journal["pending"])
 

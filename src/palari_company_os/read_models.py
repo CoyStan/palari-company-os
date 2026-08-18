@@ -631,12 +631,19 @@ def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
             **common,
         )
     if state == "human-decision-required":
-        return _LifecycleView(
-            attention="needs-human-decision",
-            why=(
+        if candidate_properties["independent_review"] == "not-required":
+            why = (
+                "Current checks are ready, but approval quorum is incomplete "
+                f"({approval_progress})."
+            )
+        else:
+            why = (
                 "Review is accept-ready, but approval quorum is incomplete "
                 f"({approval_progress})."
-            ),
+            )
+        return _LifecycleView(
+            attention="needs-human-decision",
+            why=why,
             next_action="Collect the required current decision from a qualified human.",
             integration_ready=False,
             **common,

@@ -28,9 +28,9 @@ output version. Risk changes review and approval requirements; it never waives
 checks.
 
 Only R1/light work with zero required approvals and no external action may
-complete directly after current exact checks. All other work stops for an
-independent review. The task contract then determines whether qualified human
-approval is required.
+complete directly after current exact checks. Other local R1/R2 work skips
+independent agent review and still stops for one human. R3+ work and any
+external-write surface keep independent review.
 
 `agent advance` owns run, run-record, and check-result creation. It checks the
 Git head, repository cleanliness, exact path intents, output bytes, task
@@ -81,9 +81,10 @@ explicit. Agents may show pack actions but must not run them.
 
 ## Effective Approval Count
 
-For review-required work, the effective final approval count is at least one,
-even when the stored numeric count is zero. The only zero-person completion is
-the narrow R1/light/no-external-action case.
+For ordinary local work, the effective final approval count is at least one,
+even when the stored numeric count is zero. Independent agent review is skipped
+for local R1/R2 with no external-write surface. The only zero-person completion
+is the narrow R1/light/no-external-action case.
 
 High-risk work may require multiple distinct qualified people. A person's
 stored approval capabilities must cover the task's required capability, and

@@ -10,6 +10,7 @@ from .command_surface import bind_palari_command_payload, palari_workspace_comma
 from .governance_kernel import (
     EXTERNAL_WRITE_ACTIONS,
     TERMINAL_WORK_STATUSES,
+    independent_review_required,
     low_risk_completion_policy_applies,
 )
 from .read_models import detail
@@ -218,11 +219,13 @@ def _work_blockers(
         )
 
     if mode == "execute":
-        if (
-            authority_plan
-            and authority_plan["requires_review"]
-            and not authority_plan["viable"]
-        ):
+        if authority_plan and not authority_plan["viable"]:
+            if authority_plan["requires_review"] and authority_plan["requires_human_approval"]:
+                missing = "viable independent reviewer and qualified human approver"
+            elif authority_plan["requires_review"]:
+                missing = "viable independent reviewer"
+            else:
+                missing = "qualified human approver"
             blockers.append(
                 _blocker(
                     str(
@@ -233,11 +236,7 @@ def _work_blockers(
                         f"{authority_plan['message']} Smallest safe correction: "
                         f"{authority_plan['smallest_correction']}"
                     ).strip(),
-                    missing=(
-                        "viable independent reviewer and qualified human approver"
-                        if authority_plan["requires_human_approval"]
-                        else "viable independent reviewer"
-                    ),
+                    missing=missing,
                 )
             )
         for dependency in work_detail["dependencies"]:
@@ -380,19 +379,31 @@ def _effective_approval_projection(
         and work_detail.get("review") is not None
         and safety.get("review_state") == "accept-ready"
     )
+    checks_ready_nonterminal_candidate = bool(
+        work_detail.get("attention") == "ready-to-complete"
+        and str(work.get("status", "")) not in TERMINAL_WORK_STATUSES
+        and work_detail.get("evidence") is not None
+        and not authority_plan.get("requires_review")
+    )
     if not (
-        authority_plan.get("requires_review")
-        and effective_count > declared_count
+        effective_count > declared_count
         and current_count < effective_count
-        and reviewed_nonterminal_candidate
+        and (reviewed_nonterminal_candidate or checks_ready_nonterminal_candidate)
     ):
         return work_detail
 
     projected = dict(work_detail)
     projected["attention"] = "needs-human-decision"
     projected["why"] = (
-        "Review is accept-ready, but effective final approval quorum is "
-        f"incomplete ({current_count}/{effective_count})."
+        (
+            "Review is accept-ready, but effective final approval quorum is "
+            f"incomplete ({current_count}/{effective_count})."
+        )
+        if authority_plan.get("requires_review")
+        else (
+            "Current checks are ready, but effective final approval quorum is "
+            f"incomplete ({current_count}/{effective_count})."
+        )
     )
     projected["next_action"] = (
         "Collect the required current decision from a qualified human."
@@ -661,10 +672,19 @@ def _completion_contract(work_detail: dict[str, Any], mode: str) -> dict[str, An
         planned_external_writes=list(receipt.get("planned_external_writes", [])),
         queued_external_writes=list(receipt.get("queued_external_writes", [])),
     )
+    requires_review = independent_review_required(
+        risk=str(work.get("risk", "")),
+        intensity=str(work.get("intensity", "")),
+        required_approval_count=int(work.get("required_approval_count", 0)),
+        allowed_actions=list(work.get("allowed_actions", [])),
+        external_writes=list(receipt.get("external_writes", [])),
+        planned_external_writes=list(receipt.get("planned_external_writes", [])),
+        queued_external_writes=list(receipt.get("queued_external_writes", [])),
+    )
     return {
         "requires_receipt": True,
         "requires_evidence": True,
-        "requires_review": not low_risk_light,
+        "requires_review": requires_review,
         "requires_human_decision": not low_risk_light,
         "external_writes_allowed": bool(external_actions),
         "external_write_actions": external_actions,

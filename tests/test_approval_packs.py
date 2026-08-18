@@ -236,7 +236,7 @@ class ApprovalPackTests(unittest.TestCase):
 
     def test_incomplete_member_remains_visible_as_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            data_path = make_ready_workspace(Path(directory), count=1)
+            data_path = make_ready_workspace(Path(directory), count=1, risk="R3")
             incomplete = load_store(data_path)
             incomplete.data["review_verdicts"] = []
             write_store(incomplete)
@@ -1512,6 +1512,29 @@ class ApprovalPackTests(unittest.TestCase):
             self.assertEqual(len(final.human_decisions), 1)
             self.assertEqual(len(final.acceptance_records), 1)
 
+    def test_local_r2_without_review_is_approvable_by_a_distinct_human(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=1,
+                approvals=0,
+                include_review=False,
+                single_maintainer=True,
+            )
+            result = approve_work(
+                str(data_path),
+                "WORK-001",
+                "HUMAN-PRODUCT",
+            )
+            final = Workspace.load(data_path)
+
+            self.assertTrue(result["completed"])
+            self.assertEqual(final.work_item("WORK-001").status, "completed")
+            self.assertEqual(len(final.review_verdicts), 0)
+            self.assertEqual(len(final.human_decisions), 1)
+            self.assertEqual(final.human_decisions[0].review_reference, "")
+            self.assertEqual(len(final.acceptance_records), 1)
+
     def test_review_required_zero_quorum_founder_reviewer_fails_before_approval(
         self,
     ) -> None:
@@ -1559,6 +1582,7 @@ def make_ready_workspace(
     risk: str = "R2",
     reviewer_id: str = "HUMAN-REVIEW",
     single_maintainer: bool = False,
+    include_review: bool = True,
 ) -> Path:
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
     raw["name"] = "Approval Pack Fixture"
@@ -1693,28 +1717,29 @@ def make_ready_workspace(
         raw["evidence_runs"].append(evidence)
 
     workspace = Workspace.from_raw(raw, root)
-    for index in range(1, count + 1):
-        work_id = f"WORK-{index:03d}"
-        binding, errors = current_review_binding(
-            workspace,
-            work_id,
-        )
-        if errors:
-            raise AssertionError(errors)
-        review = {
-            "id": f"REVIEW-{index:03d}",
-            "work_item_id": work_id,
-            "reviewed_head": f"head-{index:03d}",
-            "reviewer": reviewer_id,
-            "verdict": "accept-ready",
-            **binding,
-            "findings": [],
-            "checks_inspected": ["offline deterministic check"],
-            "residual_risks": ["Human usefulness judgment remains required."],
-            "timestamp": timestamp(base_time + timedelta(seconds=index * 10 + 4)),
-        }
-        review["proof_hash"] = review_proof_hash(review)
-        raw["review_verdicts"].append(review)
+    if include_review:
+        for index in range(1, count + 1):
+            work_id = f"WORK-{index:03d}"
+            binding, errors = current_review_binding(
+                workspace,
+                work_id,
+            )
+            if errors:
+                raise AssertionError(errors)
+            review = {
+                "id": f"REVIEW-{index:03d}",
+                "work_item_id": work_id,
+                "reviewed_head": f"head-{index:03d}",
+                "reviewer": reviewer_id,
+                "verdict": "accept-ready",
+                **binding,
+                "findings": [],
+                "checks_inspected": ["offline deterministic check"],
+                "residual_risks": ["Human usefulness judgment remains required."],
+                "timestamp": timestamp(base_time + timedelta(seconds=index * 10 + 4)),
+            }
+            review["proof_hash"] = review_proof_hash(review)
+            raw["review_verdicts"].append(review)
     Workspace.from_raw(raw, root)
     data_path = root / "workspace.json"
     write_store(WorkspaceStore(data_path=data_path, data=deepcopy(raw)))

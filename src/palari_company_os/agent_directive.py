@@ -216,15 +216,16 @@ def _primary_action(
 
 
 def human_approval_prerequisites_met(check: dict[str, Any]) -> bool:
-    """Return whether run record, checks, and review permit approval."""
+    """Return whether run record, checks, and review (when required) permit approval."""
 
-    prerequisite_codes = {"RECEIPT_PRESENT", "EVIDENCE_PRESENT", "REVIEW_PRESENT"}
     checks = {item.get("code", ""): item for item in check.get("checks", [])}
-    return all(
-        checks.get(code, {}).get("required") is True
-        and checks.get(code, {}).get("status") == "pass"
-        for code in prerequisite_codes
-    )
+    for code in ("RECEIPT_PRESENT", "EVIDENCE_PRESENT", "REVIEW_PRESENT"):
+        item = checks.get(code, {})
+        if item.get("required") is False:
+            continue
+        if not (item.get("required") is True and item.get("status") == "pass"):
+            return False
+    return True
 
 
 def review_prerequisites_met(check: dict[str, Any]) -> bool:

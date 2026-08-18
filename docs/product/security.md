@@ -33,20 +33,22 @@ Safety rules:
 - Every completion requires current passing check results tied to the exact
   run, run record, commit, output files, and task rules.
 - Approval requires a finished clean run, complete check/run-record integrity,
-  and an independent review tied to the exact run, commit, and task rules.
+  and either a current independent review or a local R1/R2 policy that skips
+  agent review. Human approval remains required except for the narrow
+  R1/light/0-approval/no-external exemption.
 - Independent review and human approval may both be omitted only for
   R1/light/0-approval work with no allowed, planned, queued, or actual external
-  writes. That narrow policy never waives checks.
+  writes. That narrow policy never waives checks. Other local R1/R2 work omits
+  only the agent review and still requires one human.
 - Each person's latest timezone-ordered decision for the exact review and
   check results controls the required approvals; a later negative decision
   revokes an earlier approval, while contradictory or ambiguous records fail
   closed.
 - A zero stored numeric `quorum` removes extra counted votes; it does not remove
-  the final human boundary for review-required work. Outside the narrow
-  R1/light/zero-count/no-external automatic exemption, the effective final
-  approval count is at least one. Such approval still requires the current
-  exact review/check binding and a declared human, and a later rejection
-  revokes it.
+  the final human boundary except for the narrow R1/light/zero-count/no-external
+  automatic exemption. The effective final approval count is at least one.
+  Local R1/R2 work without an external-write surface may skip agent review;
+  such approval still requires current exact checks and a declared human.
 - Bound reviews are immutable, and generic update commands cannot rewrite
   terminal task or run trust fields. Their aggregate hash covers reviewer
   identity, review result, findings, inspected checks, residual risks, and
@@ -120,9 +122,11 @@ Safety rules:
   The command rechecks its plan and post-proof actor, claim, clean-tree, and
   scope boundaries, commits agent-owned proof as one journaled transaction,
   and either completes only under the narrow R1/light/0-approval/no-external
-  exemption or stops before required independent review or human authority. A
-  pending prepare is aborted before a safe retry; an already-applied pending
-  commit is completed only under the exact original execution authority.
+  exemption or stops before required independent review or human authority.
+  Local R1/R2 work without an external-write surface skips agent review and
+  still stops for one human. A pending prepare is aborted before a safe retry;
+  an already-applied pending commit is completed only under the exact original
+  execution authority.
 - `agent start --next` does not introduce a second eligibility policy. It
   selects the first candidate already marked safe by `agent next`, then invokes
   the same packet, portable-contract, claim, baseline, witness, and lease path

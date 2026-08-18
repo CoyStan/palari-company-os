@@ -277,6 +277,21 @@ class AdvancePlannerTests(unittest.TestCase):
         self.assertEqual(plan["stop_boundary"], "independent-review")
         self.assertIn("review-handoff", [item["step"] for item in plan["steps"]])
 
+    def test_local_r2_plan_stops_for_human_approval(self) -> None:
+        facts = self._facts()
+        facts["work"].update(
+            risk="R2",
+            intensity="standard",
+            required_approval_count=0,
+        )
+
+        plan = plan_advance(facts)
+
+        self.assertEqual(plan["expected_state"], "human-decision-required")
+        self.assertEqual(plan["stop_boundary"], "human-approval")
+        self.assertIn("human-handoff", [item["step"] for item in plan["steps"]])
+        self.assertNotIn("review-handoff", [item["step"] for item in plan["steps"]])
+
     def _facts(self) -> dict[str, object]:
         return {
             "actor": "PALARI-STEWARD",

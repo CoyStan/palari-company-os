@@ -15,6 +15,9 @@ repository milestones, not a production Company OS release.
 - Added `palari inbox` as the human front door for work waiting on a yes or no.
   Default `--help` now leads with `demo`, `init`, `work`, `agent`, `approve`,
   `inbox`, `queue`, `detail`, and `validate`.
+- Local R1/R2 work without an external-write surface skips independent agent
+  review and still stops for one human. The narrow R1/light/zero-count/no-external
+  case still auto-completes. R3+ and any external write keep review.
 
 ## [0.2.1] - 2026-08-05
 

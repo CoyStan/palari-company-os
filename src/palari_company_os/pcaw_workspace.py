@@ -38,6 +38,7 @@ from .governance_kernel import (
     HumanAuthorityCandidateEvaluation,
     evaluate_governance_case,
     evaluate_human_authority_candidate,
+    independent_review_required_for_case,
 )
 from .pcaw_canonical import canonical_sha256
 from .pcaw_subjects import SubjectError, hash_subject, validate_subject_name
@@ -376,6 +377,9 @@ def governance_case_from_workspace(
         inspect_external=inspect_external,
         journal_context=journal_context,
     )
+    proof_binding_current = review_binding_current or (
+        review is None and not independent_review_required_for_case(case_stub)
+    )
     review_snapshot = _review_snapshot(review, case_stub, review_binding_current)
     review_case = GovernanceCase(
         schema_version=CASE_SCHEMA_VERSION,
@@ -389,13 +393,15 @@ def governance_case_from_workspace(
     review_digest = review_case.review_digest()
     evidence_digest = case_stub.evidence_digest()
     receipt_digest = case_stub.receipt_digest()
-    current_decisions = _current_human_decisions(workspace, work_id, review)
+    current_decisions = _current_human_decisions(
+        workspace, work_id, review, attempt
+    )
     current_decisions_by_id = {item.id: item for item in current_decisions}
     decisions = tuple(
         _decision_snapshot(
             item,
-            evidence_digest if review_binding_current else "",
-            review_digest if review_binding_current else "",
+            evidence_digest if proof_binding_current else "",
+            review_digest if proof_binding_current else "",
         )
         for item in current_decisions
     )
@@ -403,8 +409,11 @@ def governance_case_from_workspace(
         _bound_acceptance_snapshot(
             item,
             review=review,
+            attempt=attempt,
+            evidence=evidence,
+            receipt=receipt,
             current_decisions_by_id=current_decisions_by_id,
-            review_binding_current=review_binding_current,
+            proof_binding_current=proof_binding_current,
             receipt_digest=receipt_digest,
             evidence_digest=evidence_digest,
             review_digest=review_digest,
@@ -661,20 +670,37 @@ def _bound_acceptance_snapshot(
     acceptance: Any,
     *,
     review: Any | None,
+    attempt: Any | None,
+    evidence: Any | None,
+    receipt: Any | None,
     current_decisions_by_id: dict[str, Any],
-    review_binding_current: bool,
+    proof_binding_current: bool,
     receipt_digest: str,
     evidence_digest: str,
     review_digest: str,
 ) -> AcceptanceSnapshot:
     decision = current_decisions_by_id.get(acceptance.decision_id)
+    expected_head = (
+        review.reviewed_head if review is not None else _record_head(attempt)
+    )
+    expected_review_id = review.id if review is not None else ""
+    expected_evidence_id = (
+        review.evidence_reference
+        if review is not None
+        else (_id(evidence) if evidence is not None else "")
+    )
+    expected_receipt_hash = (
+        review.receipt_hash
+        if review is not None
+        else (receipt.receipt_hash if receipt is not None else "")
+    )
     binding_current = bool(
-        review_binding_current
-        and review is not None
-        and acceptance.review_reference == review.id
-        and acceptance.reviewed_head == review.reviewed_head
-        and acceptance.evidence_reference == review.evidence_reference
-        and acceptance.receipt_hash == review.receipt_hash
+        proof_binding_current
+        and expected_head
+        and acceptance.review_reference == expected_review_id
+        and acceptance.reviewed_head == expected_head
+        and acceptance.evidence_reference == expected_evidence_id
+        and acceptance.receipt_hash == expected_receipt_hash
         and decision is not None
         and decision.human_id == acceptance.human_id
         and decision.reviewed_head == acceptance.reviewed_head
@@ -816,13 +842,21 @@ def _journal_observation(
 
 
 def _current_human_decisions(
-    workspace: Workspace, work_id: str, review: Any | None
+    workspace: Workspace,
+    work_id: str,
+    review: Any | None,
+    attempt: Any | None = None,
 ) -> list[Any]:
-    if review is None:
+    reviewed_head = (
+        review.reviewed_head if review is not None else _record_head(attempt)
+    )
+    if not reviewed_head:
         return []
     latest: dict[str, Any] = {}
     for decision in workspace.human_decisions:
-        if decision.work_item_id != work_id or decision.reviewed_head != review.reviewed_head:
+        if decision.work_item_id != work_id or decision.reviewed_head != reviewed_head:
+            continue
+        if review is None and decision.review_reference:
             continue
         prior = latest.get(decision.human_id)
         if prior is None or record_time_key(decision) > record_time_key(prior):
@@ -912,6 +946,16 @@ def _undo_ref_path(value: str) -> str:
         if lowered.startswith(prefix):
             return stripped[len(prefix) :].strip()
     return stripped if "/" in stripped or "." in stripped else ""
+
+
+def _record_head(record: Any | None) -> str:
+    if record is None:
+        return ""
+    head = str(getattr(record, "head_sha", "") or "")
+    if head:
+        return head
+    commits = getattr(record, "commits", ()) or ()
+    return str(commits[-1]) if commits else ""
 
 
 def _id(value: Any | None) -> str:

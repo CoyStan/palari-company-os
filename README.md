@@ -204,7 +204,9 @@ Most work needs two commands.
    Palari records the run, run record, and current check results. Every
    completion requires current exact checks. Only R1/light work with zero
    required approvals and no external writes may finish without independent
-   review and human approval. Every other task stops at the next real boundary.
+   review and human approval. Other local R1/R2 work skips agent review and
+   still stops for one human. R3+ and any external write keep independent
+   review.
 
 `agent advance` never records a review result or human approval. Use
 `--dry-run` to inspect its plan.
@@ -239,13 +241,19 @@ unsupported and cannot be upgraded in place.
 
 ## The ordinary human path
 
-After an independent review, inspect the concise task status and run its
-exact human action once:
+When current checks are ready, inspect `palari inbox` or execute-mode status
+and run its exact human action once:
 
 ```bash
-palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
+palari inbox --json
+# or:
+palari agent status WORK-ID --as PALARI-CLAUDE --mode execute --json
 # A human runs the exact human_action_commands[].command from this status.
 ```
+
+Independent review still happens first for R3+ work and any external write.
+After that review, the same inbox or a review-mode status shows the human
+action.
 
 Initialization provides a distinct review-only agent so a one-person
 workspace does not spend its only human authority on review. Before work

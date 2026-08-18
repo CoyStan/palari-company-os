@@ -48,9 +48,10 @@ becomes a valid run record, check result, or approval.
 
 Risk changes which approvals are required, never whether checks are required.
 R1/light work with zero required approvals and no external action may complete
-after current exact checks without independent review or human approval. Every
-other task stops for independent review. The task rules determine whether a
-qualified human must approve it afterward.
+after current exact checks without independent review or human approval. Other
+local R1/R2 work skips independent agent review and still stops for one human.
+R3+ work and any external-write surface keep independent review. The task rules
+determine the remaining human approval count.
 
 ## Ordinary paths
 
@@ -118,11 +119,12 @@ palari approve WORK-ID --as HUMAN-ID --json
 ```
 
 Palari appends the presentation binding to that command; the person does not
-copy proof or presentation digests. It rechecks the artifact, evidence, review,
-journal, capability, effective final count, and exact state, and records
-approval plus local completion in one transaction. For review-required work,
-the effective final count is at least one even when the stored numeric count is
-zero. The sole exception is R1/light/zero-count work with no external effects.
+copy proof or presentation digests. It rechecks the artifact, evidence, review
+when required, journal, capability, effective final count, and exact state, and
+records approval plus local completion in one transaction. The effective final
+count is at least one even when the stored numeric count is zero, except for
+R1/light/zero-count work with no external effects. Local R1/R2 work without an
+external-write surface may skip agent review and still use this human step.
 An agent may display the human action, but cannot execute it, create a human
 decision, or manufacture approval.
 

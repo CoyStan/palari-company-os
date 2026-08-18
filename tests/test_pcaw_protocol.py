@@ -365,6 +365,7 @@ class PCAWProtocolTests(unittest.TestCase):
             root = Path(directory)
             raw = json.loads(ACCEPTED_WORKSPACE.read_text(encoding="utf-8"))
             raw["work_items"][0]["status"] = "in-review"
+            raw["work_items"][0]["risk"] = "R3"
             raw["work_items"][0]["scope"] = "Changed after the exact review."
             raw["human_decisions"] = []
             raw["acceptance_records"] = []

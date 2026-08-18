@@ -103,15 +103,19 @@ The ordinary loop is deliberately short:
    completion requires current, passing checks tied to the exact version. Only
    R1/light work with zero required approvals and no allowed, planned, queued,
    or actual external writes may complete without independent review and human
-   approval.
+   approval. Other local R1/R2 work skips independent agent review and still
+   stops for one human. R3+ and any external write keep review.
 3. Follow the one command returned at that boundary. A distinct eligible
    reviewer starts the task in `--mode review`, inspects its read-only brief,
    and records an advisory result tied to the exact candidate. The local review
    assignment lets supported hooks bind the review command to that reviewer
    and task. Palari rejects that reviewer before recording if the choice would
    leave too few qualified final approvers.
-4. After the separate current review, the human handoff shows the concise
-   presentation and an exact command. A qualified human runs that emitted
+4. After current checks — and after independent review when that review is
+   required — the human handoff shows the concise presentation and an exact
+   command. Local R1/R2 work without an external-write surface uses execute-mode
+   status or `palari inbox`; R3+ and external-write work still use the
+   review-mode handoff first. A qualified human runs that emitted
    `palari approve ... --presented DIGEST` action once; the binding is supplied
    by Palari, not copied. Palari revalidates exact proof before deterministic
    local approval-and-completion bookkeeping. A bare command derives current

@@ -72,7 +72,8 @@ risk to a required approval count.
 
 Approval rules never waive current check results. Independent review and human
 approval may both be omitted only for R1/light/0-approval work with no allowed,
-planned, queued, or actual external write.
+planned, queued, or actual external write. Other local R1/R2 work omits only
+independent review and still requires one human.
 
 ## External Connection (`integration`)
 
