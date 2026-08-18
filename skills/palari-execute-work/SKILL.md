@@ -33,6 +33,8 @@ Palari's governance rules.
    palari agent advance WORK-ID --as PALARI-ID --json
    ```
 
+   `advance` runs the declared deterministic verification and records the run
+   and evidence. Do not manufacture or manually write proof records.
 7. Follow the returned ownership and boundary signals. Read
    [result-states.md](references/result-states.md) only when the result is not
    immediately clear.
