@@ -27,6 +27,8 @@ class PalariAdoptSkillTests(unittest.TestCase):
         self.assertEqual(text.count("palari init --palari Agent"), 1)
         self.assertEqual(text.count("palari init WORKSPACE-DIR"), 1)
         self.assertIn("palari --workspace WORKSPACE-DIR validate --json", text)
+        self.assertIn("The Git root and `WORKSPACE-DIR` may differ", text)
+        self.assertNotIn("palari init REPO-ROOT", text)
         self.assertIn("stop and ask the human to review `/hooks`", text)
         self.assertIn("Never invent", text)
         self.assertNotIn("palari claude install", text)

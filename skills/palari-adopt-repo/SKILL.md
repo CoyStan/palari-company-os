@@ -35,7 +35,8 @@ reimplement them in the skill.
 
 5. For an existing workspace, target the exact directory that contains its
    `workspace.json` and use an existing Palari identity supplied by the user or
-   shown by current Palari output. Never invent the identity:
+   shown by current Palari output. The Git root and `WORKSPACE-DIR` may differ;
+   never collapse one into the other. Never invent the identity:
 
    ```bash
    palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
