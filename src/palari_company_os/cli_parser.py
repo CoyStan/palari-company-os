@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser.add_argument(
         "--journey",
         action="store_true",
-        help=("Narrate the solo-maintainer R2 closeout: init through review and founder approval."),
+        help=("Narrate the solo-maintainer R2 closeout: init through inbox and founder approval."),
     )
     demo_parser.add_argument(
         "--serve",

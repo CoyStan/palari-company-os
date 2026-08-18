@@ -359,7 +359,7 @@ def print_demo(payload: dict[str, Any], as_json: bool) -> None:
         print_json(payload)
         return
     if payload.get("schema_version") == "palari.demo.journey.v1":
-        print("Palari demo: solo-maintainer reviewed closeout")
+        print("Palari demo: solo-maintainer local closeout")
     else:
         print("Palari demo: blocked file change in under two minutes")
     print(f"Demo workspace: {payload['workspace_dir']}")

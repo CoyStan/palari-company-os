@@ -18,6 +18,9 @@ repository milestones, not a production Company OS release.
 - Local R1/R2 work without an external-write surface skips independent agent
   review and still stops for one human. The narrow R1/light/zero-count/no-external
   case still auto-completes. R3+ and any external write keep review.
+- `palari demo --journey` now narrates that local R2 closeout: start, advance,
+  inbox, and one founder approve. Default `--help` continues to omit Linear
+  and MCP from the ordinary command list.
 
 ## [0.2.1] - 2026-08-05
 

@@ -92,9 +92,10 @@ does not hit this.
 
 **Solo-maintainer guarantee:** after a normal `palari init`, the first R2 task
 added for the seeded builder has a viable authority plan (builder +
-`PALARI-REVIEWER` + `HUMAN-FOUNDER`). Product commands can carry that task
-through advance, independent review, and one founder approval without hitting
-`AUTHORITY_PLAN_UNSATISFIABLE`. See `palari demo --journey --no-pause`.
+`PALARI-REVIEWER` + `HUMAN-FOUNDER`). Product commands can carry that local
+task through advance, inbox, and one founder approval without hitting
+`AUTHORITY_PLAN_UNSATISFIABLE`. Independent review stays for R3+ and external
+writes. See `palari demo --journey --no-pause`.
 
 ## `lacks required approval capability`
 

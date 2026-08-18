@@ -49,10 +49,11 @@ palari agent start --next --as PALARI-AGENT --json
 agent ID; `--palari Agent` produces `PALARI-AGENT` here. It also creates a
 distinct review-only `PALARI-REVIEWER` linked to the starter goal but not to
 the execution workbench. That trio is the solo-maintainer guarantee: one
-founder can finish reviewed (R2) work with ordinary product commands—builder
-start/advance, review-only accept-ready, then one founder `approve`—without
-adding identities first. Run `palari demo --journey --no-pause` to see the
-full closeout. `work add` returns an opaque, collision-resistant task ID.
+founder can finish local R2 work with ordinary product commands—builder
+start/advance, then `inbox` and one founder `approve`—without adding identities
+first. The review-only agent stays for R3+ and external-write work. Run
+`palari demo --journey --no-pause` to see the full closeout. `work add` returns
+an opaque, collision-resistant task ID.
 `start --next` selects one eligible task, first verifies that a viable
 reviewer and qualified final approver remain, saves its task brief and portable
 session rules, and creates a local assignment. The stored files retain the
@@ -88,6 +89,10 @@ palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 safe deterministic step. It stops for independent review, human approval, an
 external action, or a concrete safety blocker; it never invents those
 judgments.
+
+For local R1/R2 work without an external-write surface, `advance` stops at
+human approval. The founder inspects `palari inbox` and runs the emitted
+`approve` command. Independent review is skipped.
 
 When review is required, the distinct review-only agent opens the returned
 review handoff, inspects the exact candidate, and runs one concrete advisory

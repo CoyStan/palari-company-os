@@ -29,9 +29,22 @@ class DemoCommandTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "palari.demo.journey.v1")
         titles = [step["title"] for step in payload["steps"]]
         self.assertIn("Initialize a solo-maintainer workspace", titles)
+        self.assertIn("Add local R2 work for one founder", titles)
+        self.assertIn("Advance records checks and stops for approval", titles)
+        self.assertIn("Inbox shows the waiting human decision", titles)
         self.assertIn("Founder approves once", titles)
+        self.assertNotIn("Independent review accepts the exact candidate", titles)
+        commands = "\n".join(step["command"] for step in payload["steps"])
+        self.assertNotIn("review record", commands)
+        self.assertIn(" inbox", f" {commands} ")
+        self.assertTrue(
+            any(step.get("stdout") == "Status: human-decision-required" for step in payload["steps"])
+        )
         self.assertTrue(
             any("AUTHORITY_PLAN_UNSATISFIABLE" in sentence for sentence in payload["plain_summary"])
+        )
+        self.assertTrue(
+            any("without independent review" in sentence for sentence in payload["plain_summary"])
         )
         self.assertEqual(result.returncode, 0)
 

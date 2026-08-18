@@ -56,8 +56,15 @@ class PublicSurfaceTests(unittest.TestCase):
             self.assertRegex(help_text, rf"(?m)^    {command}\s")
         self.assertNotRegex(help_text, r"(?m)^    proof\s")
         self.assertNotRegex(help_text, r"(?m)^    docs\s")
+        self.assertNotRegex(help_text, r"(?m)^    linear\s")
+        self.assertNotRegex(help_text, r"(?m)^    mcp\s")
         self.assertNotIn("desktop-prototype", help_text)
         self.assertNotIn("human-decision      ", help_text)
+
+        demo_help = _subparser("demo").format_help()
+        self.assertIn("init through inbox", demo_help)
+        self.assertIn("founder approval", demo_help)
+        self.assertNotIn("through review", demo_help)
 
         init_parser = _subparser("init")
         init_help = init_parser.format_help()

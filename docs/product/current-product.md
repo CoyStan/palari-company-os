@@ -109,10 +109,12 @@ it is not execution-capable through the workbench and has no human authority.
 Before execution and again before review, Palari derives an authority plan so a
 reviewer cannot consume the only qualified final approver.
 
-After the independent reviewer records the exact result, the human handoff
-shows the current presentation and an exact presentation-bound action. For one
-reversible local task whose effective final approval count can be completed by
-one person, the human runs the emitted command. Its readable form begins:
+After checks are current, the human handoff shows the presentation and an exact
+presentation-bound action. Local R1/R2 work without an external-write surface
+skips independent review and still uses this human step. When review is
+required, it happens first and remains advisory. For one reversible local task
+whose effective final approval count can be completed by one person, the human
+runs the emitted command. Its readable form begins:
 
 ```text
 palari approve WORK-ID --as HUMAN-ID --json
@@ -143,16 +145,17 @@ role/review/presentation interactions before asking the founder again. That is
 a lower bound of nine post-build interactions and three human authority
 invocations: review, failed approval, and repeated approval.
 
-The converged path takes four post-build commands: start the review-only agent,
-run one concrete review verdict action, inspect its handoff, and run the exact
-human approval action. Only the last command is human authority. Including
-builder start and advance, the ordinary task lifecycle is five agent commands
-and one human command. No opaque ID or digest is copied.
+The ordinary local R2 path takes two post-build agent commands (start and
+advance), one inbox look, and one founder approve. Independent review is not
+on that path. Only approve is human authority. Including builder start and
+advance, the ordinary task lifecycle is two agent commands and one human
+command. No opaque ID or digest is copied. R3+ and any external write still
+stop for independent review before that human step.
 
 **Current guarantee:** `palari init` seeds `HUMAN-FOUNDER`, a builder Palari,
 and `PALARI-REVIEWER`. The first R2 task for that builder has a viable authority
 plan out of the box. CI covers the product-command closeout
-(init → work add → start → advance → review → approve). Operators can replay
+(init → work add → start → advance → inbox → approve). Operators can replay
 the narration with `palari demo --journey --no-pause`.
 
 ## Supported verification and storage

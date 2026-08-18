@@ -16,11 +16,14 @@ palari demo --journey --no-pause
 palari init [REPOSITORY] [--host claude|codex|cursor]
 ```
 
-`demo` uses a throwaway workspace and no network. `init` creates
+`demo` uses a throwaway workspace and no network. `demo --journey` narrates the
+local R2 closeout: init, work add, start, advance, inbox, and one founder
+approve. Independent review stays for R3+ and external writes. `init` creates
 `workspace.json`, the current tamper-evident journal, a builder, a distinct
 reviewer, and a founder. A host selection also installs its tested local
 boundary. Cursor's Git gate is installed by default; pass `--no-git-hook` to
-skip it.
+skip it. Linear and MCP remain available as named commands; they are omitted
+from default `--help`.
 
 ## Tasks
 

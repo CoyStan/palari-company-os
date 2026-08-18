@@ -174,7 +174,7 @@ def serve_demo(demo_dir: str | None, *, host: str = "127.0.0.1", port: int = 0) 
 
 
 def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
-    """Narrate init → R2 work → advance → review → founder approve for one human."""
+    """Narrate init → R2 work → advance → inbox → founder approve for one human."""
 
     temp_directory: tempfile.TemporaryDirectory[str] | None = None
     if demo_dir:
@@ -195,7 +195,10 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
         init_step = _run_repo_step(
             workspace_dir,
             "Initialize a solo-maintainer workspace",
-            "Init seeds one founder, one builder agent, and one review-only agent.",
+            (
+                "Init seeds one founder, one builder agent, and a review-only agent "
+                "kept for R3 and external-write work."
+            ),
             ["init", str(workspace_dir)],
             workspace_flag=False,
         )
@@ -206,7 +209,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             [
                 "work",
                 "add",
-                "Ship one reviewed solo result",
+                "Ship one local solo result",
                 "--create",
                 "artifacts/solo-result.txt",
                 "--risk",
@@ -216,23 +219,23 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
                 "--approvals",
                 "0",
                 "--acceptance",
-                "The exact local result is reviewed and founder-approved.",
+                "The exact local result is founder-approved.",
             ],
         )
         work_id = str(added["work_item"]["id"])
         steps.append(
             {
-                "title": "Add reviewed work for one founder",
+                "title": "Add local R2 work for one founder",
                 "narration": (
-                    "R2 work still needs independent review and one human approval, "
-                    "even when the stored approval count is zero."
+                    "Local R2 work skips independent agent review and still needs "
+                    "one human approval, even when the stored approval count is zero."
                 ),
                 "command": _display_command(
                     workspace_dir,
                     [
                         "work",
                         "add",
-                        "Ship one reviewed solo result",
+                        "Ship one local solo result",
                         "--create",
                         "artifacts/solo-result.txt",
                         "--risk",
@@ -244,8 +247,8 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
                     ],
                 ),
                 "stdout": (
-                    f"Task {work_id} is ready. Authority plan is viable with "
-                    "PALARI-REVIEWER and HUMAN-FOUNDER."
+                    f"Task {work_id} is ready. Local R2 work skips independent review "
+                    "and waits for HUMAN-FOUNDER."
                 ),
                 "stderr": "",
                 "returncode": 0,
@@ -267,14 +270,14 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
 
         output_path = workspace_dir / "artifacts" / "solo-result.txt"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text("solo maintainer reviewed bytes\n", encoding="utf-8")
+        output_path.write_text("solo maintainer local bytes\n", encoding="utf-8")
         _run_demo_git(workspace_dir, "add", "--", "artifacts/solo-result.txt")
         _run_demo_git(
             workspace_dir,
             "commit",
             "--quiet",
             "-m",
-            "demo: solo reviewed result",
+            "demo: solo local result",
             "--",
             "artifacts/solo-result.txt",
         )
@@ -282,7 +285,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             {
                 "title": "Commit the bounded result",
                 "narration": "Only allowed files are committed inside the task brief.",
-                "command": "git commit -m 'demo: solo reviewed result'",
+                "command": "git commit -m 'demo: solo local result'",
                 "stdout": "Committed artifacts/solo-result.txt",
                 "stderr": "",
                 "returncode": 0,
@@ -295,10 +298,10 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
         )
         steps.append(
             {
-                "title": "Advance records checks and stops for review",
+                "title": "Advance records checks and stops for approval",
                 "narration": (
-                    "Advance finishes every safe mechanical step, then hands off "
-                    "to the independent reviewer."
+                    "Advance finishes every safe mechanical step, then stops for "
+                    "the founder. Independent review is not required for local R2."
                 ),
                 "command": str(started["entry"]["next_command"]),
                 "stdout": f"Status: {advanced.get('status')}",
@@ -307,53 +310,28 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             }
         )
 
-        review_actions = [
-            action
-            for action in advanced["handoff"]["agent_action_commands"]
-            if action.get("actor") == "PALARI-REVIEWER"
-        ]
-        accept_action = next(
-            action
-            for action in review_actions
-            if "--verdict accept-ready" in str(action.get("command", ""))
-        )
-        reviewer_packet = _run_emitted_json(
-            workspace_dir,
-            str(accept_action["packet_command"]),
-        )
-        concrete_review = next(
-            str(item["command"])
-            for item in reviewer_packet["review_context"]["agent_review_commands"]
-            if item.get("reviewer") == "PALARI-REVIEWER" and item.get("verdict") == "accept-ready"
-        )
-        _run_emitted_json(workspace_dir, concrete_review)
+        inbox = _run_json(workspace_dir, ["inbox"])
+        counts = inbox.get("counts") or {}
         steps.append(
             {
-                "title": "Independent review accepts the exact candidate",
+                "title": "Inbox shows the waiting human decision",
                 "narration": (
-                    "The review-only agent records an advisory accept-ready result. "
-                    "That is not human approval."
+                    "inbox is the ordinary human view of work waiting for a yes or no."
                 ),
-                "command": concrete_review,
-                "stdout": "Review recorded: accept-ready",
+                "command": _display_command(workspace_dir, ["inbox"]),
+                "stdout": (
+                    f"{counts.get('items', 0)} item(s) waiting; "
+                    f"{counts.get('eligible', 0)} eligible for HUMAN-FOUNDER."
+                ),
                 "stderr": "",
                 "returncode": 0,
             }
         )
 
-        status = _run_json(
-            workspace_dir,
-            [
-                "agent",
-                "status",
-                work_id,
-                "--as",
-                "PALARI-REVIEWER",
-                "--mode",
-                "review",
-            ],
-        )
-        human_command = str(status["human_action_commands"][0]["command"])
+        human_actions = list((advanced.get("handoff") or {}).get("human_action_commands") or [])
+        if not human_actions:
+            raise WorkspaceError("demo expected a founder approve command after advance")
+        human_command = str(human_actions[0]["command"])
         approved = _run_emitted_json(workspace_dir, human_command)
         steps.append(
             {
@@ -381,13 +359,13 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             "steps": steps,
             "plain_summary": [
                 "Init gave one founder a builder and a distinct review-only agent.",
-                "R2 work reached independent review without AUTHORITY_PLAN_UNSATISFIABLE.",
-                "One founder approval completed the task after the advisory review.",
+                "Local R2 work reached human approval without independent review and without AUTHORITY_PLAN_UNSATISFIABLE.",
+                "One founder approval completed the task after inbox.",
             ],
             "try_next_commands": [
                 "palari demo --journey --no-pause",
                 "palari init",
-                'palari work add "Reviewed local result" --create notes/result.md --risk R2 --json',
+                'palari work add "Local result" --create notes/result.md --risk R2 --json',
             ],
         }
     finally:
