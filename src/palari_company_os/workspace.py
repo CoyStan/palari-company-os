@@ -29,13 +29,8 @@ from .models import (
     Workbench,
     WorkItem,
 )
-from .path_policy import resolve_workspace_path
 from .record_order import record_time_key
-from .validation import (
-    COLLECTION_FILE_KEYS,
-    validate_raw_contract,
-    validate_workspace_contract,
-)
+from .validation import validate_raw_contract, validate_workspace_contract
 
 
 CURRENT_SCHEMA_VERSION = 2
@@ -157,7 +152,6 @@ class Workspace:
             if data_path is not None
             else workspace_path / "workspace.json"
         )
-        raw = _expand_collection_files(raw, workspace_path)
         validate_raw_contract(raw)
 
         workspace = cls(
@@ -343,6 +337,22 @@ class Workspace:
         for proposal in self.proposals:
             _require_ref("proposals", proposal.id, "goal", proposal.goal, goal_ids)
             _require_ref("proposals", proposal.id, "palari", proposal.palari, palari_ids)
+            if proposal.workbench_id:
+                _require_ref(
+                    "proposals",
+                    proposal.id,
+                    "workbench_id",
+                    proposal.workbench_id,
+                    workbench_ids,
+                )
+            for dependency_id in proposal.dependency_ids:
+                _require_ref(
+                    "proposals",
+                    proposal.id,
+                    "dependency_ids",
+                    dependency_id,
+                    work_ids,
+                )
             if proposal.proposer and proposal.proposer not in human_ids and proposal.proposer not in palari_ids:
                 raise WorkspaceError(
                     f"proposals.{proposal.id}.proposer references missing human or Palari id "
@@ -776,71 +786,6 @@ def _items(raw: dict[str, object], key: str) -> list[dict[str, object]]:
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
         raise WorkspaceError(f"{key} must be a list of objects")
     return value
-
-
-def _expand_collection_files(
-    raw: dict[str, object], workspace_path: Path
-) -> dict[str, object]:
-    collection_files = raw.get("collection_files")
-    if not collection_files:
-        return raw
-
-    validate_raw_contract(raw)
-    if not isinstance(collection_files, dict):
-        raise WorkspaceError("workspace.collection_files must be an object")
-
-    expanded: dict[str, object] = {}
-    for key, value in raw.items():
-        if key == "collection_files":
-            expanded[key] = value
-        elif key in COLLECTION_FILE_KEYS:
-            expanded[key] = list(_items(raw, key))
-        else:
-            expanded[key] = value
-
-    for collection, paths in collection_files.items():
-        if collection not in COLLECTION_FILE_KEYS:
-            raise WorkspaceError(
-                f"workspace.collection_files has unknown collection: {collection}"
-            )
-        if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
-            raise WorkspaceError(f"workspace.collection_files.{collection} must be a list of paths")
-        records = expanded.setdefault(collection, [])
-        if not isinstance(records, list):
-            raise WorkspaceError(f"{collection} must be a list of objects")
-        for relative_path in paths:
-            include_path = _collection_file_path(workspace_path, collection, relative_path)
-            try:
-                included = json.loads(include_path.read_text(encoding="utf-8"))
-            except FileNotFoundError as exc:
-                raise WorkspaceError(
-                    f"workspace.collection_files.{collection} file not found: {relative_path}"
-                ) from exc
-            except json.JSONDecodeError as exc:
-                raise WorkspaceError(
-                    f"invalid JSON in workspace.collection_files.{collection} {relative_path}: {exc}"
-                ) from exc
-            if not isinstance(included, list) or not all(
-                isinstance(item, dict) for item in included
-            ):
-                raise WorkspaceError(
-                    f"workspace.collection_files.{collection} {relative_path} "
-                    "must contain a list of objects"
-                )
-            records.extend(included)
-    return expanded
-
-
-def _collection_file_path(workspace_path: Path, collection: str, value: str) -> Path:
-    if not value:
-        raise WorkspaceError(f"workspace.collection_files.{collection} contains an empty path")
-    try:
-        return resolve_workspace_path(workspace_path, value)
-    except ValueError as exc:
-        raise WorkspaceError(
-            f"workspace.collection_files.{collection} path must be workspace-relative "
-            f"and must not contain '..': {value}: {exc}"
-        ) from exc
 
 
 def _find(records: Iterable[T], identifier: str) -> T | None:

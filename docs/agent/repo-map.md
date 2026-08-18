@@ -3,6 +3,29 @@
 This map helps agents find the right files before scanning the whole repository.
 Keep it concise and update it when file ownership changes.
 
+The checked [Repo Tree](repo-tree.json) places every stored record and every
+tracked file in one branch. Each split has three to five plain-named parts,
+with no overlap and no gaps. Run `python3 -S scripts/check_repo_tree.py` after
+changing a record type or adding, moving, or removing a file.
+
+## Code Parts
+
+The `app/code` branch has five parts: `base`, `work`, `checks`, `links`, and
+`views`. Each part lists three facts in the same checked tree:
+
+- `files`: the source files it owns;
+- `door`: the files other parts should use; and
+- `check`: the focused tests for that part.
+
+Run one part without scanning or testing unrelated code:
+
+```bash
+python3 -S scripts/check_repo_tree.py --part work
+```
+
+The files remain in one Python package for now. The map creates a clear work
+boundary without nested repos, a second work list, or empty folders.
+
 Descriptions use the plain product words from
 [Plain Language](../product/plain-language.md). Python modules and stored field
 names stay exact because this is also a source-code map.
@@ -11,10 +34,10 @@ names stay exact because this is also a source-code map.
 
 - `src/palari_company_os/models.py`: typed workspace objects.
 - `src/palari_company_os/validation.py`: fail-closed workspace validation.
-- `src/palari_company_os/workspace.py`: workspace loading and split collection files.
+- `src/palari_company_os/workspace.py`: workspace loading and record lookup.
 - `src/palari_company_os/store.py`: validated writes to `workspace.json`.
 - `src/palari_company_os/governance_journal.py`: replayable, tamper-evident
-  history, restore points, verification, and crash recovery.
+  v2 history, checkpoints, verification, and crash recovery.
 - `src/palari_company_os/approval_packs.py`: canonical Approval Inbox manifests,
   item/resolution evaluation, approval modes, risk policy, and exact human pack
   decisions.
@@ -23,8 +46,6 @@ names stay exact because this is also a source-code map.
   transaction.
 - `src/palari_company_os/approval_presentations.py`: strict, deterministic
   approval view, validation, and exact presentation digest.
-- `src/palari_company_os/checkpoints.py`: content-addressed restore-point
-  listing and append-only human restoration.
 - `src/palari_company_os/workspace_read_models.py`: product-facing exact
   Approval Inbox adapter over workspace truth.
 - `src/palari_company_os/governance_case.py` and `governance_kernel.py`: pure,
@@ -36,11 +57,14 @@ names stay exact because this is also a source-code map.
   state transitions.
 - `src/palari_company_os/authority_plan.py`: pure builder/reviewer/final-human
   role feasibility and smallest-correction diagnostics.
-- `src/palari_company_os/authoring.py`: create and update work-process records.
-- `src/palari_company_os/onramp.py`: journal-activated `init` starter workspace
-  and atomic `work add` quick-create for existing repos.
-- `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed work identity
-  generation with no lifecycle ordering semantics.
+- `src/palari_company_os/authoring.py`: atomic proof reconciliation, exact
+  review recording, and completion helpers.
+- `src/palari_company_os/onramp.py`: journal-activated `init`, bounded task
+  creation, and authority-free work ideas for existing repos.
+- `src/palari_company_os/proposals.py`: human approval of an idea into active
+  work, plus older proposal decisions and scope questions.
+- `src/palari_company_os/work_identity.py`: opaque UUIDv4-backed task and idea
+  identity generation with no lifecycle ordering semantics.
 
 ## CLI
 
@@ -55,6 +79,8 @@ When adding a command, update parser, dispatch, output, tests, and
 
 ## Agent Runtime
 
+- `src/palari_company_os/agent_home.py`: read-only Goals, Team, Work, Checks,
+  and Limits view; it grants no task permission.
 - `src/palari_company_os/agent_packets.py`: `agent brief` task-brief contract.
 - `src/palari_company_os/agent_session_contract.py`: pure deterministic
   provider-neutral session-contract projection, strict validation, digest, and
@@ -65,6 +91,9 @@ When adding a command, update parser, dispatch, output, tests, and
   compiler shared by agent read surfaces.
 - `src/palari_company_os/agent_operation.py`: request-local brief, check, and
   directive reuse.
+- `src/palari_company_os/agent_status.py`: canonical public read-only task
+  limits, checks, ownership, blockers, and next-action projection from one
+  request-local operation.
 - `src/palari_company_os/agent_parking.py`: durable blocked-run parking and
   exact idempotent task-lock release without permission to approve.
 - `src/palari_company_os/agent_isolation.py`: isolated Git worktree start,
@@ -77,8 +106,6 @@ When adding a command, update parser, dispatch, output, tests, and
   classification.
 - `src/palari_company_os/agent_handoff.py`: read-only human handoff briefs and
   simple human approval routing plus advanced pack context when eligible.
-- `src/palari_company_os/agent_doctor.py`: plain-language safety diagnosis.
-- `src/palari_company_os/agent_loop.py`: compact loop summary.
 - `src/palari_company_os/agent_advance.py`: pure advance planning and the
   deterministic verification reconciler that stops at approval boundaries and
   finishes mechanically after current approval exists.
@@ -104,8 +131,6 @@ When adding a command, update parser, dispatch, output, tests, and
 
 - `src/palari_company_os/integrations.py`: dry-run integration plans, decisions,
   and outbox records.
-- `src/palari_company_os/gate_profiles.py`: read-only review gate profiles.
-- `src/palari_company_os/playbooks.py`: external playbook recommendations.
 - `src/palari_company_os/review_guides.py`: read-only review guides.
 - `src/palari_company_os/governance_binding.py`: exact attempt, receipt,
   evidence, work-contract, and review proof binding.
@@ -122,8 +147,6 @@ When adding a command, update parser, dispatch, output, tests, and
 - `CLAUDE.md`: thin Claude adapter that points to shared repo truth.
 - `docs/product/current-product.md`: normative supported-product boundary,
   lifecycle, storage, adapters, and compatibility policy.
-- `docs/product/current-product-recovery-inventory.md`: measured recovery
-  baseline, capability classifications, and test/CI inventory.
 - `docs/product/self-hosting-maintainer-mode.md`: bounded source-repair
   exception, current isolation limitation, and the exact ignored-state
   follow-up design.
@@ -141,15 +164,15 @@ When adding a command, update parser, dispatch, output, tests, and
 ## Examples And Workspaces
 
 - `examples/acme-company-os/`: small example workspace.
-- `workspaces/palari-company-os/`: historical, non-live dogfood evidence for
-  this repo; do not use it as live self-hosting state.
 
 Keep examples portable. Do not commit machine-local absolute paths, secrets, or
 runtime state.
 
 ## Tests
 
-- `tests/test_agent_packets.py`: agent packet/check/loop behavior.
+- `tests/test_agent_packets.py`: agent packet, check, and handoff behavior.
+- `tests/test_agent_status.py`: canonical status projection and request-local
+  observation reuse.
 - `tests/test_agent_advance.py`: deterministic planning, verification cache,
   atomic proof reconciliation, crash recovery, and idempotence.
 - `tests/test_operator_journeys.py`: short entry/convergence/parking journeys,
@@ -159,12 +182,9 @@ runtime state.
 - `tests/test_validation.py`: schema and boundary validation.
 - `tests/test_workspace_read_models.py`: queue/detail/state behavior.
 - `tests/test_integrations.py`: dry-run integration trust loop.
-- `tests/test_gate_profiles.py`: review gate recommendations.
 - `tests/test_docs.py`: docs and agent-ready documentation behavior.
 - `tests/test_approval_packs.py`: batching, staleness, authority, policy, and
   crash recovery.
-- `tests/test_reversible_checkpoints.py`: exact projection restoration,
-  append-only journal behavior, non-guarantees, and crash recovery.
 
 Prefer focused regression tests for a discovered failure mode, then run the full
 verification stack before claiming done.

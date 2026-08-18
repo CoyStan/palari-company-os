@@ -10,15 +10,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER = REPO_ROOT / "scripts" / "verification_profiles.py"
 PARALLEL_RUNNER = REPO_ROOT / "scripts" / "parallel_unittest.py"
-STYLE_HELPER = REPO_ROOT / "scripts" / "check_style.py"
 SPEC = importlib.util.spec_from_file_location("verification_profiles", HELPER)
 assert SPEC is not None and SPEC.loader is not None
 verification_profiles = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(verification_profiles)
-STYLE_SPEC = importlib.util.spec_from_file_location("check_style", STYLE_HELPER)
-assert STYLE_SPEC is not None and STYLE_SPEC.loader is not None
-check_style = importlib.util.module_from_spec(STYLE_SPEC)
-STYLE_SPEC.loader.exec_module(check_style)
 
 
 class VerificationProfileTests(unittest.TestCase):
@@ -101,13 +96,6 @@ class VerificationProfileTests(unittest.TestCase):
         self.assertNotIn("workspaces/palari-company-os", script)
         self.assertNotIn("integration plan", script)
         self.assertNotIn("integration approve", script)
-
-    def test_repository_style_check_excludes_historical_dogfood(self) -> None:
-        dogfood = REPO_ROOT / "workspaces" / "palari-company-os" / "workspace.json"
-        current_schema = REPO_ROOT / "schemas" / "workspace.schema.json"
-
-        self.assertTrue(check_style._skip(dogfood, REPO_ROOT))
-        self.assertFalse(check_style._skip(current_schema, REPO_ROOT))
 
     def test_parallel_runner_lists_every_test_module_deterministically(self) -> None:
         result = subprocess.run(

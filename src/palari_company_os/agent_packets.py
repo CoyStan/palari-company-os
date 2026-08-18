@@ -573,11 +573,7 @@ def _allowed_paths(work: dict[str, Any], mode: str) -> dict[str, list[str]]:
     path_intents = _path_intents(work)
     return {
         "read": list(work.get("allowed_resources", [])),
-        "write": (
-            [item["path"] for item in path_intents]
-            if path_intents
-            else list(work.get("output_targets", []) or work.get("allowed_resources", []))
-        ),
+        "write": [item["path"] for item in path_intents],
     }
 
 
@@ -607,18 +603,14 @@ def _required_output(work: dict[str, Any], mode: str) -> dict[str, Any]:
         }
     path_intents = _path_intents(work)
     required = {
-        "output_targets": (
-            [item["path"] for item in path_intents if item["intent"] != "delete"]
-            if path_intents
-            else list(work.get("output_targets", []))
-        ),
-        "fallback_write_paths": list(work.get("allowed_resources", [])),
+        "output_targets": [
+            item["path"] for item in path_intents if item["intent"] != "delete"
+        ],
         "acceptance_target": work.get("acceptance_target", ""),
         "verification_expectations": list(work.get("verification_expectations", [])),
         "must_not": list(work.get("forbidden_actions", [])),
+        "path_intents": path_intents,
     }
-    if path_intents:
-        required["path_intents"] = path_intents
     return required
 
 
@@ -807,6 +799,16 @@ def _next_allowed_commands(
 ) -> list[str]:
     if status == "blocked":
         return [
+            palari_workspace_command(
+                workspace.data_path,
+                "agent",
+                "status",
+                work_id,
+                "--as",
+                palari_id,
+                *(("--mode", mode) if mode == "review" else ()),
+                "--json",
+            ),
             palari_workspace_command(
                 workspace.data_path,
                 "detail",

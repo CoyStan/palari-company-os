@@ -4,6 +4,20 @@ Palari stores a small set of explicit records as JSON and represents them in
 Python with dataclasses. Familiar names come first below; parentheses show the
 machine term used by the schema, protocol, or existing commands.
 
+Every record has one place in the five-part product map:
+
+- **Goals**: goals.
+- **Team**: people and agents, including their roles.
+- **Work**: projects, ideas, tasks, and runs. Tasks group their view data into
+  now, next, and later. Files are task data, not a new part.
+- **Checks**: records, tests, reviews, choices, and results.
+- **Limits**: sources, guides, tools, rules, and outside links. Rules split into
+  allowed, ask, and never. Outside links split into apps, plans, and the send
+  queue.
+
+These groups have no overlap and cover all current record types. Exact stored
+names remain below for code and JSON work.
+
 ## Goal
 
 Why work exists.
@@ -110,12 +124,13 @@ New quick-created tasks use opaque UUIDv4-backed IDs. An ID identifies a task;
 it does not set priority or order. Explicit dependency edges determine order.
 Historical and externally assigned IDs remain compatible.
 
-## Proposed Task (`proposal`)
+## Work Idea (`proposal`)
 
-An AI-safe planning record that becomes a task only when a person adopts it.
-It carries most task limits, but adoption creates the active task explicitly.
-A request to expand allowed work creates a human question instead of silently
-widening those limits.
+An agent-safe plan that becomes a task only when a person approves it. It keeps
+the proposed goal, owner, project, dependencies, file limits, checks, and
+approval count, but grants no authority and stays out of the task queue. The
+stable stored name remains `proposal`. A request to expand allowed work creates
+a human question instead of silently widening those limits.
 
 ## Task Brief and Lock (`packet` and `claim`)
 
@@ -154,14 +169,14 @@ records include a hash and may link to the previous run record for the task.
 Verification tied to one task and run. It records commands, status, head SHA,
 outputs, output hashes, manifest hash, exact run-record hash, summary, and time.
 
-New records include `output_binding_version`, require at least one output, and
+Every record includes `output_binding_version`, requires at least one output, and
 give every run-record output either its present digest or the exact absent
 tombstone required by a declared delete intent. The manifest covers the
 run-record hash, output-binding version, outputs, and verification fields, so a
 change on either side invalidates the results.
 
-Pre-PCAW records without that version remain readable. They cannot support a
-new strict review or approval until the checks are refreshed.
+Records without that version are rejected. Checks must be rerun to create a
+current evidence record.
 
 ## Review Result (`review_verdict`)
 
@@ -177,9 +192,9 @@ manifest, run record, reviewed head, and task rules. Its proof hash also covers
 the reviewer, verdict, findings, inspected checks, remaining risks, and time.
 The result is immutable; any substantive change requires a new review.
 
-Schema v2 rejects an unbound `accept-ready` result. The narrow historical
-reader keeps unbound negative results inspectable but never treats an old
-unbound `accept-ready` value as approval evidence.
+Schema v2 rejects every unbound review result. All verdicts name and hash the
+exact attempt, evidence, run record, task contract, proof, reviewed head, and
+time they describe.
 
 ## Approval or Rejection (`human_decision`)
 

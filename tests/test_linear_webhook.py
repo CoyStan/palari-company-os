@@ -157,6 +157,10 @@ class LinearWebhookTests(unittest.TestCase):
         self.assertEqual(events["count"], 1)
         self.assertEqual(proposal.title, "Updated Linear title")
         self.assertEqual(proposal.summary, "Updated Linear description")
+        self.assertEqual(
+            proposal.path_intents,
+            [{"path": "docs/product/company-os.md", "intent": "modify"}],
+        )
         self.assertEqual(proposal.external_updated_at, "2026-07-07T01:00:00.000Z")
         self.assertEqual(events["events"][0]["delivery_id"], "delivery-proposal")
 

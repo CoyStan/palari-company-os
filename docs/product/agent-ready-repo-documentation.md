@@ -171,7 +171,7 @@ It should include:
 - suggested checks recommend review focus but do not grant approval
 - task briefs define allowed files, sources, actions, and stop conditions
 - `agent start` saves the task brief and task lock; `agent brief` is read-only
-- `agent check` verifies check status and observed changes
+- `agent status` reports task limits, check status, and boundary actions
 
 #### `docs/agent/common-workflows.md`
 
@@ -263,7 +263,7 @@ This is advisory context, not authority.
 
 ### Task Briefs
 
-`palari agent brief`, `palari agent start`, and `palari agent check` include
+`palari agent brief`, `palari agent start`, and `palari agent status` include
 compact documentation hints:
 
 ```json

@@ -311,7 +311,7 @@ def _start_in_worktree(
     workspace_argument = workspace_relative.as_posix()
     command = (
         f"cd {quote(str(worktree_root))} && ./bin/palari --workspace "
-        f"{quote(workspace_argument)} agent loop {quote(work_id)} --as "
+        f"{quote(workspace_argument)} agent status {quote(work_id)} --as "
         f"{quote(palari_id)} --mode {quote(mode)} --json"
     )
     payload["isolation"] = {

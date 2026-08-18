@@ -45,6 +45,25 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     if args.command == "approve":
+        workspace = Workspace.load(args.workspace)
+        if workspace.proposal(args.work_id) is not None:
+            if args.presented:
+                raise WorkspaceError("--presented is only valid for final task approval")
+            from .proposals import adopt_proposal
+            from .work_identity import generate_work_id
+
+            work_id = generate_work_id(work.id for work in workspace.work_items)
+            return CommandResult(
+                "work-idea-accept",
+                adopt_proposal(
+                    args.workspace,
+                    args.work_id,
+                    work_id,
+                    args.human_id,
+                    reason=args.reason,
+                ),
+                args.json,
+            )
         from .simple_approval import approve_work
 
         return CommandResult(
@@ -102,12 +121,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
-    if args.command == "data" and args.data_command == "map":
-        from .data_map import build_data_map
-
-        workspace = Workspace.load(args.workspace)
-        return CommandResult("data-map", build_data_map(workspace), args.json)
-
     if args.command == "docs":
         from .repo_docs import build_docs_map, check_docs, init_docs
 
@@ -145,9 +158,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 if isinstance(item, dict)
             }
             exit_code = (
-                0
-                if payload.get("verified")
-                else 2 if "PROOF_UNREADABLE" in error_codes else 1
+                0 if payload.get("verified") else 2 if "PROOF_UNREADABLE" in error_codes else 1
             )
             return CommandResult(
                 "proof",
@@ -204,14 +215,11 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult("integrations", list_integrations(workspace), args.json)
 
     if args.command == "agent":
-        from .agent_checks import build_agent_check
-        from .agent_doctor import build_agent_doctor
-        from .agent_finish import build_agent_finish
-        from .agent_handoff import build_agent_handoff
-        from .agent_loop import build_agent_loop
+        from .agent_home import build_agent_home
         from .agent_next import build_agent_next, build_agent_next_all
         from .agent_packets import build_agent_brief
         from .agent_runtime import release_agent, start_agent, start_next_agent
+        from .agent_status import build_agent_status
 
         agent_workspace: Workspace | None = None
         if args.agent_command == "advance":
@@ -269,6 +277,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if agent_workspace is None:
             agent_workspace = Workspace.load(args.workspace)
+        if args.agent_command == "home":
+            return CommandResult(
+                "agent-home",
+                build_agent_home(agent_workspace, args.palari_id),
+                args.json,
+            )
         if args.agent_command == "next":
             if args.all or not args.palari_id:
                 return CommandResult(
@@ -303,9 +317,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
         if args.agent_command == "start":
             if bool(args.start_next) == bool(args.work_id):
-                raise WorkspaceError(
-                    "agent start requires exactly one of WORK-ID or --next"
-                )
+                raise WorkspaceError("agent start requires exactly one of WORK-ID or --next")
             if args.start_next:
                 if args.isolate:
                     raise WorkspaceError(
@@ -356,44 +368,10 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 release_agent(agent_workspace, args.workspace, args.work_id, args.palari_id),
                 args.json,
             )
-        if args.agent_command == "check":
+        if args.agent_command == "status":
             return CommandResult(
-                "agent-check",
-                build_agent_check(
-                    agent_workspace,
-                    args.work_id,
-                    args.palari_id,
-                    args.mode,
-                    changed_paths=args.changed,
-                    git_diff=args.git_diff,
-                    # Bind Git observation to the checkout that contains the
-                    # selected workspace, not an arbitrary caller directory.
-                    cwd=agent_workspace.path,
-                ),
-                args.json,
-            )
-        if args.agent_command == "finish":
-            return CommandResult(
-                "agent-finish",
-                build_agent_finish(agent_workspace, args.work_id, args.palari_id, args.mode),
-                args.json,
-            )
-        if args.agent_command == "handoff":
-            return CommandResult(
-                "agent-handoff",
-                build_agent_handoff(agent_workspace, args.work_id, args.palari_id, args.mode),
-                args.json,
-            )
-        if args.agent_command == "loop":
-            return CommandResult(
-                "agent-loop",
-                build_agent_loop(agent_workspace, args.work_id, args.palari_id, args.mode),
-                args.json,
-            )
-        if args.agent_command == "doctor":
-            return CommandResult(
-                "agent-doctor",
-                build_agent_doctor(agent_workspace, args.work_id, args.palari_id, args.mode),
+                "agent-status",
+                build_agent_status(agent_workspace, args.work_id, args.palari_id, args.mode),
                 args.json,
             )
         if args.agent_command == "advance":
@@ -515,7 +493,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 cursor_rules_status(args.project_dir or Path.cwd(), args.workspace),
                 args.json,
             )
-
 
     if args.command == "mcp" and args.mcp_command == "serve":
         from .mcp_server import serve_mcp
@@ -778,29 +755,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
 
     if args.command == "history":
-        if args.checkpoints:
-            from .checkpoints import list_checkpoints
-
-            return CommandResult(
-                "history-checkpoints",
-                list_checkpoints(args.workspace),
-                args.json,
-            )
-        if args.restore:
-            if not args.actor:
-                raise WorkspaceError("--restore requires --actor with a declared human id")
-            from .checkpoints import restore_checkpoint
-
-            return CommandResult(
-                "history-restoration",
-                restore_checkpoint(
-                    args.workspace,
-                    args.restore,
-                    actor=args.actor,
-                    reason=args.reason,
-                ),
-                args.json,
-            )
         if not (args.checkpoint or args.recover) and (
             args.acknowledge_break or args.actor or args.reason
         ):
@@ -868,81 +822,6 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
-    if args.command == "capability" and args.object_command in {
-        "list",
-        "check",
-        "export-policy",
-    }:
-        from .capabilities import capability_catalog, capability_check, export_policy
-
-        workspace = Workspace.load(args.workspace)
-        if args.object_command == "list":
-            return CommandResult("capabilities", capability_catalog(workspace), args.json)
-        if args.object_command == "check":
-            return CommandResult(
-                "capability-check",
-                capability_check(workspace, args.work_id, args.palari_id),
-                args.json,
-            )
-        if args.object_command == "export-policy":
-            return CommandResult(
-                "capability-policy",
-                export_policy(workspace, args.work_id, args.palari_id),
-                args.json,
-            )
-
-    if args.command == "authority":
-        from .authority import authority_check, authority_profiles
-
-        workspace = Workspace.load(args.workspace)
-        if args.authority_command == "profiles":
-            return CommandResult("authority-profiles", authority_profiles(workspace), args.json)
-        if args.authority_command == "check":
-            return CommandResult(
-                "authority-check",
-                authority_check(workspace, args.work_id, args.profile),
-                args.json,
-            )
-
-    if args.command == "evidence" and args.object_command == "verify":
-        from .evidence_manifest import verify_evidence
-
-        workspace = Workspace.load(args.workspace)
-        payload = verify_evidence(workspace, args.id)
-        return CommandResult(
-            "evidence-verify",
-            payload,
-            args.json,
-            0 if payload["ok"] else 1,
-        )
-
-    if args.command == "proposal" and args.object_command in {"adopt", "reject", "defer"}:
-        from .proposals import adopt_proposal, decide_proposal
-
-        if args.object_command == "adopt":
-            return CommandResult(
-                "proposal-decision",
-                adopt_proposal(
-                    args.workspace,
-                    args.proposal_id,
-                    args.work_id,
-                    args.human_id,
-                    reason=args.reason,
-                ),
-                args.json,
-            )
-        return CommandResult(
-            "proposal-decision",
-            decide_proposal(
-                args.workspace,
-                args.proposal_id,
-                args.human_id,
-                args.object_command,
-                reason=args.reason,
-            ),
-            args.json,
-        )
-
     if args.command == "init":
         from .agent_adoption import adopt_agent_host, run_agent_hook
         from .onramp import initialize_starter_workspace
@@ -997,11 +876,10 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         from .onramp import quick_add_work
 
         return CommandResult(
-            "work-add",
+            "work-idea" if args.idea else "work-add",
             quick_add_work(
                 args.workspace,
                 args.title,
-                write=args.write,
                 create=args.create,
                 modify=args.modify,
                 delete=args.delete,
@@ -1014,187 +892,82 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 scope=args.scope,
                 acceptance_target=args.acceptance,
                 verify=args.verify,
-                work_id=args.work_id,
                 approvals=args.approvals,
                 dependencies=args.dependencies,
                 parallel_policy=args.parallel_policy,
+                idea=args.idea,
             ),
             args.json,
         )
 
-    if args.command == "work" and args.object_command == "expand-scope":
-        from .proposals import request_scope_expansion
+    if args.command == "reviewer" and args.object_command == "add":
+        from .authoring import create_record
 
         return CommandResult(
-            "proposal-decision",
-            request_scope_expansion(
+            "mutation",
+            create_record(
                 args.workspace,
-                args.work_id,
-                args.decision_id,
-                args.actor,
-                read_paths=args.read,
-                write_paths=args.write,
-                actions=args.action,
+                "palari",
+                {
+                    "id": args.id,
+                    "name": args.name,
+                    "role": "Review-only AI partner",
+                    "scope": "Independent review only",
+                    "owner_human": args.owner,
+                    "linked_goals": [args.goal],
+                    "forbidden_actions": [
+                        "build or modify task outputs",
+                        "broaden task scope",
+                        "send external messages",
+                        "record human approval",
+                    ],
+                },
+                command="reviewer add",
+                actor=args.owner,
+            ),
+            args.json,
+        )
+
+    if args.command == "review" and args.object_command == "record":
+        from .authoring import create_record
+
+        record = {
+            "id": args.id,
+            "work_item_id": args.work_item_id,
+            "reviewed_head": args.reviewed_head,
+            "reviewer": args.reviewer,
+            "review_binding_digest": args.review_binding_digest,
+            "verdict": args.verdict,
+        }
+        if args.timestamp:
+            record["timestamp"] = args.timestamp
+        return CommandResult(
+            "mutation",
+            create_record(args.workspace, "review", record, command="review record"),
+            args.json,
+        )
+
+    if args.command == "human-decision" and args.object_command == "pack":
+        from .approval_packs import apply_pack_decision
+
+        return CommandResult(
+            "approval-pack-decision",
+            apply_pack_decision(
+                args.workspace,
+                pack_digest=args.pack_digest,
+                presentation_digest=args.presentation_digest,
+                human_id=args.human_id,
+                approve_eligible=args.approve_eligible,
+                approve=args.approve,
+                reject=args.reject,
+                defer=args.defer,
+                pack_members=args.pack_member,
                 reason=args.reason,
             ),
             args.json,
         )
 
-    if args.command in {
-        "goal",
-        "human",
-        "palari",
-        "source",
-        "playbook-source",
-        "capability",
-        "authority-profile",
-        "decision",
-        "proposal",
-        "work",
-        "attempt",
-        "evidence",
-        "review",
-        "human-decision",
-        "receipt",
-        "outcome",
-    }:
-        if args.command == "human-decision" and args.object_command == "pack":
-            from .approval_packs import apply_pack_decision
-
-            return CommandResult(
-                "approval-pack-decision",
-                apply_pack_decision(
-                    args.workspace,
-                    pack_digest=args.pack_digest,
-                    presentation_digest=args.presentation_digest,
-                    human_id=args.human_id,
-                    approve_eligible=args.approve_eligible,
-                    approve=args.approve,
-                    reject=args.reject,
-                    defer=args.defer,
-                    pack_members=args.pack_member,
-                    reason=args.reason,
-                ),
-                args.json,
-            )
-        return CommandResult("mutation", run_authoring_command(args), args.json)
-
-    if args.command == "maintainer" and args.maintainer_command == "status":
-        from .maintainer import status as maintainer_status
-
-        maintainer_payload = maintainer_status(Path(args.repo)).to_dict()
-        return CommandResult("maintainer-status", maintainer_payload, args.json)
-
-    if args.command == "playbooks":
-        from .playbooks import playbook_catalog, recommend_playbooks
-
-        workspace = Workspace.load(args.workspace)
-        if args.playbooks_command == "sources":
-            return CommandResult("playbooks", playbook_catalog(workspace), args.json)
-        if args.playbooks_command == "recommend":
-            return CommandResult(
-                "playbook-recommendations",
-                recommend_playbooks(workspace, args.work_id),
-                args.json,
-            )
-
-    if args.command == "gate":
-        from .gate_profiles import gate_profile_catalog, recommend_gates
-
-        workspace = Workspace.load(args.workspace)
-        if args.gate_command == "profiles":
-            return CommandResult("gate-profiles", gate_profile_catalog(workspace), args.json)
-        if args.gate_command == "recommend":
-            return CommandResult(
-                "gate-recommendations",
-                recommend_gates(workspace, args.work_id),
-                args.json,
-            )
-
     raise WorkspaceError("unknown command")
-
-
-def run_authoring_command(args: argparse.Namespace) -> Any:
-    from .authoring import (
-        accept_work,
-        closeout_attempt,
-        complete_work,
-        create_human_decision,
-        create_record,
-        update_human_decision,
-        update_record,
-    )
-
-    command = f"{args.command} {args.object_command}"
-    if args.command == "work" and args.object_command == "accept":
-        return accept_work(
-            args.workspace,
-            args.work_id,
-            args.human_id,
-            args.reviewed_head,
-            decision_id=args.decision_id,
-            acceptance_id=args.acceptance_id,
-            reason=args.reason,
-            authority_profile=args.authority_profile,
-            command=command,
-        )
-    if args.command == "attempt" and args.object_command == "closeout":
-        return closeout_attempt(
-            args.workspace,
-            args.id,
-            status=args.status,
-            head_sha=args.head_sha,
-            cleanliness=args.cleanliness,
-            changed_files=args.changed,
-            output_targets=args.output_target,
-            allow_missing_evidence=args.allow_missing_evidence,
-            command=command,
-        )
-    if args.object_command in {"create", "record"}:
-        record = _record_from_args(args)
-        if args.command == "human-decision":
-            return create_human_decision(args.workspace, record, command=command)
-        return create_record(args.workspace, args.command, record, command=command)
-    if args.object_command == "update":
-        updates = _parse_setters(args.set, args.list)
-        _apply_known_args(args, updates, include_id=False)
-        if args.command == "human-decision":
-            return update_human_decision(args.workspace, args.id, updates, command=command)
-        return update_record(args.workspace, args.command, args.id, updates, command=command)
-    if args.command == "work" and args.object_command == "complete":
-        return complete_work(args.workspace, args.work_id, args.status, command=command)
-    raise WorkspaceError(f"unsupported authoring command: {args.command} {args.object_command}")
-
-
-def _record_from_args(args: argparse.Namespace) -> dict[str, Any]:
-    record = _parse_setters(args.set, args.list)
-    _apply_known_args(args, record, include_id=True)
-    return {key: value for key, value in record.items() if value not in (None, "")}
-
-
-def _parse_setters(setters: list[str], lists: list[str]) -> dict[str, Any]:
-    from .authoring import parse_setters
-
-    return parse_setters(setters, lists)
-
-
-def _apply_known_args(args: argparse.Namespace, record: dict[str, Any], include_id: bool) -> None:
-    for key, value in vars(args).items():
-        if key in {
-            "command",
-            "object_command",
-            "authority_command",
-            "workspace",
-            "json",
-            "set",
-            "list",
-        }:
-            continue
-        if key == "id" and not include_id:
-            continue
-        if value in (None, "", []):
-            continue
-        record[key] = value
 
 
 def _workspace_counts(workspace: Workspace) -> dict[str, int]:

@@ -1093,6 +1093,7 @@ def _proposal_fields_from_issue(
             f"Linear palari block targets {fields['palari']}, not command actor {palari_id}"
         )
     status = "proposed" if block.valid else "under-review"
+    output_targets = fields.get("output_targets", [])
     return {
         "title": issue["title"],
         "goal": fields["goal"],
@@ -1106,7 +1107,10 @@ def _proposal_fields_from_issue(
         "allowed_resources": fields.get("allowed_resources", []),
         "allowed_sources": fields.get("allowed_sources", []),
         "allowed_actions": fields.get("allowed_actions", []),
-        "output_targets": fields.get("output_targets", []),
+        "output_targets": output_targets,
+        "path_intents": [
+            {"path": path, "intent": "modify"} for path in output_targets
+        ],
         "forbidden_actions": fields.get("forbidden_actions", []),
         "acceptance_target": fields.get("acceptance_target", ""),
         "verification_expectations": fields.get("verification_expectations", []),
@@ -1154,7 +1158,6 @@ def _needs_adoption_payload(
     reason: str,
 ) -> dict[str, Any]:
     proposal_id = proposal.id if proposal is not None else _proposal_id(issue)
-    work_id = _work_id(issue)
     return {
         "schema_version": "palari.linear_start.v1",
         "ok": False,
@@ -1168,8 +1171,7 @@ def _needs_adoption_payload(
         "proposal": to_plain(proposal) if proposal is not None else None,
         "work_item": None,
         "proposal_adopt_command": (
-            f"palari proposal adopt {proposal_id} --work-id {work_id} "
-            "--by HUMAN-ID --json"
+            f"palari approve {proposal_id} --as HUMAN-ID --json"
         ),
         "linear_start_adopt_command": (
             f"palari linear start {issue['key']} --runner {runner} --as {palari_id} "
@@ -1363,7 +1365,7 @@ def _proposal_next_commands(issue_key: str, proposal: Proposal | None) -> list[s
     if proposal is None:
         return [f"palari linear import {issue_key} --as PALARI-ID --json"]
     return [
-        f"palari proposal adopt {proposal.id} --work-id WORK-LINEAR-{_issue_suffix({'key': issue_key})} --by HUMAN-ID --json",
+        f"palari approve {proposal.id} --as HUMAN-ID --json",
         f"palari linear start {issue_key} --as {proposal.palari} --adopt-by HUMAN-ID --json",
     ]
 
@@ -1411,8 +1413,7 @@ def _runner_next_action(runner: str, work_id: str, palari_id: str, mode: str) ->
 def _import_next_action(block: PalariBlock, proposal_id: str, work_id: str) -> str:
     if block.valid:
         return (
-            f"Review and adopt with `palari proposal adopt {proposal_id} "
-            f"--work-id {work_id} --by HUMAN-ID --json`."
+            f"Review and adopt with `palari approve {proposal_id} --as HUMAN-ID --json`."
         )
     if block.present:
         return (

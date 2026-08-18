@@ -1,6 +1,6 @@
 # Claude Code Integration
 
-Palari's agent rules ask agents to run `palari agent check` before saying a
+Palari's agent rules ask agents to inspect `palari agent status` before saying a
 task is done. This integration also enforces that boundary mechanically. It
 wires Palari into [Claude Code hooks](https://code.claude.com/docs/en/hooks) so
 allowed file changes do not depend only on the agent following instructions.
@@ -42,6 +42,9 @@ compare those files with the current workspace records:
   quoted pathspec globs require review, and an explicit `--` keeps subsequent
   dash-prefixed operands in write/destructive target analysis. Agent-safe
   Palari mutations must resolve to the workspace configured for the hook.
+  `work add ... --idea` is the one safe work-planning mutation: it stores a
+  bounded idea but creates no task or permission. `approve IDEA-ID` remains
+  human-only.
 - **Stop** — when Claude tries to finish its turn, `git status` is compared
   against the boundary. Out-of-boundary changes block the stop and tell Claude
   to revert or hand off, so writes that slipped past the Bash heuristic are
@@ -81,8 +84,8 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   writes in sessions with no assigned task are left to Claude Code's normal
   permission flow. Opaque, indirect, or unreviewed shell execution still asks
   even without an assignment so hidden permission-changing commands cannot
-  bypass the hook by releasing an assignment first. Direct writes to workspace records, split collection files,
-  `.palari/`, and standard or linked-worktree Git metadata also remain
+  bypass the hook by releasing an assignment first. Direct writes to workspace
+  records, `.palari/`, and standard or linked-worktree Git metadata also remain
   protected, including `dd of=`, `-t`, and
   `--target-directory` destinations. Compact/newline shell separators and
   ordinary existing-directory copy/move/link/install destinations resolve to
@@ -92,10 +95,9 @@ preserving hooks owned by other tools. It is idempotent; re-running reports
   defensively, destructive parent-directory targets remain protected, and new
   or unclassified Palari commands fail closed to a human ask. The standard
   Claude settings files that hold these hooks are protected from direct edits
-  and destructive parent operations. `history --restore` is classified as a
-  human-only permission-changing command even when its options are reordered
-  or use `--restore=...`; an agent shell receives a deny before any local
-  restoration.
+  and destructive parent operations. Removed restore-point spellings remain
+  classified as authority-shaped input; an agent shell receives a deny before
+  an obsolete command can reach workspace mutation.
 - `--remove` deletes the Palari-managed entries and nothing else.
 
 The installed commands use `$CLAUDE_PROJECT_DIR`, so the settings file stays

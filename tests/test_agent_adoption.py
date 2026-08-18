@@ -359,6 +359,7 @@ class AgentAdoptionTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "forbidden_actions": ["deploy"],
                 "verification_expectations": ["echo ok"],
             },
@@ -1120,6 +1121,9 @@ class AgentAdoptionTests(unittest.TestCase):
                 "allowed_resources": paths,
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": paths,
+                "path_intents": [
+                    {"path": path, "intent": "modify"} for path in paths
+                ],
                 "forbidden_actions": ["deploy"],
                 "verification_expectations": ["true"],
             },

@@ -43,10 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser.add_argument(
         "--journey",
         action="store_true",
-        help=(
-            "Narrate the solo-maintainer R2 closeout: init through review and "
-            "founder approval."
-        ),
+        help=("Narrate the solo-maintainer R2 closeout: init through review and founder approval."),
     )
     demo_parser.add_argument(
         "--serve",
@@ -112,9 +109,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     approve_parser = subparsers.add_parser(
         "approve",
-        help="Approve and complete one current reversible local task.",
+        help="Approve one idea, or approve and complete one reviewed local task.",
     )
-    approve_parser.add_argument("work_id", help="Task id.")
+    approve_parser.add_argument("work_id", help="Idea or task id.")
     approve_parser.add_argument(
         "--as",
         dest="human_id",
@@ -156,14 +153,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     state_parser = subparsers.add_parser("state", help="Show compact workspace status.")
     state_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    data_parser = subparsers.add_parser("data", help="Inspect workspace data boundaries.")
-    data_nested = data_parser.add_subparsers(dest="data_command", required=True)
-    data_map_parser = data_nested.add_parser(
-        "map",
-        help="Show where workspace data, sources, integrations, memory, and history live.",
-    )
-    data_map_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     _add_docs_parser(subparsers)
     _add_proof_parser(subparsers)
@@ -222,16 +211,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Idempotently resolve a prepared history update when safe.",
     )
-    history_mode.add_argument(
-        "--checkpoints",
-        action="store_true",
-        help="List content-addressed committed restore points.",
-    )
-    history_mode.add_argument(
-        "--restore",
-        metavar="SHA256",
-        help="Append a human-attributed restoration to an exact restore point.",
-    )
     history_parser.add_argument(
         "--acknowledge-break",
         action="store_true",
@@ -257,25 +236,11 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
     serve_parser.add_argument("--port", type=int, default=0, help="Port to bind.")
 
-    _add_goal_parser(subparsers)
-    _add_human_parser(subparsers)
-    _add_palari_parser(subparsers)
-    _add_source_parser(subparsers)
-    _add_playbook_source_parser(subparsers)
-    _add_capability_parser(subparsers)
-    _add_authority_parser(subparsers)
-    _add_decision_parser(subparsers)
-    _add_proposal_parser(subparsers)
     _add_work_parser(subparsers)
-    _add_attempt_parser(subparsers)
-    _add_evidence_parser(subparsers)
+    _add_reviewer_parser(subparsers)
+    _add_decision_parser(subparsers)
     _add_review_parser(subparsers)
     _add_human_decision_parser(subparsers)
-    _add_receipt_parser(subparsers)
-    _add_outcome_parser(subparsers)
-    _add_maintainer_parser(subparsers)
-    _add_playbooks_parser(subparsers)
-    _add_gate_parser(subparsers)
 
     _focus_default_help(subparsers)
     _disable_argument_abbreviations(parser)
@@ -316,6 +281,9 @@ def _disable_argument_abbreviations(parser: argparse.ArgumentParser) -> None:
 def _add_agent_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("agent", help="Give AI agents bounded task briefs.")
     nested = parser.add_subparsers(dest="agent_command", required=True, metavar="ACTION")
+    home = nested.add_parser("home", help="See Goals, Team, Work, Checks, and Limits.")
+    home.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
+    home.add_argument("--json", action="store_true", help="Emit JSON.")
     next_parser = nested.add_parser(
         "next",
         help="Show the next safe tasks for one agent or all agents.",
@@ -386,58 +354,14 @@ def _add_agent_parser(subparsers: Any) -> None:
         help="Exact safe action for resuming parked work; requires --reason.",
     )
     release.add_argument("--json", action="store_true", help="Emit JSON.")
-    check = nested.add_parser(
-        "check",
-        help="Check whether one task follows its task brief.",
+    status = nested.add_parser(
+        "status",
+        help="Show one canonical read-only task status.",
     )
-    check.add_argument("work_id")
-    check.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    check.add_argument("--mode", default="execute", help="Session mode.")
-    check.add_argument(
-        "--changed",
-        action="append",
-        default=[],
-        metavar="PATH",
-        help="Changed path to compare with the task's file limits. Repeatable.",
-    )
-    check.add_argument(
-        "--git-diff",
-        action="store_true",
-        help="Check current Git changes against the task's file limits.",
-    )
-    check.add_argument("--json", action="store_true", help="Emit JSON.")
-    finish = nested.add_parser(
-        "finish",
-        help="Check whether one task is ready for the agent's final report.",
-    )
-    finish.add_argument("work_id")
-    finish.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    finish.add_argument("--mode", default="execute", help="Session mode.")
-    finish.add_argument("--json", action="store_true", help="Emit JSON.")
-    handoff = nested.add_parser(
-        "handoff",
-        help="Show the read-only handoff for one task.",
-    )
-    handoff.add_argument("work_id")
-    handoff.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    handoff.add_argument("--mode", default="execute", help="Session mode.")
-    handoff.add_argument("--json", action="store_true", help="Emit JSON.")
-    loop = nested.add_parser(
-        "loop",
-        help="Summarize the task's start, checks, finish, and handoff steps.",
-    )
-    loop.add_argument("work_id")
-    loop.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    loop.add_argument("--mode", default="execute", help="Session mode.")
-    loop.add_argument("--json", action="store_true", help="Emit JSON.")
-    doctor = nested.add_parser(
-        "doctor",
-        help="Explain why one task is ready, blocked, or waiting.",
-    )
-    doctor.add_argument("work_id")
-    doctor.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
-    doctor.add_argument("--mode", default="execute", help="Session mode.")
-    doctor.add_argument("--json", action="store_true", help="Emit JSON.")
+    status.add_argument("work_id")
+    status.add_argument("--as", dest="palari_id", required=True, help="Acting agent id.")
+    status.add_argument("--mode", default="execute", help="Session mode.")
+    status.add_argument("--json", action="store_true", help="Emit JSON.")
     advance = nested.add_parser(
         "advance",
         help="Run required checks and stop at review, approval, or a concrete blocker.",
@@ -458,7 +382,7 @@ def _add_agent_parser(subparsers: Any) -> None:
 
     actions = {action.dest: action for action in nested._choices_actions}
     nested._choices_actions = [
-        actions[name] for name in ("start", "advance", "release", "doctor")
+        actions[name] for name in ("home", "start", "advance", "release", "status")
     ]
 
 
@@ -800,7 +724,11 @@ def _add_linear_parser(subparsers: Any) -> None:
     )
     push.add_argument("work_id")
     push.add_argument("--as", dest="actor", required=True, help="Acting agent or human id.")
-    push.add_argument("--team", default="", help="Linear team key. Defaults to the only visible team at send time.")
+    push.add_argument(
+        "--team",
+        default="",
+        help="Linear team key. Defaults to the only visible team at send time.",
+    )
     push.add_argument("--record", action="store_true", help="Record the approval plan.")
     push.add_argument("--json", action="store_true", help="Emit JSON.")
 
@@ -1010,329 +938,25 @@ def _add_linear_parser(subparsers: Any) -> None:
     send.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
-def _add_common_mutation_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--set",
-        action="append",
-        default=[],
-        metavar="FIELD=VALUE",
-        help="Set a scalar field. Repeat for multiple fields.",
-    )
-    parser.add_argument(
-        "--list",
-        action="append",
-        default=[],
-        metavar="FIELD=A,B",
-        help="Set a comma-separated list field. Repeat for multiple fields.",
-    )
-    parser.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_create_update(
-    subparsers: Any,
-    name: str,
-    help_text: str,
-    create_fields: list[tuple[str, dict[str, Any]]],
-) -> tuple[Any, argparse.ArgumentParser, argparse.ArgumentParser]:
-    parser = subparsers.add_parser(name, help=help_text)
-    nested = parser.add_subparsers(dest="object_command", required=True)
-    plain_name = {
-        "authority-profile": "approval profile",
-        "palari": "agent",
-        "work": "task",
-    }.get(name, name)
-    create = nested.add_parser("create", help=f"Create a {plain_name} record.")
-    create.add_argument("id")
-    for field_name, kwargs in create_fields:
-        create.add_argument(f"--{field_name.replace('_', '-')}", dest=field_name, **kwargs)
-    _add_common_mutation_args(create)
-    update = nested.add_parser("update", help=f"Update a {plain_name} record.")
-    update.add_argument("id")
-    for field_name, kwargs in create_fields:
-        update.add_argument(
-            f"--{field_name.replace('_', '-')}",
-            dest=field_name,
-            required=False,
-            default=None,
-            help=kwargs.get("help"),
-        )
-    _add_common_mutation_args(update)
-    return nested, create, update
-
-
-def _add_goal_parser(subparsers: Any) -> None:
-    _add_create_update(
-        subparsers,
-        "goal",
-        "Create or update goals.",
-        [
-            ("title", {"required": True, "help": "Goal title."}),
-            ("owner", {"default": "", "help": "Owning human id."}),
-            ("status", {"default": "active", "help": "Goal status."}),
-            ("priority", {"default": "normal", "help": "Goal priority."}),
-        ],
-    )
-
-
-def _add_human_parser(subparsers: Any) -> None:
-    _add_create_update(
-        subparsers,
-        "human",
-        "Create or update humans.",
-        [
-            ("name", {"required": True, "help": "Human name."}),
-            ("role", {"default": "", "help": "Human role."}),
-            ("authority_level", {"default": "standard", "help": "Permission level."}),
-            ("availability", {"default": "", "help": "Availability signal."}),
-            ("capacity_signal", {"default": "", "help": "Capacity signal."}),
-        ],
-    )
-
-
-def _add_palari_parser(subparsers: Any) -> None:
-    _add_create_update(
-        subparsers,
-        "palari",
-        "Create or update agents.",
-        [
-            ("name", {"required": True, "help": "Agent name."}),
-            ("role", {"required": True, "help": "Agent role."}),
-            ("scope", {"default": "", "help": "Agent limits."}),
-            ("owner_human", {"default": "", "help": "Owner human id."}),
-            ("default_worker", {"default": "", "help": "Default model or worker route."}),
-        ],
-    )
-
-
-def _add_source_parser(subparsers: Any) -> None:
-    _add_create_update(
-        subparsers,
-        "source",
-        "Create or update selected sources.",
-        [
-            ("label", {"required": True, "help": "Human-facing source label."}),
-            ("kind", {"default": "", "help": "Source kind, such as note or file."}),
-            ("provider", {"default": "", "help": "Source provider."}),
-            ("uri", {"default": "", "help": "Source URI."}),
-            ("external_id", {"default": "", "help": "Provider-specific source id."}),
-            ("access_mode", {"default": "", "help": "Read/write access mode."}),
-            ("owner_human", {"default": "", "help": "Owner human id."}),
-            (
-                "data_class",
-                {"default": "", "help": "Data class: public/internal/confidential/restricted."},
-            ),
-            ("authority", {"default": "", "help": "Source ownership, such as user_owned."}),
-            ("steward_human", {"default": "", "help": "Human steward responsible for this source."}),
-            ("freshness_sla", {"default": "", "help": "Freshness expectation, such as weekly."}),
-            ("last_seen_revision", {"default": "", "help": "Last seen revision."}),
-            ("last_read_at", {"default": "", "help": "Last read timestamp."}),
-        ],
-    )
-
-
-def _add_playbook_source_parser(subparsers: Any) -> None:
-    _add_create_update(
-        subparsers,
-        "playbook-source",
-        "Create or update external playbook sources.",
-        [
-            ("label", {"required": True, "help": "Human-facing playbook source label."}),
-            ("provider", {"default": "", "help": "Source provider, such as github."}),
-            ("uri", {"default": "", "help": "Source URI."}),
-            ("ref", {"default": "", "help": "Pinned branch, tag, or commit."}),
-            ("license", {"default": "", "help": "License label."}),
-            ("install_hint", {"default": "", "help": "Review or use hint."}),
-        ],
-    )
-
-
-def _add_capability_parser(subparsers: Any) -> None:
-    nested, _create, _update = _add_create_update(
-        subparsers,
-        "capability",
-        "Create, update, list, check, or export allowed capabilities.",
-        [
-            ("label", {"required": True, "help": "Capability label."}),
-            ("kind", {"required": True, "help": "Capability kind."}),
-            ("provider", {"default": "", "help": "Provider or adapter name."}),
-            ("status", {"default": "enabled", "help": "Capability status."}),
-            ("owner_human", {"default": "", "help": "Owning human id."}),
-            ("risk_level", {"default": "standard", "help": "Risk level."}),
-            ("policy_ref", {"default": "", "help": "Policy or contract reference."}),
-            ("notes", {"default": "", "help": "Capability notes."}),
-        ],
-    )
-    list_parser = nested.add_parser("list", help="List allowed capabilities.")
-    list_parser.add_argument("--json", action="store_true", help="Emit JSON.")
-    check = nested.add_parser("check", help="Check capabilities allowed for one task.")
-    check.add_argument("work_id")
-    check.add_argument("--as", dest="palari_id", default="", help="Acting agent id.")
-    check.add_argument("--json", action="store_true", help="Emit JSON.")
-    export = nested.add_parser(
-        "export-policy",
-        help="Export adapter policy for one task.",
-    )
-    export.add_argument("work_id")
-    export.add_argument("--as", dest="palari_id", default="", help="Acting agent id.")
-    export.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_authority_parser(subparsers: Any) -> None:
-    _add_create_update(
-        subparsers,
-        "authority-profile",
-        "Create or update custom approval profiles.",
-        [
-            ("label", {"required": True, "help": "Approval profile label."}),
-            ("mode", {"default": "custom", "help": "Approval mode."}),
-            ("summary", {"default": "", "help": "Profile summary."}),
-            (
-                "required_approval_capability",
-                {"default": "", "help": "Required approval capability."},
-            ),
-            ("notes", {"default": "", "help": "Profile notes."}),
-        ],
-    )
-    parser = subparsers.add_parser(
-        "authority",
-        help="Inspect approval profiles and required-approval checks.",
-    )
-    nested = parser.add_subparsers(dest="authority_command", required=True)
-    profiles = nested.add_parser("profiles", help="List built-in and custom approval profiles.")
-    profiles.add_argument("--json", action="store_true", help="Emit JSON.")
-    check = nested.add_parser("check", help="Check one task against an approval profile.")
-    check.add_argument("work_id")
-    check.add_argument("--profile", default="team-safe", help="Approval profile id.")
-    check.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_decision_parser(subparsers: Any) -> None:
-    nested, _create, _update = _add_create_update(
-        subparsers,
-        "decision",
-        "Guide, create, or update decisions.",
-        [
-            ("question", {"required": True, "help": "Decision question."}),
-            ("status", {"default": "open", "help": "Decision-question status."}),
-            ("context", {"default": "", "help": "Decision context."}),
-            ("recommendation", {"default": "", "help": "Recommendation."}),
-            ("safe_default", {"default": "", "help": "Safe default."}),
-            ("required_human", {"default": "", "help": "Required human id."}),
-            ("required_role", {"default": "", "help": "Required role."}),
-            ("due_date", {"default": "", "help": "Due date."}),
-            ("linked_goal", {"default": "", "help": "Linked goal id."}),
-            ("linked_work", {"default": "", "help": "Linked work id."}),
-            ("linked_palari", {"default": "", "help": "Linked agent id."}),
-        ],
-    )
-    guide = nested.add_parser("guide", help="Build a read-only decision guide.")
-    guide.add_argument("target_id", help="Decision id, or a task id linked to a decision.")
-    guide.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_proposal_parser(subparsers: Any) -> None:
-    nested, _create, _update = _add_create_update(
-        subparsers,
-        "proposal",
-        "Create, update, adopt, reject, or defer task proposals.",
-        [
-            ("title", {"required": True, "help": "Proposal title."}),
-            ("goal", {"required": True, "help": "Goal id."}),
-            ("palari", {"required": True, "help": "Agent id."}),
-            ("proposer", {"default": "", "help": "Human or agent proposer id."}),
-            ("status", {"default": "proposed", "help": "Proposal status."}),
-            ("summary", {"default": "", "help": "Proposal summary."}),
-            ("scope", {"default": "", "help": "Proposed task limits."}),
-            ("risk", {"default": "R1", "help": "Risk level."}),
-            ("intensity", {"default": "light", "help": "Operating intensity."}),
-            ("acceptance_target", {"default": "", "help": "Completion target."}),
-            ("parallel_policy", {"default": "independent", "help": "Parallel policy."}),
-        ],
-    )
-    adopt = nested.add_parser("adopt", help="Adopt a proposal into a real task.")
-    adopt.add_argument("proposal_id")
-    adopt.add_argument("--work-id", required=True, help="Task id to create.")
-    adopt.add_argument("--by", dest="human_id", required=True, help="Adopting human id.")
-    adopt.add_argument("--reason", default="", help="Adoption reason.")
-    adopt.add_argument("--json", action="store_true", help="Emit JSON.")
-    reject = nested.add_parser("reject", help="Reject a proposal.")
-    reject.add_argument("proposal_id")
-    reject.add_argument("--by", dest="human_id", required=True, help="Deciding human id.")
-    reject.add_argument("--reason", required=True, help="Rejection reason.")
-    reject.add_argument("--json", action="store_true", help="Emit JSON.")
-    defer = nested.add_parser("defer", help="Defer a proposal.")
-    defer.add_argument("proposal_id")
-    defer.add_argument("--by", dest="human_id", required=True, help="Deciding human id.")
-    defer.add_argument("--reason", required=True, help="Deferral reason.")
-    defer.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
 def _add_work_parser(subparsers: Any) -> None:
-    nested, create, update = _add_create_update(
-        subparsers,
-        "work",
-        "Add a bounded task or retire an obsolete task.",
-        [
-            ("title", {"required": True, "help": "Task title."}),
-            ("goal", {"required": True, "help": "Goal id."}),
-            ("palari", {"required": True, "help": "Agent id."}),
-            ("risk", {"default": "R1", "help": "Risk level."}),
-            ("intensity", {"default": "light", "help": "Operating intensity."}),
-            ("status", {"default": "proposed", "help": "Task status."}),
-            (
-                "terminal_reason",
-                {
-                    "default": "",
-                    "help": "Required reason when status is superseded or abandoned.",
-                },
-            ),
-            (
-                "successor_work_item_id",
-                {"default": "", "help": "Optional distinct successor task id."},
-            ),
-            ("scope", {"default": "", "help": "Task limits."}),
-            ("acceptance_target", {"default": "", "help": "Completion target."}),
-            ("current_attempt", {"default": "", "help": "Current run id."}),
-            (
-                "required_approval_capability",
-                {"default": "", "help": "Required approval capability."},
-            ),
-        ],
-    )
-    create.add_argument(
-        "--required-approval-count",
-        dest="required_approval_count",
-        type=int,
-        default=1,
-        help="Required approval count.",
-    )
-    update.add_argument(
-        "--required-approval-count",
-        dest="required_approval_count",
-        type=int,
-        default=None,
-        help="Required approval count.",
-    )
+    parser = subparsers.add_parser("work", help="Add a bounded task.")
+    nested = parser.add_subparsers(dest="object_command", required=True, metavar="ACTION")
     add = nested.add_parser(
         "add",
-        help="Create one agent-startable task from a title and file limits.",
+        help="Add one bounded task, or add an idea that needs human approval.",
     )
     add.add_argument("title")
     add.add_argument(
-        "--write",
-        action="append",
-        default=[],
-        help="Allowed write path (repeatable). Becomes the enforced write boundary.",
+        "--idea",
+        action="store_true",
+        help="Store an authority-free idea instead of creating a task.",
     )
     for intent in ("create", "modify", "delete"):
         add.add_argument(
             f"--{intent}",
             action="append",
             default=[],
-            help=(
-                f"Exact path that this task must {intent} (repeatable). "
-                "Do not combine exact intents with legacy --write."
-            ),
+            help=f"Exact path that this task must {intent} (repeatable).",
         )
     add.add_argument(
         "--read",
@@ -1344,10 +968,7 @@ def _add_work_parser(subparsers: Any) -> None:
         "--as",
         dest="palari_id",
         default="",
-        help=(
-            "Acting agent id. Defaults to the project's sole "
-            "execute-authorized agent."
-        ),
+        help=("Acting agent id. Defaults to the project's sole execute-authorized agent."),
     )
     add.add_argument("--goal", default="", help="Goal id. Defaults to the only goal.")
     add.add_argument(
@@ -1366,12 +987,6 @@ def _add_work_parser(subparsers: Any) -> None:
         help="Verification expectation (repeatable).",
     )
     add.add_argument(
-        "--id",
-        dest="work_id",
-        default="",
-        help="Explicit task id. Defaults to a collision-resistant opaque id.",
-    )
-    add.add_argument(
         "--depends-on",
         dest="dependencies",
         action="append",
@@ -1387,96 +1002,29 @@ def _add_work_parser(subparsers: Any) -> None:
     )
     add.add_argument("--approvals", type=int, default=0, help="Required approval count.")
     add.add_argument("--json", action="store_true", help="Emit JSON.")
-    complete = nested.add_parser("complete", help="Complete a ready task.")
-    complete.add_argument("work_id")
-    complete.add_argument("--status", default="completed", help="Terminal status to write.")
-    complete.add_argument("--json", action="store_true", help="Emit JSON.")
-    accept = nested.add_parser("accept", help="Approve a task after current checks and review.")
-    accept.add_argument("work_id")
-    accept.add_argument("--by", dest="human_id", required=True, help="Accepting human id.")
-    accept.add_argument("--reviewed-head", required=True, help="Reviewed head to accept.")
-    accept.add_argument(
-        "--id",
-        dest="decision_id",
-        default="",
-        help="Approval or rejection record id.",
-    )
-    accept.add_argument("--acceptance-id", default="", help="Approval record id.")
-    accept.add_argument("--authority-profile", default="team-safe", help="Approval profile id.")
-    accept.add_argument("--reason", default="", help="Approval reason.")
-    accept.add_argument("--json", action="store_true", help="Emit JSON.")
-    expand = nested.add_parser("expand-scope", help="Ask a human to expand a task's limits.")
-    expand.add_argument("work_id")
-    expand.add_argument("--id", dest="decision_id", required=True, help="Decision id to create.")
-    expand.add_argument("--by", dest="actor", required=True, help="Requesting actor id.")
-    expand.add_argument("--read", action="append", default=[], help="Requested read path.")
-    expand.add_argument("--write", action="append", default=[], help="Requested write path.")
-    expand.add_argument("--action", action="append", default=[], help="Requested action.")
-    expand.add_argument("--reason", required=True, help="Why the current limits are insufficient.")
-    expand.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    nested.metavar = "ACTION"
-    actions = {action.dest: action for action in nested._choices_actions}
-    nested._choices_actions = [actions[name] for name in ("add", "update")]
 
 
-def _add_attempt_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("attempt", help="Record or update runs.")
+def _add_reviewer_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("reviewer", help="Add a review-only agent.")
     nested = parser.add_subparsers(dest="object_command", required=True)
-    record = nested.add_parser("record", help="Record a run.")
-    record.add_argument("id")
-    record.add_argument("--work-item-id", required=True, help="Task id.")
-    record.add_argument("--actor", required=True, help="Actor id.")
-    record.add_argument("--status", default="active", help="Run status.")
-    record.add_argument("--branch", default="", help="Branch name.")
-    record.add_argument("--workspace-path", default="", help="Workspace path.")
-    record.add_argument("--model-or-worker", default="", help="Model or worker.")
-    record.add_argument("--started-at", default="", help="Started timestamp.")
-    record.add_argument("--cleanliness", default="", help="Cleanliness state.")
-    record.add_argument("--result", default="", help="Run result.")
-    _add_common_mutation_args(record)
-    update = nested.add_parser("update", help="Update a run.")
-    update.add_argument("id")
-    _add_common_mutation_args(update)
-    closeout = nested.add_parser("closeout", help="Close a run after checks exist.")
-    closeout.add_argument("id")
-    closeout.add_argument("--status", default="complete", help="Closeout status.")
-    closeout.add_argument("--head-sha", required=True, help="Run head SHA.")
-    closeout.add_argument("--cleanliness", default="clean", help="Repo cleanliness state.")
-    closeout.add_argument("--changed", action="append", default=[], help="Changed path.")
-    closeout.add_argument("--output-target", action="append", default=[], help="Output target.")
-    closeout.add_argument(
-        "--allow-missing-evidence",
-        action="store_true",
-        help="Close the run even when no check results exist yet.",
-    )
-    closeout.add_argument("--json", action="store_true", help="Emit JSON.")
+    add = nested.add_parser("add", help="Add an independent reviewer for one goal.")
+    add.add_argument("id", help="Reviewer agent id.")
+    add.add_argument("--name", default="Independent Reviewer", help="Reviewer name.")
+    add.add_argument("--goal", required=True, help="Goal the reviewer may inspect.")
+    add.add_argument("--owner", required=True, help="Responsible human id.")
+    add.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
-def _add_evidence_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("evidence", help="Record or update check results.")
+def _add_decision_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser("decision", help="Inspect a required human decision.")
     nested = parser.add_subparsers(dest="object_command", required=True)
-    record = nested.add_parser("record", help="Record check results.")
-    record.add_argument("id")
-    record.add_argument("--work-item-id", required=True, help="Task id.")
-    record.add_argument("--attempt-id", required=True, help="Run id.")
-    record.add_argument("--head-sha", required=True, help="Head sha or reference.")
-    record.add_argument("--status", required=True, choices=["passed", "failed", "skipped"])
-    record.add_argument("--base-ref", default="", help="Base ref.")
-    record.add_argument("--summary", default="", help="Check summary.")
-    record.add_argument("--freshness", default="fresh", help="Freshness state.")
-    record.add_argument("--timestamp", default="", help="Timestamp.")
-    _add_common_mutation_args(record)
-    update = nested.add_parser("update", help="Update check results.")
-    update.add_argument("id")
-    _add_common_mutation_args(update)
-    verify = nested.add_parser("verify", help="Verify check, output, and run-record hashes.")
-    verify.add_argument("id")
-    verify.add_argument("--json", action="store_true", help="Emit JSON.")
+    guide = nested.add_parser("guide", help="Build a read-only decision guide.")
+    guide.add_argument("target_id", help="Decision id, or a task id linked to a decision.")
+    guide.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_review_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("review", help="Guide, record, or update review results.")
+    parser = subparsers.add_parser("review", help="Guide or record independent review.")
     nested = parser.add_subparsers(dest="object_command", required=True)
     guide = nested.add_parser("guide", help="Build a read-only review guide for one task.")
     guide.add_argument("work_id")
@@ -1498,31 +1046,12 @@ def _add_review_parser(subparsers: Any) -> None:
         choices=["accept-ready", "changes-requested", "needs-human-decision", "blocked"],
     )
     record.add_argument("--timestamp", default="", help="Timestamp.")
-    _add_common_mutation_args(record)
-    update = nested.add_parser("update", help="Update review.")
-    update.add_argument("id")
-    _add_common_mutation_args(update)
+    record.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_human_decision_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("human-decision", help="Record or update human approvals.")
+    parser = subparsers.add_parser("human-decision", help="Apply an exact Approval Pack.")
     nested = parser.add_subparsers(dest="object_command", required=True)
-    record = nested.add_parser("record", help="Record a human approval or rejection.")
-    record.add_argument("id")
-    record.add_argument("--work-item-id", required=True, help="Task id.")
-    record.add_argument("--human-id", required=True, help="Human id.")
-    record.add_argument("--reviewed-head", required=True, help="Reviewed head.")
-    record.add_argument("--decision", required=True, help="Approval or rejection value.")
-    record.add_argument("--status", default="recorded", help="Approval-record status.")
-    record.add_argument("--acceptance-mode", default="human", help="Approval mode.")
-    record.add_argument("--quorum-status", default="", help="Required-approvals status.")
-    record.add_argument("--evidence-reference", default="", help="Check-results id.")
-    record.add_argument("--review-reference", default="", help="Review id.")
-    record.add_argument("--timestamp", default="", help="Timestamp.")
-    _add_common_mutation_args(record)
-    update = nested.add_parser("update", help="Update a human approval or rejection.")
-    update.add_argument("id")
-    _add_common_mutation_args(update)
     pack = nested.add_parser(
         "pack",
         help="Record one attributable human action over an exact Approval Pack.",
@@ -1551,71 +1080,3 @@ def _add_human_decision_parser(subparsers: Any) -> None:
     )
     pack.add_argument("--reason", default="", help="Human rationale retained in the journal.")
     pack.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_receipt_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("receipt", help="Record or update run records.")
-    nested = parser.add_subparsers(dest="object_command", required=True)
-    record = nested.add_parser("record", help="Record a run record.")
-    record.add_argument("id")
-    record.add_argument("--work-item-id", required=True, help="Task id.")
-    record.add_argument("--attempt-id", required=True, help="Run id.")
-    record.add_argument("--actor", required=True, help="Run-record actor.")
-    record.add_argument("--timestamp", default="", help="Timestamp.")
-    _add_common_mutation_args(record)
-    update = nested.add_parser("update", help="Update a run record.")
-    update.add_argument("id")
-    _add_common_mutation_args(update)
-
-
-def _add_outcome_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser("outcome", help="Record or update results.")
-    nested = parser.add_subparsers(dest="object_command", required=True)
-    record = nested.add_parser("record", help="Record a result.")
-    record.add_argument("id")
-    record.add_argument("--work-item-id", required=True, help="Task id.")
-    record.add_argument("--summary", required=True, help="Result summary.")
-    record.add_argument("--status", default="captured", help="Result status.")
-    record.add_argument("--what-happened", default="", help="What happened.")
-    record.add_argument("--what-changed", default="", help="What changed.")
-    record.add_argument("--timestamp", default="", help="Timestamp.")
-    _add_common_mutation_args(record)
-    update = nested.add_parser("update", help="Update a result.")
-    update.add_argument("id")
-    _add_common_mutation_args(update)
-
-
-def _add_playbooks_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser(
-        "playbooks",
-        help="Inspect external playbook sources and task recommendations.",
-    )
-    nested = parser.add_subparsers(dest="playbooks_command", required=True)
-    sources = nested.add_parser("sources", help="List configured playbook sources.")
-    sources.add_argument("--json", action="store_true", help="Emit JSON.")
-    recommend = nested.add_parser("recommend", help="Recommend playbooks for one task.")
-    recommend.add_argument("work_id")
-    recommend.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_gate_parser(subparsers: Any) -> None:
-    parser = subparsers.add_parser(
-        "gate",
-        help="Inspect built-in review checks and task recommendations.",
-    )
-    nested = parser.add_subparsers(dest="gate_command", required=True)
-    profiles = nested.add_parser("profiles", help="List built-in review checklists.")
-    profiles.add_argument("--json", action="store_true", help="Emit JSON.")
-    recommend = nested.add_parser("recommend", help="Recommend review checks for one task.")
-    recommend.add_argument("work_id")
-    recommend.add_argument("--json", action="store_true", help="Emit JSON.")
-
-
-def _add_maintainer_parser(subparsers: Any) -> None:
-    maintainer_parser = subparsers.add_parser("maintainer", help="External maintainer tools.")
-    maintainer_subparsers = maintainer_parser.add_subparsers(
-        dest="maintainer_command", required=True
-    )
-    status_parser = maintainer_subparsers.add_parser("status", help="Show repo status.")
-    status_parser.add_argument("--repo", default=".", help="Repo path to inspect.")
-    status_parser.add_argument("--json", action="store_true", help="Emit JSON.")

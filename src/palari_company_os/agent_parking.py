@@ -340,9 +340,8 @@ def _ensure_journal(workspace_path: Path | str, palari_id: str) -> None:
     data_path = workspace_file_path(workspace_path)
     if not journal_file_path(data_path).exists():
         raise WorkspaceError(
-            "cannot park work without an activated governance journal; next action: "
-            f"palari history --checkpoint --actor {palari_id} "
-            "--reason 'Activate journal before parking legacy work' --json"
+            "cannot park work without a current governance journal; "
+            "in-place upgrades of unjournaled workspaces are unsupported"
         )
     report = verify_workspace_journal(data_path)
     if not (
@@ -721,7 +720,6 @@ def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
     if root is None:
         return [
             ".palari/governance-journal.v2.jsonl",
-            ".palari/governance-journal.v1.jsonl",
             ".palari/claims/**",
             ".palari/locks/**",
             ".palari/packets/**",
@@ -735,7 +733,6 @@ def _control_projection_paths(data_path: Path, root: Path | None) -> list[str]:
     base = f"{prefix}/" if prefix != "." else ""
     return [
         f"{base}.palari/governance-journal.v2.jsonl",
-        f"{base}.palari/governance-journal.v1.jsonl",
         f"{base}.palari/claims/**",
         f"{base}.palari/locks/**",
         f"{base}.palari/packets/**",

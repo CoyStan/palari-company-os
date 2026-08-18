@@ -53,12 +53,7 @@ def inspect_file_changes(
     allowed_write = _strings(packet.get("allowed_paths", {}).get("write", []))
     required_output = packet.get("required_output", {})
     path_intents = _path_intents(required_output.get("path_intents", []))
-    output_targets = (
-        required_output.get("output_targets", [])
-        if path_intents
-        else required_output.get("output_targets", [])
-        or required_output.get("fallback_write_paths", [])
-    )
+    output_targets = required_output.get("output_targets", [])
     attempt = packet.get("proof_state", {}).get("attempt") or {}
     receipt = packet.get("proof_state", {}).get("receipt") or {}
     recorded = sorted(

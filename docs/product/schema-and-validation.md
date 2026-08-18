@@ -4,7 +4,7 @@ Palari stores ordinary JSON files. This reference uses exact machine names so
 people can match documentation to a file or validation error. In the product,
 `work_items` are tasks, `attempts` are runs, `receipts` are run records,
 `evidence_runs` are check results, and `human_decisions` are approvals or
-rejections. See [Plain Language](plain-language.md).
+rejections. `workbenches` are projects. See [Plain Language](plain-language.md).
 
 The stored-data contract has two layers:
 
@@ -25,37 +25,6 @@ Every current workspace must include:
 }
 ```
 
-Large projects may keep records in additional collection files while
-preserving `workspace.json` as the manifest:
-
-```json
-{
-  "schema_version": 2,
-  "name": "Example",
-  "collection_files": {
-    "workbenches": ["records/workbenches.json"],
-    "work_items": ["records/work-items.json"]
-  },
-  "work_items": []
-}
-```
-
-Collection files are read at load time, merged in memory with the matching root
-collection, and then validated through the same strict checks as single-file
-workspaces. The root `workspace.json` must still declare all required
-collections; split files add records to those collections.
-
-Collection file paths must be workspace-relative. Absolute paths and paths that
-contain `..` fail closed. Each collection file contains a JSON array of records
-for the collection named in the manifest.
-
-Read-only commands such as `validate`, `queue`, `detail`, and `state` can read
-split workspace files. Commands that write records currently refuse split files
-with a clear error instead of silently collapsing or corrupting collection
-files. This split-file reader is parked
-compatibility; there is no current split-file writer or schema migration
-exception.
-
 The CLI validation path uses the Python models and strict workspace checks:
 
 ```bash
@@ -67,22 +36,21 @@ Validation checks:
 
 - supported `schema_version`
 - required root fields and required collections
-- optional `collection_files` manifest shape
-- split collection file path safety and JSON array shape
 - unknown root or record fields
 - required record ids
 - basic field types
 - supported stored values for task status, risk, intensity, check status,
   review result, approval or rejection, and result status
-- optional evidence `output_binding_version`; newly authored evidence uses
-  `palari.evidence_outputs.v1` to bind every receipt output to an artifact digest
+- required evidence `output_binding_version` equal to
+  `palari.evidence_outputs.v1`, with every run-record output bound to an artifact
+  digest
 - unique ids per collection
 - task goal and agent references
 - task project, parent task, and dependency references
 - task allowed-source references
 - task source and output targets stay inside its project boundary when a
   `workbench` is declared
-- optional work-item `path_intents` use only exact canonical repository paths
+- required work-item and proposal `path_intents` use only exact canonical repository paths
   and `create`, `modify`, or `delete`; paths must be unique, prefix-disjoint,
   and inside the declared write boundary
 - parent workbench and parent work item graphs do not contain cycles
@@ -148,9 +116,7 @@ Validation checks:
   instants, not lexical timestamp spellings; malformed or timezone-free values
   and instants outside the UTC-normalizable datetime range fail closed, and two
   records for the same work item cannot claim the same instant because their
-  latest-state order would be ambiguous. For schema-v2 compatibility, one
-  undated record remains loadable only when no ordering choice exists; once a
-  work item has multiple records of that kind, every record must be dated
+  latest-state order would be ambiguous. Missing timestamps also fail closed
 - human decisions have timezone-bearing, unambiguous timestamps; decision and
   status must agree before an acceptance can count
 - pack-bound human decisions require a complete exact pack/member/subject/
@@ -179,9 +145,8 @@ Validation checks:
 
 ### Exact Path Intents And Deletion Tombstones
 
-`path_intents` is additive. Historical work items may omit it and keep the
-existing `output_targets` presence contract. When present, it becomes the exact
-mutation contract:
+Every task and proposal stores `path_intents`. An empty list grants no write
+path. Non-empty lists are the exact mutation contract:
 
 ```json
 {
@@ -206,46 +171,30 @@ fail closed so typos and hidden state cannot quietly enter the source of truth.
 
 ## Governance Journal Formats
 
-`palari.governance-journal.v1` is a supported strict, read-only predecessor
-format because committed product data contains it. Its prepare records retain
-complete `after_projection` values. The current runtime may verify a fully
-committed v1 chain and bind it during explicit activation, but it never creates
-or appends a v1 record. A pending v1 transaction fails closed; current recovery
-does not manufacture its missing terminal record.
-
 `palari.governance-journal.v2` is the sole current writer format and
-`.palari/governance-journal.v2.jsonl` is its only supported path. Its first
+`.palari/governance-journal.v2.jsonl` is the only journal path. Its first
 committed prepare is a full content-bound checkpoint. Later mutation prepares
 replace the repeated projection with a canonical, prefix-disjoint JSON Pointer delta:
 `add` and `replace` carry the exact value; `remove` carries no value. Applying
 the delta must reproduce the recorded workspace digest and the delta must equal
 the deterministic minimal diff, otherwise verification fails closed. Historical
-completion-contract notes from the original journal-v2 landing are archived at
-`docs/archive/pr19-contracts/compact-journal-v2-contract.md`.
+completion-contract notes from the original journal-v2 landing remain
+available in Git history.
 
-An already-journaled v1 workspace activates v2 only through an explicit,
-idempotent `history --checkpoint`. The v2 checkpoint seals the exact verified
-v1 file as a predecessor and does not edit or rename it. An existing workspace
-with no journal rejects ordinary mutations until an explicit checkpoint creates
-v2 directly. A newly created workspace starts directly with a complete v2
-checkpoint. V2 records in the v1 filename fail closed; there is no compatibility
-filename or implicit activation path.
+A workspace with no journal rejects mutations and cannot add one in place. A
+newly created workspace starts directly with a complete v2 checkpoint.
 
 V2 verification reads one JSONL record at a time and retains only the current
-workspace projection, pending prepare, and fixed-size chain state. When a v1
-predecessor exists, its bytes are streamed through SHA-256 on every verification
-and its strict records are replayed without materializing the full journal. The
-derived state is compared with the authoritative binding in the v2 checkpoint;
-no advisory cache can authorize a transition.
+workspace projection, pending prepare, and fixed-size chain state. No advisory
+cache can authorize a transition.
 
 Unversioned, v0, v1, and newer workspace schemas fail closed. There is no
 supported runtime schema migration because no committed real stored fixture
 requires one. An old workspace must be converted outside the current runtime
 and validated as schema v2 before Palari will load it.
 
-Schema v2 deliberately makes the exact review binding non-optional for
-`accept-ready`. Historical unbound non-accepting verdicts remain inspectable,
-but no legacy marker can manufacture acceptance authority.
+Schema v2 makes the exact review binding non-optional for every verdict. An
+unbound review is rejected instead of loaded as weaker proof.
 
 The JSON Schema is kept as an inspectable machine contract for other tools and
 future editors. It is intentionally local and dependency-free in this first

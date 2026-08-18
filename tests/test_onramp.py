@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
@@ -80,9 +80,7 @@ class InitTests(unittest.TestCase):
         self.assertIn("must never run it", agents)
         self.assertNotIn("bounded work item", agents)
         self.assertNotIn("human acceptance", agents)
-        verification = (self.project / "docs/agent/verification.md").read_text(
-            encoding="utf-8"
-        )
+        verification = (self.project / "docs/agent/verification.md").read_text(encoding="utf-8")
         normalized_verification = " ".join(verification.split())
         self.assertIn("does not execute task prose", normalized_verification)
         self.assertIn(
@@ -109,7 +107,7 @@ class InitTests(unittest.TestCase):
         result = quick_add_work(
             self.project,
             "Prepare a governed draft",
-            write=["docs/draft.md"],
+            create=["docs/draft.md"],
         )
 
         packet = build_agent_brief(
@@ -133,7 +131,7 @@ class InitTests(unittest.TestCase):
         result = quick_add_work(
             self.project,
             "Ship a reviewed change",
-            write=["docs/change.md"],
+            create=["docs/change.md"],
             risk="R2",
             intensity="standard",
             approvals=1,
@@ -175,9 +173,7 @@ class InitTests(unittest.TestCase):
         self.assertEqual(result["human"]["name"], "Maya Founder")
 
     def test_init_accepts_custom_name_and_palari(self) -> None:
-        result = initialize_starter_workspace(
-            self.project, name="My Company", palari_name="Codex"
-        )
+        result = initialize_starter_workspace(self.project, name="My Company", palari_name="Codex")
 
         self.assertEqual(result["workspace"], "My Company")
         self.assertEqual(result["palari"]["id"], "PALARI-CODEX")
@@ -192,9 +188,7 @@ class InitTests(unittest.TestCase):
             palari_name="Reviewer",
         )
         agents = (self.project / "AGENTS.md").read_text(encoding="utf-8")
-        common = (self.project / "docs/agent/common-workflows.md").read_text(
-            encoding="utf-8"
-        )
+        common = (self.project / "docs/agent/common-workflows.md").read_text(encoding="utf-8")
         output = io.StringIO()
 
         with redirect_stdout(output):
@@ -263,9 +257,7 @@ class InitTests(unittest.TestCase):
         anchor = result["authority_anchor"]
         self.assertEqual(anchor["status"], "anchored")
         self.assertEqual(anchor["commit"], self.git_output("rev-parse", "HEAD"))
-        changed = set(
-            self.git_output("show", "--format=", "--name-only", "HEAD").splitlines()
-        )
+        changed = set(self.git_output("show", "--format=", "--name-only", "HEAD").splitlines())
         self.assertEqual(changed, set(anchor["paths"]))
         self.assertNotIn("unrelated.txt", changed)
         self.assertIn("A  unrelated.txt", self.git_output("status", "--short"))
@@ -506,7 +498,7 @@ class WorkAddTests(unittest.TestCase):
         result = quick_add_work(
             self.project,
             "Clean up launch notes",
-            write=["docs/notes.md"],
+            create=["docs/notes.md"],
         )
 
         work_id = result["work_item"]["id"]
@@ -537,9 +529,7 @@ class WorkAddTests(unittest.TestCase):
     ) -> None:
         store = load_store(self.project)
         store.data["palaris"] = [
-            item
-            for item in store.data["palaris"]
-            if item["id"] != "PALARI-REVIEWER"
+            item for item in store.data["palaris"] if item["id"] != "PALARI-REVIEWER"
         ]
         store.data["goals"][0]["linked_palaris"] = ["PALARI-CLAUDE"]
         store.data["sources"][0]["allowed_palaris"] = ["PALARI-CLAUDE"]
@@ -548,7 +538,7 @@ class WorkAddTests(unittest.TestCase):
         result = quick_add_work(
             self.project,
             "Create a governed draft",
-            write=["docs/draft.md"],
+            create=["docs/draft.md"],
             risk="R2",
             intensity="standard",
             approvals=1,
@@ -564,12 +554,7 @@ class WorkAddTests(unittest.TestCase):
         self.assertIn("distinct Palari reviewer", result["next_action"])
         self.assertEqual(
             result["next_commands"],
-            [
-                (
-                    f"palari --workspace {self.project} detail "
-                    f"{result['work_item']['id']} --json"
-                )
-            ],
+            [(f"palari --workspace {self.project} detail {result['work_item']['id']} --json")],
         )
         self.assertNotIn("agent start", "\n".join(result["next_commands"]))
         self.assertIn("blocked before agent start", result["message"])
@@ -581,7 +566,7 @@ class WorkAddTests(unittest.TestCase):
         )
         self.assertEqual(packet["status"], "blocked")
 
-    def test_work_add_help_describes_the_execute_authorized_default(self) -> None:
+    def test_work_add_help_uses_exact_paths_and_describes_the_agent_default(self) -> None:
         output = io.StringIO()
         with redirect_stdout(output), self.assertRaises(SystemExit) as raised:
             build_parser().parse_args(["work", "add", "--help"])
@@ -593,6 +578,19 @@ class WorkAddTests(unittest.TestCase):
             help_text,
         )
         self.assertNotIn("workspace's only agent", help_text)
+        self.assertIn("--create", help_text)
+        self.assertIn("--modify", help_text)
+        self.assertIn("--delete", help_text)
+        self.assertNotIn("--write", help_text)
+        self.assertNotIn("--id", help_text.split())
+
+        for old_option in ("--write", "--id"):
+            with self.subTest(old_option=old_option):
+                error = io.StringIO()
+                with redirect_stderr(error), self.assertRaises(SystemExit) as rejected:
+                    build_parser().parse_args(["work", "add", "Old path", old_option, "old-value"])
+                self.assertEqual(rejected.exception.code, 2)
+                self.assertIn(f"unrecognized arguments: {old_option}", error.getvalue())
 
     def test_work_add_idempotently_recovers_an_unanchored_git_workspace(self) -> None:
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
@@ -611,7 +609,7 @@ class WorkAddTests(unittest.TestCase):
         result = quick_add_work(
             self.project,
             "Recovered task",
-            write=["docs/recovered.md"],
+            create=["docs/recovered.md"],
         )
         work_id = result["work_item"]["id"]
 
@@ -620,7 +618,7 @@ class WorkAddTests(unittest.TestCase):
             quick_add_work(
                 self.project,
                 "Second task",
-                write=["docs/second.md"],
+                create=["docs/second.md"],
             )["authority_anchor"]["commit"],
             result["authority_anchor"]["commit"],
         )
@@ -632,11 +630,11 @@ class WorkAddTests(unittest.TestCase):
         )
         self.assertEqual(started["start"]["status"], "claimed")
 
-    def test_write_paths_become_boundary_and_reads_stay_read_only(self) -> None:
+    def test_path_intents_become_boundary_and_reads_stay_read_only(self) -> None:
         result = quick_add_work(
             self.project,
             "Summarize research",
-            write=["docs/summary.md"],
+            create=["docs/summary.md"],
             read=["research/raw.md"],
         )
 
@@ -649,8 +647,8 @@ class WorkAddTests(unittest.TestCase):
         self.assertIn("research/raw.md", packet["allowed_paths"]["read"])
 
     def test_work_ids_are_unique_and_do_not_encode_creation_order(self) -> None:
-        first = quick_add_work(self.project, "One", write=["docs/a.md"])
-        second = quick_add_work(self.project, "Two", write=["docs/b.md"])
+        first = quick_add_work(self.project, "One", create=["docs/a.md"])
+        second = quick_add_work(self.project, "Two", create=["docs/b.md"])
 
         first_id = first["work_item"]["id"]
         second_id = second["work_item"]["id"]
@@ -663,16 +661,6 @@ class WorkAddTests(unittest.TestCase):
             r"^WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}$",
         )
         self.assertNotEqual(first_id, second_id)
-
-    def test_work_add_preserves_explicit_legacy_id(self) -> None:
-        result = quick_add_work(
-            self.project,
-            "Legacy import",
-            write=["docs/legacy.md"],
-            work_id="WORK-0001",
-        )
-
-        self.assertEqual(result["work_item"]["id"], "WORK-0001")
 
     def test_opaque_id_retries_a_collision_without_scanning_numeric_ids(self) -> None:
         collision = UUID("00000000-0000-4000-8000-000000000001")
@@ -687,11 +675,11 @@ class WorkAddTests(unittest.TestCase):
         self.assertEqual(result, f"WORK-{fresh.hex.upper()}")
 
     def test_work_add_records_only_explicit_dependencies(self) -> None:
-        first = quick_add_work(self.project, "One", write=["docs/a.md"])
+        first = quick_add_work(self.project, "One", create=["docs/a.md"])
         second = quick_add_work(
             self.project,
             "Two",
-            write=["docs/b.md"],
+            create=["docs/b.md"],
             dependencies=[first["work_item"]["id"]],
             parallel_policy="coordinate",
         )
@@ -702,34 +690,26 @@ class WorkAddTests(unittest.TestCase):
         )
         self.assertEqual(second["work_item"]["parallel_policy"], "coordinate")
 
-    def test_work_add_rejects_missing_duplicate_and_self_dependencies(self) -> None:
-        first = quick_add_work(self.project, "One", write=["docs/a.md"])
+    def test_work_add_rejects_missing_and_duplicate_dependencies(self) -> None:
+        first = quick_add_work(self.project, "One", create=["docs/a.md"])
         first_id = first["work_item"]["id"]
         with self.assertRaisesRegex(WorkspaceError, "unknown work item"):
             quick_add_work(
                 self.project,
                 "Missing",
-                write=["docs/missing.md"],
+                create=["docs/missing.md"],
                 dependencies=["WORK-NOT-THERE"],
             )
         with self.assertRaisesRegex(WorkspaceError, "repeats work item"):
             quick_add_work(
                 self.project,
                 "Duplicate",
-                write=["docs/duplicate.md"],
+                create=["docs/duplicate.md"],
                 dependencies=[first_id, first_id],
-            )
-        with self.assertRaisesRegex(WorkspaceError, "cannot reference the new work item"):
-            quick_add_work(
-                self.project,
-                "Self",
-                write=["docs/self.md"],
-                work_id="WORK-SELF",
-                dependencies=["WORK-SELF"],
             )
 
     def test_workbench_outputs_grow_with_the_work_boundary(self) -> None:
-        result = quick_add_work(self.project, "One", write=["docs/a.md"])
+        result = quick_add_work(self.project, "One", create=["docs/a.md"])
 
         self.assertEqual(result["workbench_outputs_added"], ["docs/a.md"])
         workspace = Workspace.load(self.project)
@@ -739,7 +719,6 @@ class WorkAddTests(unittest.TestCase):
         result = quick_add_work(
             self.project,
             "Exact mutation",
-            write=[],
             create=["docs/new.md"],
             modify=["docs/existing.md"],
             delete=["docs/obsolete.md"],
@@ -770,20 +749,7 @@ class WorkAddTests(unittest.TestCase):
             packet["required_output"]["output_targets"],
             ["docs/new.md", "docs/existing.md"],
         )
-
-    def test_exact_intents_cannot_be_mixed_with_legacy_write(self) -> None:
-        workspace_file = self.project / "workspace.json"
-        before = workspace_file.read_bytes()
-
-        with self.assertRaisesRegex(WorkspaceError, "cannot be combined"):
-            quick_add_work(
-                self.project,
-                "Ambiguous mutation",
-                write=["docs/legacy.md"],
-                delete=["docs/obsolete.md"],
-            )
-
-        self.assertEqual(workspace_file.read_bytes(), before)
+        self.assertEqual(packet["required_output"]["path_intents"], work.path_intents)
 
     def test_work_add_validation_failure_leaves_workspace_and_journal_unchanged(self) -> None:
         workspace_file = self.project / "workspace.json"
@@ -797,20 +763,20 @@ class WorkAddTests(unittest.TestCase):
             quick_add_work(
                 self.project,
                 "Invalid",
-                write=["docs/should-not-expand.md"],
+                create=["docs/should-not-expand.md"],
                 goal_id="GOAL-NOT-THERE",
             )
 
         self.assertEqual(workspace_file.read_bytes(), before["workspace"])
         self.assertEqual(journal_file.read_bytes(), before["journal"])
 
-    def test_requires_at_least_one_write_path(self) -> None:
+    def test_requires_at_least_one_path_intent(self) -> None:
         with self.assertRaises(WorkspaceError):
-            quick_add_work(self.project, "Unbounded", write=[])
+            quick_add_work(self.project, "Unbounded")
 
     def test_rejects_paths_outside_the_workspace(self) -> None:
         with self.assertRaises(WorkspaceError):
-            quick_add_work(self.project, "Escape", write=["../outside.md"])
+            quick_add_work(self.project, "Escape", create=["../outside.md"])
 
     def test_ambiguous_palari_requires_explicit_choice(self) -> None:
         data = json.loads((self.project / "workspace.json").read_text(encoding="utf-8"))
@@ -819,7 +785,7 @@ class WorkAddTests(unittest.TestCase):
         (self.project / "workspace.json").write_text(json.dumps(data), encoding="utf-8")
 
         with self.assertRaises(WorkspaceError) as caught:
-            quick_add_work(self.project, "Pick one", write=["docs/a.md"])
+            quick_add_work(self.project, "Pick one", create=["docs/a.md"])
         self.assertIn("--as", str(caught.exception))
 
         checkpoint = checkpoint_workspace_journal(
@@ -831,13 +797,13 @@ class WorkAddTests(unittest.TestCase):
         self.assertEqual(checkpoint["status"], "valid-with-continuity-break")
 
         result = quick_add_work(
-            self.project, "Pick one", write=["docs/a.md"], palari_id="PALARI-OTHER"
+            self.project, "Pick one", create=["docs/a.md"], palari_id="PALARI-OTHER"
         )
         self.assertEqual(result["work_item"]["palari"], "PALARI-OTHER")
 
     def test_requires_a_title(self) -> None:
         with self.assertRaises(WorkspaceError):
-            quick_add_work(self.project, "   ", write=["docs/a.md"])
+            quick_add_work(self.project, "   ", create=["docs/a.md"])
 
 
 class DefaultWorkspaceTests(unittest.TestCase):

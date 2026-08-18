@@ -11,6 +11,7 @@ from .approval_presentations import (
     PRESENTATION_SCHEMA_VERSION,
     approval_presentation_digest,
     build_approval_presentation,
+    individual_approval_available,
 )
 from .errors import WorkspaceError
 from .governance_binding import (
@@ -44,11 +45,7 @@ from .workspace import Workspace, current_attempt_for_work, latest_for_work
 
 
 PACK_SCHEMA_VERSION = "palari.approval-pack.v3"
-SUPPORTED_PACK_SCHEMA_VERSIONS = {
-    "palari.approval-pack.v2",
-    PACK_SCHEMA_VERSION,
-}
-INBOX_SCHEMA_VERSION = "palari.approval-inbox.v2"
+INBOX_SCHEMA_VERSION = "palari.approval-inbox.v3"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 BAD_DEPENDENCY_STATES = {
     "blocked",
@@ -153,6 +150,14 @@ def build_approval_inbox(
         strict=True,
     ):
         presentation_digest = approval_presentation_digest(presentation, pack)
+        individual = bool(
+            len(report["members"]) == 1
+            and report["members"][0]["state"] in {"approved", "non-batchable"}
+            and individual_approval_available(
+                pack,
+                str(report["members"][0]["id"]),
+            )
+        )
         for human_id in _pack_approval_human_ids(workspace, pack, report):
             approval_commands.append(
                 {
@@ -160,15 +165,21 @@ def build_approval_inbox(
                     "pack_digest": pack["pack_digest"],
                     "presentation_digest": presentation_digest,
                     "human_id": human_id,
-                    "approve_eligible": _approval_command(
+                    "mode": "individual-effect" if individual else "approve-eligible",
+                    "command": _approval_command(
                         workspace.data_path,
                         pack,
                         presentation_digest,
                         human_id,
+                        individual=individual,
                     ),
                 }
             )
-    eligible_commands = approval_commands
+    eligible_commands = [
+        command
+        for command in approval_commands
+        if command["mode"] == "approve-eligible"
+    ]
     eligible_pack_actions = len(
         {command["pack_id"] for command in eligible_commands}
     )
@@ -271,12 +282,12 @@ def approval_primary_action(
     primary_commands: dict[str, str] = {}
     for item in approval_commands:
         primary_commands.setdefault(
-            item.get("pack_id", item.get("approve_eligible", "")),
-            item["approve_eligible"],
+            item.get("pack_id", item.get("command", "")),
+            item["command"],
         )
     actions = len(
         {
-            item.get("pack_id", item.get("approve_eligible", ""))
+            item.get("pack_id", item.get("command", ""))
             for item in approval_commands
         }
     )
@@ -401,7 +412,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
     }
     if not isinstance(pack, dict) or set(pack) != expected:
         raise WorkspaceError("approval pack has unknown or missing fields")
-    if pack["schema_version"] not in SUPPORTED_PACK_SCHEMA_VERSIONS:
+    if pack["schema_version"] != PACK_SCHEMA_VERSION:
         raise WorkspaceError("approval pack schema version is unsupported")
     _require_string(pack["pack_id"], "pack_id")
     _exact_object(
@@ -440,10 +451,7 @@ def validate_pack_manifest(pack: dict[str, Any]) -> None:
         raise WorkspaceError("approval pack must contain at least one member")
     ids: list[str] = []
     for member in members:
-        _validate_pack_member(
-            member,
-            schema_version=str(pack["schema_version"]),
-        )
+        _validate_pack_member(member)
         member_id = member.get("id")
         if not isinstance(member_id, str) or not member_id:
             raise WorkspaceError("approval pack member id is required")
@@ -819,10 +827,27 @@ def apply_pack_decision(
             + "; rebuild the Approval Inbox before recording a decision"
         )
     if approve_eligible:
+        pack_members_by_id = {
+            str(member["id"]): member
+            for member in pack["members"]
+        }
+        non_batchable_selected = sorted(
+            member_id
+            for member_id in approve_ids
+            if not pack_members_by_id[member_id]["batch_policy"]["batchable"]
+        )
+        if non_batchable_selected:
+            raise WorkspaceError(
+                "approve-eligible cannot select non-batchable members: "
+                + ", ".join(non_batchable_selected)
+            )
         approve_ids.update(
             member_id
             for member_id, state in states.items()
             if state["state"] in {"eligible", "approved"}
+            and bool(
+                pack_members_by_id[member_id]["batch_policy"]["batchable"]
+            )
             and member_id not in reject_ids | defer_ids
         )
     if not approve_ids and not reject_ids and not defer_ids:
@@ -837,9 +862,16 @@ def apply_pack_decision(
         raise WorkspaceError("approval pack decision selected no members")
 
     for member_id in sorted(approve_ids):
-        if states[member_id]["state"] not in {"eligible", "approved"}:
+        state = states[member_id]["state"]
+        individually_approvable = bool(
+            state == "non-batchable"
+            and not approve_eligible
+            and approve_ids == {member_id}
+            and individual_approval_available(pack, member_id)
+        )
+        if state not in {"eligible", "approved"} and not individually_approvable:
             raise WorkspaceError(
-                f"approval pack member {member_id} is {states[member_id]['state']}; "
+                f"approval pack member {member_id} is {state}; "
                 "approve only current eligible members"
             )
         member = next(item for item in pack["members"] if item["id"] == member_id)
@@ -1612,7 +1644,14 @@ def _assert_pack_prewrite_current(
         stale = [
             str(item["id"])
             for item in evaluation["members"]
-            if item["state"] in {"blocked", "stale", "non-batchable"}
+            if item["state"] in {"blocked", "stale"}
+            or (
+                item["state"] == "non-batchable"
+                and not individual_approval_available(
+                    stored_pack,
+                    str(item["id"]),
+                )
+            )
         ]
         if stale:
             raise WorkspaceError(
@@ -1659,11 +1698,14 @@ def _pack_approval_human_ids(
     pack: dict[str, Any],
     report: dict[str, Any],
 ) -> list[str]:
-    approvable_ids = [
-        str(item["id"])
-        for item in report["members"]
-        if item["state"] in {"eligible", "approved"}
-    ]
+    approvable_ids = []
+    for item in report["members"]:
+        member_id = str(item["id"])
+        if item["state"] in {"eligible", "approved"} or (
+            item["state"] == "non-batchable"
+            and individual_approval_available(pack, member_id)
+        ):
+            approvable_ids.append(member_id)
     if not approvable_ids:
         return []
     candidate_sets: list[set[str]] = []
@@ -1732,6 +1774,8 @@ def _approval_command(
     pack: dict[str, Any],
     presentation_digest: str,
     human_id: str,
+    *,
+    individual: bool,
 ) -> str:
     arguments = [
         "human-decision",
@@ -1742,8 +1786,11 @@ def _approval_command(
         presentation_digest,
         "--human-id",
         human_id,
-        "--approve-eligible",
     ]
+    if individual:
+        arguments.extend(("--approve", str(pack["execution_order"][0])))
+    else:
+        arguments.append("--approve-eligible")
     for member_id in pack["execution_order"]:
         arguments.extend(("--pack-member", str(member_id)))
     arguments.append("--json")
@@ -1774,8 +1821,6 @@ def _decision_member_digest(member: dict[str, Any]) -> str:
 
 def _validate_pack_member(
     member: Any,
-    *,
-    schema_version: str,
 ) -> None:
     fields = {
         "id", "kind", "title", "subject_digest", "risk", "reversibility",
@@ -1798,9 +1843,8 @@ def _validate_pack_member(
     authority_fields = {
         "required_approval_count",
         "required_approval_capability",
+        "effective_final_approval_count",
     }
-    if schema_version == PACK_SCHEMA_VERSION:
-        authority_fields.add("effective_final_approval_count")
     _exact_object(
         member["authority"],
         authority_fields,
@@ -1810,11 +1854,10 @@ def _validate_pack_member(
         member["authority"]["required_approval_count"],
         f"members.{member_id}.authority.required_approval_count",
     )
-    if schema_version == PACK_SCHEMA_VERSION:
-        _require_nonnegative_int(
-            member["authority"]["effective_final_approval_count"],
-            f"members.{member_id}.authority.effective_final_approval_count",
-        )
+    _require_nonnegative_int(
+        member["authority"]["effective_final_approval_count"],
+        f"members.{member_id}.authority.effective_final_approval_count",
+    )
     if not isinstance(member["authority"]["required_approval_capability"], str):
         raise WorkspaceError(
             f"approval pack members.{member_id}.authority.required_approval_capability must be a string"
@@ -1855,7 +1898,7 @@ def _validate_pack_member(
             raise WorkspaceError(f"approval pack {path}.path is unsafe: {exc}") from exc
         if normalized_path != output_path:
             raise WorkspaceError(f"approval pack {path}.path is not canonical")
-        _require_digest(output["sha256"], f"{path}.sha256")
+        _require_artifact_digest(output["sha256"], f"{path}.sha256")
         output_paths.append(output_path)
     if output_paths != sorted(set(output_paths)):
         raise WorkspaceError(f"approval pack members.{member_id}.outputs must be unique and ordered")
@@ -1943,6 +1986,12 @@ def _require_digest(value: Any, path: str) -> None:
         int(value[7:], 16)
     except ValueError as exc:
         raise WorkspaceError(f"approval pack {path} must be a sha256 digest") from exc
+
+
+def _require_artifact_digest(value: Any, path: str) -> None:
+    if value == "sha256:absent":
+        return
+    _require_digest(value, path)
 
 
 def _timestamp() -> str:

@@ -67,6 +67,7 @@ def _write_minimal_workspace(path: Path) -> None:
                 "allowed_resources": [ALLOWED_PATH],
                 "allowed_sources": [],
                 "output_targets": [ALLOWED_PATH],
+                "path_intents": [{"path": ALLOWED_PATH, "intent": "modify"}],
                 "forbidden_actions": ["deploy"],
                 "verification_expectations": ["focused Git-hook test passes"],
             }

@@ -18,20 +18,36 @@ the assignment boundary. Exact stored names appear in backticks when needed.
    presentation-bound command. For one eligible local task, a qualified human
    runs that emitted `palari approve ... --presented DIGEST` command once; the
    digest is machine-supplied and is not copied. A manually typed bare
-   `approve` derives current state at invocation. The Approval Inbox remains
-   the advanced/batched path.
+`approve` derives current state at invocation. The Approval Inbox remains
+the advanced/batched path.
 
-Use `work add --write PATH` when only final presence matters. Use
-repeatable `--create`, `--modify`, and `--delete` instead when the exact final
-mutation class matters; do not mix exact intents with `--write`.
+## Change One Code Part
+
+1. Find the part in `docs/agent/repo-tree.json` and edit only its owned files by
+   default.
+2. Use its listed doors when another part needs it.
+3. Run `python3 -S scripts/check_repo_tree.py --part PART` while working.
+4. If a door changed, also test the parts that use it. Run the complete check
+   before the final candidate when the task requires it.
+
+There is one Git repo and one Palari work list. A part is a small work area,
+not a nested repo or a separate ticket store.
+
+Use repeatable `work add --create`, `--modify`, and `--delete` paths. Every task
+must say what kind of file change it will make.
+
+To let an agent grow a goal without granting itself work, use `palari work add
+TITLE --idea` with the same file, project, dependency, check, and approval
+options. Stop after the emitted human step. A human may run `palari approve
+IDEA-ID --as HUMAN-ID --json`; the new task then enters the normal bounded-work
+flow.
 
 If execution is interrupted before the check results are ready, run `palari agent release
 WORK-ID --as PALARI-ID --reason "..." --next-action "..." --json`. Durable release
 records blocked status and the next action before releasing the task lock. It
 does not create a run record or check results, and it grants no permission. It
-requires writable tamper-evident history; a legacy workspace must first run the
-exact returned `history --checkpoint`
-action. Use `next`, `brief`, explicit `start`, `check`,
+requires writable tamper-evident history; a workspace without it is unsupported
+and cannot be upgraded in place. Use `next`, `brief`, explicit `start`, `check`,
 `finish`, `handoff`, `doctor`, and `loop` as optional inspection and recovery
 surfaces rather than mandatory ceremony.
 

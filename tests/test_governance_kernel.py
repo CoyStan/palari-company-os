@@ -21,7 +21,6 @@ from palari_company_os.governance_case import (
     HumanDecisionSnapshot,
     IntegrityObservation,
     IntegrityObservations,
-    LegacyProofBinding,
     ReceiptSnapshot,
     ReviewerAuthority,
     ReviewSnapshot,
@@ -130,7 +129,6 @@ def accepted_case(*, claimed_state: str = "accepted", terminal: bool = False) ->
         receipt_digest=partial.receipt_digest(),
         checks_inspected=("python3 -m unittest",),
         timestamp="2030-01-01T00:04:00Z",
-        legacy_binding=LegacyProofBinding(binding_version="palari.review_binding.v1"),
     )
     partial = replace(partial, review=review)
     decision = HumanDecisionSnapshot(
@@ -166,7 +164,7 @@ def accepted_case(*, claimed_state: str = "accepted", terminal: bool = False) ->
     observations = IntegrityObservations(
         subject_integrity=IntegrityObservation("verified", ("all subjects match",)),
         evidence_integrity=IntegrityObservation("verified", ("manifest matches",)),
-        journal_continuity=IntegrityObservation("not-required", ("legacy checkpoint",)),
+        journal_continuity=IntegrityObservation("not-required", ("journal not claimed",)),
     )
     return replace(
         partial,

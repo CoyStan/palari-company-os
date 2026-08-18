@@ -18,7 +18,6 @@ from .governance_case import (
     HumanDecisionSnapshot,
     IntegrityObservation,
     IntegrityObservations,
-    LegacyProofBinding,
     OutcomeSnapshot,
     ReceiptSnapshot,
     ReviewerAuthority,
@@ -615,14 +614,6 @@ def _review_snapshot(
         checks_inspected=tuple(review.checks_inspected),
         residual_risks=tuple(review.residual_risks),
         timestamp=_timestamp(review.timestamp),
-        legacy_binding=LegacyProofBinding(
-            binding_version=review.binding_version,
-            attempt_hash=review.attempt_hash,
-            evidence_manifest_hash=review.evidence_manifest_hash,
-            receipt_hash=review.receipt_hash,
-            work_contract_hash=review.work_contract_hash,
-            proof_hash=review.proof_hash,
-        ),
     )
 
 
@@ -781,7 +772,6 @@ def _evidence_observation(
         result = verify_evidence(
             workspace,
             evidence.id,
-            require_output_coverage=True,
             journal_context=journal_context,
         )
     except (OSError, ValueError, WorkspaceError) as exc:
@@ -808,7 +798,7 @@ def _journal_observation(
     try:
         path = journal_file_path(workspace.data_path)
         if not path.exists():
-            return IntegrityObservation("not-required", ("legacy workspace not checkpointed",))
+            return IntegrityObservation("not-required", ("journal not enabled",))
         report = (
             journal_context.verify(workspace.data_path)
             if journal_context is not None
@@ -854,7 +844,6 @@ def _review_binding_current(
             errors = current_review_binding_errors(
                 workspace,
                 review,
-                require_output_coverage=True,
                 journal_context=journal_context,
             )
         else:

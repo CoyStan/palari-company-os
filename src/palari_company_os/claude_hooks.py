@@ -30,7 +30,7 @@ from typing import Any
 
 from .agent_file_changes import git_repo_root, inspect_file_changes
 from .agent_runtime import load_active_claim_contexts
-from .path_policy import canonical_path_allowed, resolve_workspace_path, validate_workspace_path
+from .path_policy import canonical_path_allowed
 from .store import workspace_file_path
 from .workspace import Workspace, WorkspaceError
 
@@ -213,14 +213,10 @@ SAFE_AGENT_PALARI_COMMANDS = {
     for action in (
         "advance",
         "brief",
-        "check",
-        "doctor",
-        "finish",
-        "handoff",
-        "loop",
         "next",
         "release",
         "start",
+        "status",
     )
 } | {
     ("authority", action) for action in ("check", "profiles")
@@ -290,6 +286,7 @@ MUTATING_AGENT_PALARI_COMMANDS = {
     ("proposal", "create"),
     ("proposal", "update"),
     ("work", "expand-scope"),
+    ("work", "add"),
 }
 SHELL_COMMAND_SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
 
@@ -534,6 +531,8 @@ def bash_human_authority_command(command: str) -> str:
         args = tokens[index + 1 :]
         for argument_index in range(len(args) - 1):
             command_key = (args[argument_index], args[argument_index + 1])
+            if command_key == ("work", "add") and _is_work_idea_add(tokens, index):
+                continue
             if command_key in HUMAN_ONLY_PALARI_COMMANDS | PACKET_AUTHORITY_PALARI_COMMANDS:
                 return " ".join(command_key)
         if (
@@ -720,6 +719,8 @@ def _palari_shell_review_reason(tokens: list[str], command_index: int) -> str:
     """Fail closed for Palari CLI commands not classified for agent shells."""
 
     command_key = _palari_command_key(tokens, command_index)
+    if command_key == ("work", "add") and _is_work_idea_add(tokens, command_index):
+        return ""
     if command_key in PALARI_SELF_PROTECTION_COMMANDS:
         return f"Palari self-protection mutation {' '.join(command_key)}"
     if command_key in SAFE_AGENT_PALARI_COMMANDS:
@@ -811,6 +812,10 @@ def _is_history_restore(tokens: list[str], command_index: int) -> bool:
         argument == "--restore" or argument.startswith("--restore=")
         for argument in _command_arguments(tokens, command_index)
     )
+
+
+def _is_work_idea_add(tokens: list[str], command_index: int) -> bool:
+    return "--idea" in _command_arguments(tokens, command_index)
 
 
 def _shell_tokens(command: str) -> list[str]:
@@ -1449,9 +1454,8 @@ def _stop(
         *[f"  - {path}" for path in _allowed_write_paths(execute)],
         "Before finishing: revert the out-of-boundary changes (or confirm they "
         "predate this session and tell the human), then run:",
-        f"  palari agent check {work_id} --as {palari_id} --mode execute --git-diff --json",
-        "If the boundary itself must grow, stop and hand off with:",
-        f"  palari agent handoff {work_id} --as {palari_id} --json",
+        f"  palari agent status {work_id} --as {palari_id} --mode execute --json",
+        "If the boundary itself must grow, stop and show that status to the human.",
     ]
     return {"decision": "block", "reason": "\n".join(lines)}
 
@@ -1485,8 +1489,8 @@ def _session_start(
                 "  allowed write paths: " + (", ".join(writes) if writes else "(none)")
             )
             lines.append(
-                f"  check before done: palari agent check {work_id} --as {palari_id} "
-                f"--mode {mode} --git-diff --json"
+                f"  inspect before done: palari agent status {work_id} --as {palari_id} "
+                f"--mode {mode} --json"
             )
         lines.append(
             "File writes outside these boundaries are blocked by PreToolUse and "
@@ -1538,8 +1542,7 @@ def _boundary_reason(
         *[f"allowed: {path}" for path in allowed],
         f"work: {work_id} (claimed by {palari_id})",
         "Next safe commands:",
-        f"  palari agent doctor {work_id} --as {palari_id} --mode execute --json",
-        f"  palari agent handoff {work_id} --as {palari_id} --json",
+        f"  palari agent status {work_id} --as {palari_id} --mode execute --json",
         "If the limits must grow, a human updates the task first.",
     ]
     return "\n".join(lines)
@@ -1686,26 +1689,8 @@ def _protected_governance_target(
         target = cwd / target
     target = target.resolve()
     data_path = workspace_file_path(workspace_path).resolve()
-    protected_files = {data_path}
-    try:
-        raw = json.loads(data_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        raw = {}
-    collection_files = raw.get("collection_files") if isinstance(raw, dict) else None
-    if isinstance(collection_files, dict):
-        for paths in collection_files.values():
-            if not isinstance(paths, list):
-                continue
-            for relative in paths:
-                if not isinstance(relative, str):
-                    continue
-                try:
-                    canonical = validate_workspace_path(relative)
-                    protected_files.add(resolve_workspace_path(data_path.parent, canonical))
-                except ValueError:
-                    continue
-    if target in protected_files or (
-        include_ancestors and any(target in path.parents for path in protected_files)
+    if target == data_path or (
+        include_ancestors and target in data_path.parents
     ):
         return "workspace source of truth"
     runtime = (data_path.parent / ".palari").resolve()

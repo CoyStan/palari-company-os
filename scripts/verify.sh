@@ -27,6 +27,7 @@ trap 'rm -rf "$verify_output_dir"' EXIT
 
 bash -n scripts/install_smoke.sh scripts/verify.sh scripts/make_demo_assets.sh
 python3 -S scripts/check_style.py
+python3 -S scripts/check_repo_tree.py
 ruff check .
 mypy
 python3 -S -m compileall -q src

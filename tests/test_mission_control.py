@@ -463,6 +463,7 @@ def add_mission_control_records(
             "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
             "allowed_actions": ["local_write"],
             "output_targets": ["notes/result.md"],
+            "path_intents": [{"path": "notes/result.md", "intent": "modify"}],
             "forbidden_actions": ["external_write"],
             "current_attempt": ATTEMPT_ID,
             "required_approval_capability": "product",
@@ -579,6 +580,7 @@ def add_mission_control_records(
                 },
                 "risk": "standard",
                 "approval_required": True,
+                "timestamp": "2026-07-18T10:05:00Z",
             }
         ]
 

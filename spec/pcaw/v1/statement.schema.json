@@ -111,6 +111,7 @@
         "receipt",
         "evidence",
         "review",
+        "reviewer_authorities",
         "humans",
         "human_decisions",
         "acceptance_records",
@@ -409,26 +410,6 @@
         "details": { "$ref": "#/$defs/string" }
       }
     },
-    "legacy_proof_binding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "binding_version",
-        "attempt_hash",
-        "evidence_manifest_hash",
-        "receipt_hash",
-        "work_contract_hash",
-        "proof_hash"
-      ],
-      "properties": {
-        "binding_version": { "$ref": "#/$defs/string" },
-        "attempt_hash": { "$ref": "#/$defs/string" },
-        "evidence_manifest_hash": { "$ref": "#/$defs/string" },
-        "receipt_hash": { "$ref": "#/$defs/string" },
-        "work_contract_hash": { "$ref": "#/$defs/string" },
-        "proof_hash": { "$ref": "#/$defs/string" }
-      }
-    },
     "review_snapshot": {
       "type": "object",
       "additionalProperties": false,
@@ -448,8 +429,7 @@
         "findings",
         "checks_inspected",
         "residual_risks",
-        "timestamp",
-        "legacy_binding"
+        "timestamp"
       ],
       "properties": {
         "id": { "$ref": "#/$defs/nonempty_string" },
@@ -470,8 +450,7 @@
         },
         "checks_inspected": { "$ref": "#/$defs/strings" },
         "residual_risks": { "$ref": "#/$defs/strings" },
-        "timestamp": { "$ref": "#/$defs/timestamp" },
-        "legacy_binding": { "$ref": "#/$defs/legacy_proof_binding" }
+        "timestamp": { "$ref": "#/$defs/timestamp" }
       }
     },
     "human_authority": {

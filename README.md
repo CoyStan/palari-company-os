@@ -92,6 +92,10 @@ agent agree on:
 Palari works around coding agents and AI tools. It is not a chatbot or model
 provider, and it does not automatically merge, deploy, or approve work.
 
+The product has five plain parts: **Goals**, **Team**, **Work**, **Checks**, and
+**Limits**. The [repo tree](docs/agent/repo-tree.json) also gives every tracked
+file one place, with no overlap and no gaps.
+
 The work process is:
 
 ```text
@@ -113,9 +117,20 @@ Initialize Palari, add one task, and let an agent take the next safe task:
 
 ```bash
 palari init --palari Agent --host codex --json
-palari work add "Clean up launch notes" --write docs/notes.md --json
+palari work add "Clean up launch notes" --create docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
+
+An agent can also add a bounded idea without creating a task:
+
+```bash
+palari work add "Draft the next launch page" --idea --create docs/launch.md --json
+```
+
+Palari stores the goal, owner, project, file limits, checks, and approval count,
+but the idea grants no permission and stays out of the task queue. If it is
+worth doing, a human runs the emitted `palari approve IDEA-ID --as HUMAN-ID`
+command. That creates the task; an agent must never run the approval command.
 
 `init` creates missing `AGENTS.md` and `docs/agent/` guidance without
 overwriting existing instructions. In a Git worktree it also makes one local,
@@ -156,8 +171,7 @@ profiles; Cursor has a tested advisory host profile (`palari init --host cursor`
 with an opt-in git commit gate. No profile grants permission to review, approve,
 merge, push, deploy, call a provider, or perform an external write.
 
-Use `--write PATH` when only final presence matters. When the kind of change
-matters, declare it exactly:
+Tell Palari what kind of file change the task must make:
 
 ```bash
 palari work add "Replace obsolete guidance" \
@@ -195,6 +209,22 @@ Most work needs two commands.
 `agent advance` never records a review result or human approval. Use
 `--dry-run` to inspect its plan.
 
+### Model-facing skills
+
+The canonical portable skills are:
+
+- [`palari-execute-work`](skills/palari-execute-work/SKILL.md) for the ordinary
+  start, bounded-edit, commit, advance, and stop workflow;
+- [`palari-review-work`](skills/palari-review-work/SKILL.md) for independent,
+  exact-head review without editing or human approval.
+- [`palari-adopt-repo`](skills/palari-adopt-repo/SKILL.md) for deliberate,
+  verified repository adoption through the existing `init` action.
+
+The skills grant no authority and contain no duplicate governance logic.
+Palari's current task brief and CLI remain the enforcement boundary. Execution
+excludes independent review and approval; review excludes implementation and
+human approval; adoption excludes ordinary task work and review.
+
 If a task is interrupted, record why before releasing the assignment:
 
 ```bash
@@ -204,17 +234,17 @@ palari agent release WORK-ID --as PALARI-CLAUDE \
 ```
 
 This records the blocker and next safe action. It does not invent completion
-records or approval. A legacy workspace without writable tamper-evident history
-receives an exact `history --checkpoint` command instead.
+records or approval. A workspace without current tamper-evident history is
+unsupported and cannot be upgraded in place.
 
 ## The ordinary human path
 
-After an independent review, inspect the concise human handoff and run its
+After an independent review, inspect the concise task status and run its
 exact human action once:
 
 ```bash
-palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
-# A human runs the exact human_action_commands[].command from this handoff.
+palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
+# A human runs the exact human_action_commands[].command from this status.
 ```
 
 Initialization provides a distinct review-only agent so a one-person
@@ -307,7 +337,7 @@ palari scope WORK-ID --changed docs/notes.md
 palari agent next --as PALARI-ID --json
 palari agent start --next --as PALARI-ID --json
 palari agent brief WORK-ID --as PALARI-ID --mode execute --json
-palari agent check WORK-ID --as PALARI-ID --mode execute --json
+palari agent status WORK-ID --as PALARI-ID --mode execute --json
 palari agent advance WORK-ID --as PALARI-ID --json
 palari agent release WORK-ID --as PALARI-ID \
   --reason "Paused" --next-action "Resume from the recorded blocker" --json
@@ -330,7 +360,6 @@ bin/palari                         CLI wrapper
 src/palari_company_os/             Python package
 schemas/workspace.schema.json      Workspace schema
 examples/acme-company-os/          Small example workspace
-workspaces/palari-company-os/      Historical, non-live dogfood evidence
 docs/product/                      Product and operator documentation
 docs/agent/                        Agent-ready repo orientation and rules
 scripts/verify.sh                  Complete local verification
@@ -341,8 +370,8 @@ tests/                             Unit and fixture tests
 ## Golden Paths
 
 - **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
-- **Agent loop:** read [Agent Loop Smoke](docs/product/agent-loop-smoke.md).
-- **Human loop:** inspect `palari agent handoff WORK-ID --as PALARI-REVIEWER
+- **Agent workflow:** read [Agent Workflow Smoke](docs/product/agent-workflow-smoke.md).
+- **Human loop:** inspect `palari agent status WORK-ID --as PALARI-REVIEWER
   --mode review --json`, then have the human run its exact emitted
   `human_action_commands[].command` once.
 - **Linear:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).

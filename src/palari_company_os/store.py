@@ -81,11 +81,6 @@ def write_store(
     crash_hook: Any | None = None,
     prewrite_check: Any | None = None,
 ) -> Workspace:
-    if has_collection_files(store.data):
-        raise WorkspaceError(
-            "authoring writes are not supported for split workspaces yet; "
-            "edit collection files directly or use a single-file workspace"
-        )
     lock = _acquire_workspace_lock(store.data_path)
     try:
         _assert_workspace_file_unchanged(store)
@@ -147,11 +142,6 @@ def write_store(
         return workspace
     finally:
         _release_workspace_lock(lock)
-
-
-def has_collection_files(data: dict[str, Any]) -> bool:
-    value = data.get("collection_files")
-    return isinstance(value, dict) and any(value.values())
 
 
 _WORK_LINKED_COLLECTIONS = {

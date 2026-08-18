@@ -131,16 +131,6 @@ class Finding:
 
 
 @dataclass(frozen=True)
-class LegacyProofBinding:
-    binding_version: str = ""
-    attempt_hash: str = ""
-    evidence_manifest_hash: str = ""
-    receipt_hash: str = ""
-    work_contract_hash: str = ""
-    proof_hash: str = ""
-
-
-@dataclass(frozen=True)
 class ReviewSnapshot:
     id: str
     work_item_id: str
@@ -158,7 +148,6 @@ class ReviewSnapshot:
     checks_inspected: tuple[str, ...] = ()
     residual_risks: tuple[str, ...] = ()
     timestamp: str = ""
-    legacy_binding: LegacyProofBinding = field(default_factory=LegacyProofBinding)
 
 
 @dataclass(frozen=True)
@@ -302,55 +291,47 @@ class GovernanceCase:
             raise ValueError("open_decisions ids must be unique")
 
     def to_dict(self) -> dict[str, Any]:
-        payload = _plain(self)
-        # reviewer_authorities is an additive PCAW v1 extension. Omitting an
-        # empty collection preserves canonical bytes and work-state digests for
-        # statements emitted before agent reviewers were supported.
-        if not self.reviewer_authorities:
-            payload.pop("reviewer_authorities", None)
-        return payload
+        return _plain(self)
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "GovernanceCase":
         if not isinstance(value, dict):
             raise ValueError("governance_case must be an object")
-        normalized = dict(value)
-        normalized.setdefault("reviewer_authorities", [])
-        _exact_fields(normalized, cls.TOP_LEVEL_FIELDS, "governance_case")
-        schema_version = _string(normalized, "schema_version", "governance_case")
+        _exact_fields(value, cls.TOP_LEVEL_FIELDS, "governance_case")
+        schema_version = _string(value, "schema_version", "governance_case")
         if schema_version != CASE_SCHEMA_VERSION:
             raise ValueError(f"unsupported governance case schema: {schema_version}")
         return cls(
             schema_version=schema_version,
-            claimed_state=_string(normalized, "claimed_state", "governance_case"),
-            contract=_record(WorkContract, normalized.get("contract"), "contract"),
+            claimed_state=_string(value, "claimed_state", "governance_case"),
+            contract=_record(WorkContract, value.get("contract"), "contract"),
             dependencies=_records(
-                DependencyState, normalized.get("dependencies"), "dependencies"
+                DependencyState, value.get("dependencies"), "dependencies"
             ),
-            open_decisions=_strings(normalized.get("open_decisions"), "open_decisions"),
-            sources=_records(SourceBoundary, normalized.get("sources"), "sources"),
-            attempt=_optional_record(AttemptSnapshot, normalized.get("attempt"), "attempt"),
-            receipt=_optional_record(ReceiptSnapshot, normalized.get("receipt"), "receipt"),
-            evidence=_optional_evidence(normalized.get("evidence")),
-            review=_optional_review(normalized.get("review")),
+            open_decisions=_strings(value.get("open_decisions"), "open_decisions"),
+            sources=_records(SourceBoundary, value.get("sources"), "sources"),
+            attempt=_optional_record(AttemptSnapshot, value.get("attempt"), "attempt"),
+            receipt=_optional_record(ReceiptSnapshot, value.get("receipt"), "receipt"),
+            evidence=_optional_evidence(value.get("evidence")),
+            review=_optional_review(value.get("review")),
             reviewer_authorities=_records(
                 ReviewerAuthority,
-                normalized.get("reviewer_authorities"),
+                value.get("reviewer_authorities"),
                 "reviewer_authorities",
             ),
-            humans=_records(HumanAuthority, normalized.get("humans"), "humans"),
+            humans=_records(HumanAuthority, value.get("humans"), "humans"),
             human_decisions=_records(
                 HumanDecisionSnapshot,
-                normalized.get("human_decisions"),
+                value.get("human_decisions"),
                 "human_decisions",
             ),
             acceptance_records=_records(
                 AcceptanceSnapshot,
-                normalized.get("acceptance_records"),
+                value.get("acceptance_records"),
                 "acceptance_records",
             ),
-            outcome=_optional_record(OutcomeSnapshot, normalized.get("outcome"), "outcome"),
-            observations=_observations(normalized.get("observations")),
+            outcome=_optional_record(OutcomeSnapshot, value.get("outcome"), "outcome"),
+            observations=_observations(value.get("observations")),
         )
 
     def contract_digest(self) -> str:
@@ -440,10 +421,7 @@ def _optional_review(value: Any) -> ReviewSnapshot | None:
         if name not in converted:
             raise ValueError(f"review.{name} is required")
     converted["findings"] = _records(Finding, converted["findings"], "review.findings")
-    converted["legacy_binding"] = _record(
-        LegacyProofBinding, converted["legacy_binding"], "review.legacy_binding"
-    )
-    for name in names - {"findings", "legacy_binding"}:
+    for name in names - {"findings"}:
         converted[name] = _typed_value(converted[name], hints[name], f"review.{name}")
     return ReviewSnapshot(**converted)
 

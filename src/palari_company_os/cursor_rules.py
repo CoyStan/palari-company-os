@@ -46,9 +46,9 @@ boundary. Before changing files, discover and respect your current boundary.
   - `palari agent brief WORK-ID --as PALARI-ID --mode execute --json`
 - Claim the work before editing files:
   - `palari agent start WORK-ID --as PALARI-ID --mode execute --json`
-- Only edit files inside the packet `allowed_paths.write`. Check your changes
-  against the boundary before committing:
-  - `palari agent check WORK-ID --as PALARI-ID --mode execute --git-diff --json`
+- Only edit files inside the packet `allowed_paths.write`. Use
+  `palari agent status WORK-ID --as PALARI-ID --mode execute --json` to inspect
+  limits, proof requirements, blockers, and the next safe action.
 - Stop for every blocker, missing source, human decision, or external write.
 
 {enforcement}

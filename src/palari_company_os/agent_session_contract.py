@@ -285,8 +285,8 @@ def _require_packet(packet: dict[str, Any]) -> None:
     }
     # Packet v1 predates RFC 8785 use and hashes with sorted compact JSON.
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    legacy_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-    if legacy_hash != context_hash:
+    packet_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+    if packet_hash != context_hash:
         raise WorkspaceError("agent packet content does not match context_hash")
 
 
@@ -432,7 +432,7 @@ def _body_error(body: dict[str, Any]) -> str:
     if error:
         return error
     required_output = obligations["required_output"]
-    for field in ("fallback_write_paths", "output_targets"):
+    for field in ("output_targets",):
         if field in required_output:
             try:
                 _paths(required_output[field], f"obligations.required_output.{field}")

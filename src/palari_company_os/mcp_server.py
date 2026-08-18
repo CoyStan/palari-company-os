@@ -7,14 +7,10 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from . import __version__
-from .agent_checks import build_agent_check
-from .agent_doctor import build_agent_doctor
-from .agent_finish import build_agent_finish
-from .agent_handoff import build_agent_handoff
-from .agent_loop import build_agent_loop
 from .agent_next import build_agent_next, build_agent_next_all
 from .agent_packets import build_agent_brief
 from .agent_runtime import release_agent, start_agent, start_next_agent
+from .agent_status import build_agent_status
 from .models import to_plain
 from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
 from .repo_docs import check_docs
@@ -154,16 +150,14 @@ def tool_definitions() -> list[dict[str, Any]]:
             idempotent=False,
         ),
         _tool(
-            "palari_agent_check",
-            "Palari Agent Check",
-            "Check whether one task currently follows its task brief.",
+            "palari_agent_status",
+            "Palari Agent Status",
+            "Show task limits, proof state, blockers, and eligible review or human actions.",
             {
                 "workspace": _string("Workspace directory or workspace.json path."),
                 "work_id": _string("Task id."),
                 "palari_id": _string("Acting agent id."),
                 "mode": _string("Session mode.", default="execute"),
-                "changed_paths": _array("Changed paths to compare with task file limits."),
-                "git_diff": _boolean("Inspect current Git status against task file limits."),
             },
             required=["work_id", "palari_id"],
         ),
@@ -183,54 +177,6 @@ def tool_definitions() -> list[dict[str, Any]]:
             required=["work_id", "palari_id"],
             read_only=False,
             idempotent=True,
-        ),
-        _tool(
-            "palari_agent_finish",
-            "Palari Agent Finish",
-            "Summarize whether one agent may report completion or must hand off.",
-            {
-                "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Task id."),
-                "palari_id": _string("Acting agent id."),
-                "mode": _string("Session mode.", default="execute"),
-            },
-            required=["work_id", "palari_id"],
-        ),
-        _tool(
-            "palari_agent_handoff",
-            "Palari Agent Handoff",
-            "Show a read-only handoff for review or approval.",
-            {
-                "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Task id."),
-                "palari_id": _string("Acting agent id."),
-                "mode": _string("Session mode.", default="execute"),
-            },
-            required=["work_id", "palari_id"],
-        ),
-        _tool(
-            "palari_agent_loop",
-            "Palari Agent Loop",
-            "Show the compact read-only task flow for one agent and task.",
-            {
-                "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Task id."),
-                "palari_id": _string("Acting agent id."),
-                "mode": _string("Session mode.", default="execute"),
-            },
-            required=["work_id", "palari_id"],
-        ),
-        _tool(
-            "palari_agent_doctor",
-            "Palari Agent Doctor",
-            "Explain the current task safety status in plain language.",
-            {
-                "workspace": _string("Workspace directory or workspace.json path."),
-                "work_id": _string("Task id."),
-                "palari_id": _string("Acting agent id."),
-                "mode": _string("Session mode.", default="execute"),
-            },
-            required=["work_id", "palari_id"],
         ),
         _tool(
             "palari_agent_release",
@@ -341,15 +287,12 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             _optional_string(arguments, "mode", "execute"),
             lease_minutes=_optional_int(arguments, "lease_minutes", 30),
         )
-    if name == "palari_agent_check":
-        return build_agent_check(
+    if name == "palari_agent_status":
+        return build_agent_status(
             workspace,
             _required_string(arguments, "work_id"),
             _required_string(arguments, "palari_id"),
             _optional_string(arguments, "mode", "execute"),
-            changed_paths=_string_list(arguments.get("changed_paths", [])),
-            git_diff=bool(arguments.get("git_diff", False)),
-            cwd=workspace.path,
         )
     if name == "palari_agent_advance":
         from .agent_advance import agent_advance
@@ -361,34 +304,6 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             _required_string(arguments, "palari_id"),
             dry_run=bool(arguments.get("dry_run", False)),
             refresh_verification=bool(arguments.get("refresh_verification", False)),
-        )
-    if name == "palari_agent_finish":
-        return build_agent_finish(
-            workspace,
-            _required_string(arguments, "work_id"),
-            _required_string(arguments, "palari_id"),
-            _optional_string(arguments, "mode", "execute"),
-        )
-    if name == "palari_agent_handoff":
-        return build_agent_handoff(
-            workspace,
-            _required_string(arguments, "work_id"),
-            _required_string(arguments, "palari_id"),
-            _optional_string(arguments, "mode", "execute"),
-        )
-    if name == "palari_agent_loop":
-        return build_agent_loop(
-            workspace,
-            _required_string(arguments, "work_id"),
-            _required_string(arguments, "palari_id"),
-            _optional_string(arguments, "mode", "execute"),
-        )
-    if name == "palari_agent_doctor":
-        return build_agent_doctor(
-            workspace,
-            _required_string(arguments, "work_id"),
-            _required_string(arguments, "palari_id"),
-            _optional_string(arguments, "mode", "execute"),
         )
     if name == "palari_agent_release":
         return release_agent(

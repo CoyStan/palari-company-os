@@ -37,6 +37,19 @@ exporting `PALARI_TEST_WORKERS`:
 PALARI_TEST_WORKERS=1 ./scripts/verify.sh complete
 ```
 
+## Part checks
+
+The checked repo tree stores one focused test list for each code part. Run one
+by its plain name:
+
+```bash
+python3 -S scripts/check_repo_tree.py --part work
+```
+
+This checks the repo map first, then runs only the tests listed for `work`.
+Use the part check for fast feedback. It does not replace the complete
+candidate check when shared doors or release behavior changed.
+
 ## Focused development checks
 
 During implementation, name only the modules attributable to the current slice:

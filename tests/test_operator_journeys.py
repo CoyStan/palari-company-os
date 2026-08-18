@@ -23,7 +23,6 @@ from palari_company_os.cli import main as cli_main
 from palari_company_os.cli_output_agent import print_agent_park
 from palari_company_os.command_surface import palari_workspace_command
 from palari_company_os.governance_journal import (
-    checkpoint_workspace_journal,
     journal_file_path,
     verify_workspace_journal,
 )
@@ -112,7 +111,7 @@ class OperatorJourneyTests(unittest.TestCase):
             self.assertNotIn("AUTHORITY_PLAN_UNSATISFIABLE", blocker_codes)
             self.assertGreaterEqual(int(nxt.get("ready_count", 0)), 1)
 
-    def test_solo_maintainer_product_command_r2_closeout_without_advance_mocks(
+    def test_solo_maintainer_product_command_r4_closeout_without_advance_mocks(
         self,
     ) -> None:
         """Product CLI only: init → work → start → advance → review → approve.
@@ -145,7 +144,7 @@ class OperatorJourneyTests(unittest.TestCase):
                 "--create",
                 output_path,
                 "--risk",
-                "R2",
+                "R4",
                 "--intensity",
                 "standard",
                 "--approvals",
@@ -197,11 +196,11 @@ class OperatorJourneyTests(unittest.TestCase):
             invoked.append("review record")
             self.assertEqual(review_result["action"], "created")
 
-            reviewer_handoff = self._run_emitted_json(
+            reviewer_status = self._run_emitted_json(
                 palari_workspace_command(
                     workspace_file,
                     "agent",
-                    "handoff",
+                    "status",
                     work_id,
                     "--as",
                     "PALARI-REVIEWER",
@@ -210,8 +209,8 @@ class OperatorJourneyTests(unittest.TestCase):
                     "--json",
                 )
             )
-            invoked.append("agent handoff")
-            human_action = reviewer_handoff["human_action_commands"][0]
+            invoked.append("agent status")
+            human_action = reviewer_status["human_action_commands"][0]
             self.assertEqual(human_action["actor"], "HUMAN-FOUNDER")
             self.assertIn("approve", human_action["command"])
             self.assertNotIn(" receipt ", f" {human_action['command']} ")
@@ -238,7 +237,7 @@ class OperatorJourneyTests(unittest.TestCase):
                     "agent advance",
                     "agent start review",
                     "review record",
-                    "agent handoff",
+                    "agent status",
                     "approve",
                 ],
             )
@@ -296,44 +295,6 @@ class OperatorJourneyTests(unittest.TestCase):
             output = root / output_path
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text("exact founder-reviewed bytes\n", encoding="utf-8")
-            checked = self._run_cli_json(
-                "--workspace",
-                str(workspace_file),
-                "agent",
-                "check",
-                work_id,
-                "--as",
-                "PALARI-CLAUDE",
-                "--mode",
-                "execute",
-                "--changed",
-                output_path,
-                "--json",
-            )
-            boundary_checks = {
-                str(item["code"]): item for item in checked["checks"]
-            }
-            for code in (
-                "PACKET_READY",
-                "PALARI_ALLOWED",
-                "DEPENDENCIES_CLEAR",
-                "SOURCES_ALLOWED",
-                "NO_UNAPPROVED_EXTERNAL_WRITE",
-                "VALIDATE_WORKSPACE",
-                "CLAIM_OWNED",
-                "FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
-                "REQUIRED_OUTPUT_EXISTS",
-            ):
-                self.assertNotEqual(
-                    boundary_checks[code]["status"],
-                    "fail",
-                    msg=f"{code}: {boundary_checks[code]}",
-                )
-            self.assertFalse(checked["ok"])
-            self.assertEqual(
-                boundary_checks["FILE_CHANGES_RECORDED"]["status"],
-                "fail",
-            )
 
             self.run_git(root, "add", "--", output_path)
             self.run_git(root, "commit", "-qm", "add bounded founder result")
@@ -399,11 +360,11 @@ class OperatorJourneyTests(unittest.TestCase):
             self.assertEqual(review_result["action"], "created")
             self.assertEqual(review_result["collection"], "review_verdicts")
 
-            reviewer_handoff = self._run_emitted_json(
+            reviewer_status = self._run_emitted_json(
                 palari_workspace_command(
                     workspace_file,
                     "agent",
-                    "handoff",
+                    "status",
                     work_id,
                     "--as",
                     "PALARI-REVIEWER",
@@ -412,7 +373,7 @@ class OperatorJourneyTests(unittest.TestCase):
                     "--json",
                 )
             )
-            human_actions = reviewer_handoff["human_action_commands"]
+            human_actions = reviewer_status["human_action_commands"]
             self.assertEqual(len(human_actions), 1)
             human_action = human_actions[0]
             self.assertEqual(human_action["actor"], "HUMAN-FOUNDER")
@@ -529,7 +490,7 @@ class OperatorJourneyTests(unittest.TestCase):
                 history_before_collision,
             )
 
-    def test_simple_approval_rejects_nonbatchable_external_and_incomplete_quorum(
+    def test_simple_approval_accepts_safe_r4_but_rejects_external_and_incomplete_quorum(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -538,14 +499,16 @@ class OperatorJourneyTests(unittest.TestCase):
                 count=1,
                 risk="R3",
             )
-            elevated_before = elevated.read_bytes()
-            with self.assertRaises(SimpleApprovalError) as nonbatchable:
-                approve_work(str(elevated), "WORK-001", "HUMAN-PRODUCT")
-            self.assertEqual(
-                nonbatchable.exception.code,
-                "APPROVAL_NON_BATCHABLE",
+            elevated_result = approve_work(
+                str(elevated),
+                "WORK-001",
+                "HUMAN-PRODUCT",
             )
-            self.assertEqual(elevated.read_bytes(), elevated_before)
+            self.assertTrue(elevated_result["completed"])
+            self.assertEqual(
+                load_store(elevated).data["work_items"][0]["status"],
+                "completed",
+            )
 
             external = make_ready_workspace(
                 Path(directory) / "external",
@@ -854,7 +817,7 @@ class OperatorJourneyTests(unittest.TestCase):
             before = workspace_file.read_bytes()
             with self.assertRaisesRegex(
                 WorkspaceError,
-                "history --checkpoint.*Activate journal",
+                "current governance journal.*upgrades.*unsupported",
             ):
                 park_agent(
                     workspace_file,
@@ -911,7 +874,8 @@ class OperatorJourneyTests(unittest.TestCase):
                 if palari["id"] == PALARI_ID:
                     palari["active_work"] = [WORK_ID]
             write_store(store)
-            shutil.rmtree(root / ".palari", ignore_errors=True)
+            if not journal:
+                shutil.rmtree(root / ".palari")
             (root / ALLOWED_PATH).write_text("initial copy\n", encoding="utf-8")
 
             self.run_git(root, "init", "-q")
@@ -919,12 +883,6 @@ class OperatorJourneyTests(unittest.TestCase):
             self.run_git(root, "config", "user.name", "Test")
             self.run_git(root, "add", "-A")
             self.run_git(root, "commit", "-qm", "current fixture")
-            if journal:
-                checkpoint_workspace_journal(
-                    workspace_file,
-                    PALARI_ID,
-                    reason="Activate current journal for the parking journey.",
-                )
             yield workspace_file
 
     @staticmethod

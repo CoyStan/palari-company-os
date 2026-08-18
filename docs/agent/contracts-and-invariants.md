@@ -11,16 +11,11 @@ code change must match them. See
 - Unknown workspace fields fail closed.
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
-- Task IDs are identity only. New quick-created work uses collision-resistant
-  opaque IDs; legacy IDs remain valid. Dependency authority exists only through
-  explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
-- New workspaces begin replayable v2 tamper-evident history. A workspace with a
-  committed valid v1 journal is read-only until an operator explicitly
-  activates v2. That activation does not rewrite v1: the v2 restore point
-  content-binds the exact sealed predecessor, then deterministic value deltas
-  form the streamed tail. Existing unjournaled workspaces also require an
-  explicit v2 restore point; no current record is written under the v1 filename.
-  Prepared and
+- Task IDs are identity only. New work uses collision-resistant opaque IDs.
+  Dependency authority exists only through explicit, reference-valid,
+  duplicate-free, acyclic `dependency_ids` edges.
+- New workspaces begin replayable v2 tamper-evident history. Existing
+  workspaces without it require an explicit v2 restore point. Prepared and
   committed records still bracket the atomic, fsynced workspace replacement;
   divergence, corruption, pending transactions, and continuity breaks remain
   visible.
@@ -36,22 +31,15 @@ code change must match them. See
   Inbox/handoff operations perform current check and history verification;
   nested verification in one such operation may share
   only an in-memory request context. Persistent caches never become authority.
-- Split collection files are read-time only for ordinary authoring; authoring
-  writes refuse split workspaces rather than silently collapsing records.
-  This reader is parked compatibility, not a supported write or migration
-  surface.
-- Collection file paths must be workspace-relative and must not contain `..`.
 - Declared `path_intents` are exact, normalized, duplicate-free, and
   prefix-disjoint. Create/modify require the intended regular-file Git state;
-  delete requires an absent exact path plus an observed Git deletion. Legacy
-  work without intents retains its presence-required output behavior.
+  delete requires an absent exact path plus an observed Git deletion. Every
+  task and proposal must store this field, even when the list is empty.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
-- Sealed v1 predecessor verification is linear in parsed journal records. V2 hashes the
-  sealed v1 predecessor as bytes and strictly streams only its compact segment,
-  retaining one replay projection rather than all records or projections.
-  Request-local reuse may remove duplicate scans only while workspace, v1, and
-  v2 filesystem witnesses remain unchanged; no persistent cache may authorize
-  a transition.
+- V2 verification streams records and retains one replay projection rather than
+  all records or projections. Request-local reuse may remove duplicate scans
+  only while workspace and journal file witnesses remain unchanged; no
+  persistent cache may authorize a transition.
 
 ## Permissions And Approval
 
@@ -66,7 +54,7 @@ code change must match them. See
   individually gated.
 - Approval Pack v3 decisions bind the exact canonical presentation artifact
   named by the human command and retain both declared and effective final
-  approval counts. The reader remains compatible with pack v2. Relevant
+  approval counts. Only pack v3 is supported; other versions fail closed. Relevant
   decision-context changes stale the old presentation. One action may perform
   only crash-safe local automatic finishing already allowed by current
   authority; it cannot manufacture review, another vote, external effects, or
@@ -75,6 +63,9 @@ code change must match them. See
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
   simple `approve` or pack-decision authority surface; supported agent shell
   adapters hard-deny both.
+- Agents may store a bounded idea with `work add --idea`. It creates no task,
+  assignment, or permission. Only `approve IDEA-ID`, run by a human, copies the
+  declared limits into active work; it does not approve the later result.
 - The one-task `approve` command derives a singleton pack and presentation and
   delegates mutation to the existing pack transaction. Handoff emits it with a
   machine-supplied presentation binding; a bare invocation selects current
@@ -91,9 +82,8 @@ code change must match them. See
   reviewed head, and work contract. Concrete Review Guide actions carry the
   current binding digest and fail if that proof changes before recording.
   Bound reviews are immutable.
-- Schema v2 loads historical unbound non-accepting reviews for inspection, but
-  rejects unbound `accept-ready`. Older workspace schema versions fail closed;
-  current runtime does not infer or manufacture upgraded authority.
+- Schema v2 rejects every unbound review. Older workspace schema versions fail
+  closed; current runtime does not infer or manufacture upgraded authority.
 - Each human's latest timezone-ordered decision for the exact review and
   evidence controls quorum; a prior rejection or defer does not suppress a
   later exact approval action, while contradictory or ambiguous ordering fails
@@ -112,8 +102,8 @@ code change must match them. See
   laundering later changes.
 - For every complete Git-backed baseline, including a first claim and any
   restart or expiry recovery, Palari compares a canonical execution-authority
-  projection from exact baseline workspace bytes with strict current root and
-  split-collection bytes before it can
+  projection from exact baseline workspace bytes with strict current workspace
+  bytes before it can
   acquire a lease, then repeats that comparison under the final local workspace
   mutation lock and holds that lock through witness, baseline, packet, and claim
   persistence. It covers the acting Palari's identity, role, scope, worker,
@@ -121,9 +111,9 @@ code change must match them. See
   dependency lifecycle authority; paths; selected-source provider/URI/external
   identity; capabilities; outputs; coordination policy; and static completion
   gates. Mutable proof records and current builder/reviewer proof context are
-  deliberately excluded. A changed authority, malformed strict JSON, unsafe
-  collection path, or mismatched split collection fails closed. Journal actor
-  labels and `agent handoff` do not authorize a rebaseline. Preserve the old
+  deliberately excluded. A changed authority, malformed strict JSON, or
+  mismatched workspace fails closed. Journal actor
+  labels and `agent status` do not authorize a rebaseline. Preserve the old
   record and create a successor work item for a changed contract; unrelated
   read-model projection remains eligible for separate classification.
 - If a first claim's current work declaration is absent from the baseline commit,
@@ -137,6 +127,12 @@ code change must match them. See
 - A persisted Git witness is checked before lease acquisition and again while
   the final workspace lock is held. Missing refs, changed heads, and mismatched
   v2 catalog messages block restart before a durable claim can be renewed.
+- Every complete Git claim uses the v2 witness and lease with one v3 governance-
+  projection snapshot. For each projection file, the lease-bound snapshot hashes
+  both the session-Git bytes and exact live bytes at claim start, then classifies
+  their difference. A restart retains the immutable proof base without treating
+  prior Palari transactions as task output. Any later projection change fails closed.
+  Projection snapshot v2 is unsupported and is not upgraded in place.
 - `agent start --next` selects one candidate only through the existing
   `agent next` eligibility policy, then invokes the same explicit start path.
   It must not claim blocked work or invent a second priority/authority rule.
@@ -164,7 +160,7 @@ code change must match them. See
 - Blocked packets must not be claimed.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.
-- `agent check` verifies proof state and, when requested, observed file changes
+- `agent status` reports proof state, task limits, blockers, and boundary actions
   against the packet boundary.
 - One request-local agent operation shares a packet, check, and directive
   across aggregate read views. The pure directive compiler classifies the next
@@ -177,8 +173,8 @@ code change must match them. See
   `blocked`; it normalizes that single field and rehashes every other scope-
   authority field before the exact attempt is released. It never creates
   receipt, evidence, review, human decision, acceptance, outcome, or convergence
-  records. It requires an existing writable journal; legacy activation remains
-  an explicit checkpoint with a visible pre-checkpoint continuity boundary.
+  records. It requires an existing writable journal. A workspace without one
+  is unsupported and cannot be upgraded in place.
 - `agent advance` is the sole current execution-to-proof path. It attributes
   every committed path from the persisted claim-start head to current `HEAD`,
   not merely the tip commit. The claim, companion baseline, Git witness ref,
@@ -235,7 +231,7 @@ code change must match them. See
   adoption are agent-inaccessible. Every shell segment is classified even when
   another segment has a visible write target; command environment and
   helper-launching options cannot inherit read-only status. Workspace truth,
-  split collection files, `.palari/`, and Git metadata cannot be directly
+  `.palari/`, and Git metadata cannot be directly
   rewritten around those gates, including after claim release. Option-encoded
   destinations and linked worktree/common Git directories are part of the same
   protected boundary;
@@ -278,13 +274,8 @@ code change must match them. See
   grants no acceptance, merge, push, deployment, or external-write authority.
 - PCAW v1 does not claim portable deletion-history proof. Local workspace
   deletion tombstones remain outside the v1 protocol guarantee.
-- Every committed journal projection is a content-addressed checkpoint.
-  Restoration appends a human-attributed transition only for an effect-free
-  local chain. Every committed projection after the earliest matching digest
-  is inspected; external effects block restoration before any projection
-  change, even if later local state hid the effect or returned to the target.
-- `history --restore` is a human-only shell authority command. An agent cannot
-  acquire it by supplying a declared human id.
+- Removed restore-point spellings remain denied by session hooks as obsolete
+  authority-shaped input.
 
 ## Sources, Run Records, And External Actions
 
@@ -302,6 +293,15 @@ code change must match them. See
 ## Documentation
 
 - Repo truth belongs in committed docs, not machine-local memory.
+- Every tracked file belongs to one branch in `docs/agent/repo-tree.json`.
+  Each split has three to five plain-named parts, with no overlap and no gaps.
+- Every source file belongs to one code part. Each code part names its owned
+  files, public doors, and focused tests in that same tree.
+- New cross-part use should enter through a listed door. A door change needs
+  checks for the parts that use it; old imports are not silently treated as
+  clean architecture.
+- Normal work targets one primary code part and starts with that part's check.
+  Git history and the Palari work list stay shared by the whole repo.
 - `AGENTS.md` should stay compact and point to deeper canonical docs.
 - Update docs when commands, schema, agent behavior, integrations, required checks, or
   examples change in ways future agents need to know.

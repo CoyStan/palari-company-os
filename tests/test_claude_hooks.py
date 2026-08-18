@@ -108,6 +108,10 @@ def _write_hook_workspace(workspace_dir: Path) -> None:
                 "scope": "Exercise hook enforcement.",
                 "acceptance_target": "Unsafe writes are blocked.",
                 "allowed_resources": default_paths[work_id],
+                "path_intents": [
+                    {"path": path, "intent": "modify"}
+                    for path in default_paths[work_id]
+                ],
                 "allowed_sources": ["SOURCE-HOOK"],
                 "forbidden_actions": ["deploy"],
                 "required_approval_count": 0,
@@ -133,6 +137,9 @@ def _write_claim_and_packet(
     expected_paths = list(allowed_write or [])
     if work["allowed_resources"] != expected_paths:
         work["allowed_resources"] = expected_paths
+        work["path_intents"] = [
+            {"path": path, "intent": "modify"} for path in expected_paths
+        ]
         workspace_file.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     packet = build_agent_brief(
         Workspace.load(workspace_dir), work_id, palari_id, "execute"
@@ -553,6 +560,22 @@ class PreToolUseTests(unittest.TestCase):
                     result["hookSpecificOutput"]["permissionDecisionReason"],
                 )
 
+    def test_agent_may_add_an_authority_free_work_idea(self) -> None:
+        command = (
+            "palari --workspace ws work add 'Draft launch copy' "
+            "--idea --as PALARI-SOFIA --create docs/launch.md --json"
+        )
+
+        result = _pre_tool_use(
+            self.workspace,
+            "Bash",
+            {"command": command},
+            self.repo,
+        )
+
+        self.assertEqual(bash_human_authority_command(command), "")
+        self.assertEqual(_decision(result), "")
+
     def test_abbreviated_workspace_option_cannot_hide_human_acceptance(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
         command = (
@@ -709,7 +732,7 @@ class PreToolUseTests(unittest.TestCase):
                     result["hookSpecificOutput"]["permissionDecisionReason"],
                 )
 
-    def test_unclassified_palari_commands_fail_closed_but_agent_checks_remain_safe(self) -> None:
+    def test_unclassified_palari_commands_fail_closed_but_status_remains_safe(self) -> None:
         unsafe = _pre_tool_use(
             self.workspace,
             "Bash",
@@ -719,7 +742,7 @@ class PreToolUseTests(unittest.TestCase):
         safe = _pre_tool_use(
             self.workspace,
             "Bash",
-            {"command": "palari agent check WORK-0001 --as PALARI-SOFIA --json"},
+            {"command": "palari agent status WORK-0001 --as PALARI-SOFIA --json"},
             self.repo,
         )
         status = _pre_tool_use(
@@ -1184,25 +1207,6 @@ class PreToolUseTests(unittest.TestCase):
         )
 
         self.assertEqual(result, {})
-
-    def test_split_collection_truth_is_protected_without_active_claim(self) -> None:
-        workspace_file = self.workspace / "workspace.json"
-        data = json.loads(workspace_file.read_text(encoding="utf-8"))
-        data["collection_files"] = {"goals": ["records/goals.json"]}
-        workspace_file.write_text(json.dumps(data), encoding="utf-8")
-
-        result = _pre_tool_use(
-            self.workspace,
-            "Write",
-            {"file_path": str(self.workspace / "records" / "goals.json")},
-            self.repo,
-        )
-
-        self.assertEqual(_decision(result), "deny")
-        self.assertIn(
-            "workspace source of truth",
-            result["hookSpecificOutput"]["permissionDecisionReason"],
-        )
 
     def test_expired_lease_counts_as_no_claim(self) -> None:
         _write_claim_and_packet(
@@ -1676,7 +1680,7 @@ class StopHookTests(unittest.TestCase):
 
         self.assertEqual(result.get("decision"), "block")
         self.assertIn("rogue.txt", result["reason"])
-        self.assertIn("palari agent check WORK-0001", result["reason"])
+        self.assertIn("palari agent status WORK-0001", result["reason"])
 
     def test_allows_stop_when_tree_is_inside_boundary(self) -> None:
         _write_claim_and_packet(self.workspace, allowed_write=["docs/notes.md"])
@@ -1740,7 +1744,7 @@ class SessionStartTests(unittest.TestCase):
 
         self.assertIn("WORK-0001", context)
         self.assertIn("docs/notes.md", context)
-        self.assertIn("palari agent check WORK-0001", context)
+        self.assertIn("palari agent status WORK-0001", context)
 
     def test_points_unclaimed_sessions_at_agent_next(self) -> None:
         context = self._context()

@@ -54,6 +54,18 @@ qualified human must approve it afterward.
 
 ## Ordinary paths
 
+An agent can resume its ongoing relationship before entering task mechanics:
+
+```text
+palari agent home --as PALARI-ID
+```
+
+The read-only home has five plain parts: Goals, Team, Work, Checks, and Limits.
+Work holds projects, ideas, tasks, and runs; Tasks split into now, next, and
+later. Limits hold sources, guides, tools, rules, and outside links; Rules split
+into allowed, ask, and never. The view grants no permission and creates no new
+stored facts; current workspace records remain the truth.
+
 An operator initializes a repository once, creates a bounded task, and checks
 its status:
 
@@ -63,6 +75,17 @@ palari work add TITLE --create PATH | --modify PATH | --delete PATH
 palari queue
 palari detail WORK-ID
 ```
+
+Between a goal and a task, an agent may add a bounded idea:
+
+```text
+palari work add TITLE --idea --create PATH | --modify PATH | --delete PATH
+```
+
+The idea keeps the proposed owner, project, file limits, dependencies, checks,
+and approval count, but grants no authority and does not enter the task queue.
+A human may turn it into active work with the emitted `palari approve IDEA-ID
+--as HUMAN-ID --json` command. That choice does not approve the later result.
 
 An agent normally needs two commands:
 
@@ -106,7 +129,7 @@ decision, or manufacture approval.
 `queue --approval-inbox` and `human-decision pack` remain the advanced surfaces
 for batching, mixed decisions, and explicit recovery. They emit executable
 commands only for viable named human actors. Current machine outputs are
-Approval Inbox v2, Approval Pack v3 (with a v2 reader), and Review Guide v2.
+Approval Inbox v2, Approval Pack v3, and Review Guide v2.
 
 ### Single-maintainer interaction measurement
 
@@ -147,9 +170,8 @@ The current durable workspace format is:
 - `.palari/governance-journal.v2.jsonl`, the file that stores tamper-evident
   history for current changes.
 
-New projects write v2 directly. Existing projects without journal continuity
-need an explicit v2 checkpoint before mutation. The v1 filename accepts only
-strict legacy records and is never a compatibility path for v2 output.
+New projects write v2 directly. A workspace without current journal continuity
+is unsupported and cannot be upgraded in place.
 
 Task briefs (`packets`), assignments (`claims`), session rules
 (`session-contracts`), caches, and Git-witness files are local runtime state,
@@ -168,22 +190,14 @@ live-state profile are documented in
 product does not yet claim that live dogfood governance can remain isolated
 while this source checkout stays clean.
 
-The only supported historical inputs are those proven by committed data:
-
-- the sealed governance-journal v1 predecessor, checked through a narrow
-  read-only boundary before current activation;
-- schema-v2 `work_items` records without additive `path_intents`, interpreted
-  only with their older presence rules;
-- historical `evidence` records without `output_binding_version`, which remain
-  inspectable without gaining stronger permission; and
-- unbound negative or non-accepting review records, which remain inspectable
-  but can never satisfy a required review or approval.
+Proof records have one current shape. Evidence requires exact output, manifest,
+run-record, and time bindings. Every review requires an exact attempt, evidence,
+run-record, task-contract, proof, and time binding. Missing fields fail closed;
+Palari does not load an older proof shape for inspection.
 
 The code-shaped names above are retained only where they identify exact stored
 fields or formats. There is no supported migration from unversioned, v0, or v1
-workspaces, legacy agent claims, or Approval Pack v1 because no committed real
-fixture requires it. Split `collection_files` support is parked pending a
-product decision and is not part of ordinary storage.
+workspaces, legacy agent claims, or old Approval Packs.
 
 ## Optional connections
 
@@ -205,14 +219,12 @@ A connection cannot widen a task's allowed files, sources, or actions; approve
 work; combine builder and reviewer; create human permission; bypass checks; or
 turn a queued external action into an executed one.
 
-## Parked features
+## Parked and removed features
 
-Several reachable features remain parked because maintainers could not safely
-delete or promote them: restore-point recovery, the split-collection reader,
-broad manual planning and record authoring beyond the ordinary first-use path,
-and the data-map, maintainer, gate, and playbook recommendation views. They are
-not part of the current core, do not grant permission, and carry no pre-1.0
-compatibility promise. Ordinary work must not depend on them.
+The August 2026 minimality pass deleted restore-point recovery, broad manual
+record authoring, and the data-map, maintainer, gate, and playbook recommendation
+commands. Git history retains them; the installed product does not. Ordinary
+work never depended on those paths.
 
 The large roadmap is also parked as `AMBIGUOUS`: it mixes unresolved strategy
 with work that has since shipped, so it is neither current status nor an
@@ -225,11 +237,9 @@ default; git gate opt-in). Provider-specific Slack, GitHub, Jira, and email
 preview shapes, the desktop prototype, its demo schema and showcase, and Pages
 deployment are also removed. Mission Control is the one supported local human
 UI, including guarded one-task Approve for eligible reversible local work.
-Historical completion documents do not define today's product. The PR #19
-completion contracts for journal v2, golden-path repair, and universal/invisible
-adoption are archived
-under `docs/archive/pr19-contracts/` with a supersession map; they are not
-current operator docs.
+Historical completion documents do not define today's product. Superseded PR
+#19 implementation contracts remain available in Git history rather than the
+current checkout.
 
 ## Non-goals and compatibility
 
@@ -239,9 +249,7 @@ generic live provider execution, or autonomous review or approval. Its core
 rules and offline verification need neither the network nor runtime packages
 beyond the Python standard library.
 
-Palari is pre-1.0. Compatibility is retained only for a real committed stored
-format and only behind one explicit reader or migration boundary. Public
-commands, aliases, schemas, fixtures, tests, and documents are not retained
-merely because they existed in version 0.2.0. Deliberate removals receive no
-alias, wrapper, or shim. Historical records stay immutable in Git; historical
+Palari is pre-1.0 and supports only its current stored formats. Old commands,
+aliases, schemas, and stored formats fail closed; there are no upgrade readers,
+wrappers, or shims. Historical records stay immutable in Git; historical
 implementations do not remain executable forever.

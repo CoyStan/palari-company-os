@@ -6,7 +6,16 @@ records and portable verification continue to work.
 
 ## The rule
 
-Write for people first:
+Write for people first. New public names use one short, common word when
+possible. Do not use a field of study, a theory word, or an acronym as a label
+when an everyday word says the same thing.
+
+Put every new product part under one of five plain headings: **Goals**,
+**Team**, **Work**, **Checks**, or **Limits**. A part may end there or split
+into three to five smaller parts. At each split, nothing overlaps and nothing
+is left out.
+
+The work path is:
 
 ```text
 goal

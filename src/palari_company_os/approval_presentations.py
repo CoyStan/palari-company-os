@@ -24,6 +24,41 @@ DECISION_STATES = {
 APPROVABLE_STATES = {"approved", "eligible"}
 
 
+def individual_approval_available(
+    pack: dict[str, Any],
+    member_id: str,
+) -> bool:
+    """Return whether one non-batchable member is safe for local approval."""
+
+    members = pack.get("members")
+    if (
+        not isinstance(members, list)
+        or len(members) != 1
+        or pack.get("execution_order") != [member_id]
+    ):
+        return False
+    member = members[0]
+    if not isinstance(member, dict) or member.get("id") != member_id:
+        return False
+    batch_policy = member.get("batch_policy")
+    reversibility = member.get("reversibility")
+    action = member.get("action")
+    if (
+        not isinstance(batch_policy, dict)
+        or not isinstance(reversibility, dict)
+        or not isinstance(action, dict)
+    ):
+        return False
+    return bool(
+        not batch_policy.get("batchable")
+        and reversibility.get("class") == "reversible-local"
+        and not pack.get("external_effects")
+        and not member.get("external_effects")
+        and not action.get("external")
+        and not action.get("irreversible")
+    )
+
+
 def build_approval_presentation(
     workspace: Workspace,
     pack: dict[str, Any],
@@ -160,16 +195,35 @@ def _action_context(
         for member in presented_members
         if isinstance(member, dict)
     ]
-    approvable = any(state in APPROVABLE_STATES for state in states)
+    batch_approvable = any(
+        state in APPROVABLE_STATES
+        and bool(member.get("batch_policy", {}).get("batchable"))
+        for state, member in zip(states, presented_members, strict=True)
+    )
+    individual_approvable = bool(
+        len(presented_members) == 1
+        and states
+        and states[0] in {"approved", "non-batchable"}
+        and individual_approval_available(
+            pack,
+            str(presented_members[0].get("id") or ""),
+        )
+    )
     decidable = any(state != "stale" for state in states)
     available: list[str] = []
-    if approvable:
+    if batch_approvable:
         available.extend(["approve", "approve-eligible"])
+    elif individual_approvable:
+        available.append("approve")
     if decidable:
         available.extend(["defer", "reject"])
     return {
         "available": available,
-        "primary": "approve-eligible" if approvable else "inspect-exceptions",
+        "primary": (
+            "approve-eligible"
+            if batch_approvable
+            else "approve" if individual_approvable else "inspect-exceptions"
+        ),
         "execution_order": deepcopy(pack.get("execution_order", [])),
         "local_convergence": "atomic-when-authorized",
     }

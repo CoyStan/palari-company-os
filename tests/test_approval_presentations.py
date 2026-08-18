@@ -24,6 +24,7 @@ class ApprovalPresentationTests(unittest.TestCase):
             root = Path(directory)
             data_path = make_ready_workspace(root, count=1)
             store = load_store(data_path)
+            self.assertEqual(store.data["work_items"][0]["path_intents"], [])
             first = build_approval_inbox(Workspace.load(data_path), store.data)
             second = build_approval_inbox(Workspace.load(data_path), store.data)
             first_pack = first["packs"][0]
@@ -107,35 +108,41 @@ class ApprovalPresentationTests(unittest.TestCase):
             all(item.get("approval_presentation_digest") for item in final.data["human_decisions"])
         )
 
-    def test_blocked_and_non_batchable_presentations_do_not_offer_approval(self) -> None:
-        cases = (
-            ("blocked", {}),
-            ("non-batchable", {"risk": "R3"}),
-        )
-        for expected_state, options in cases:
-            with self.subTest(state=expected_state), tempfile.TemporaryDirectory() as directory:
-                data_path = make_ready_workspace(Path(directory), count=1, **options)
-                if expected_state == "blocked":
-                    changed = load_store(data_path)
-                    changed.data["review_verdicts"] = []
-                    write_store(changed)
-                store = load_store(data_path)
-                inbox = build_approval_inbox(Workspace.load(data_path), store.data)
-                presentation = inbox["presentations"][0]
+    def test_blocked_presentation_does_not_offer_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1)
+            changed = load_store(data_path)
+            changed.data["review_verdicts"] = []
+            write_store(changed)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+            presentation = inbox["presentations"][0]
 
-                self.assertEqual(
-                    presentation["members"][0]["decision_state"]["state"],
-                    expected_state,
-                )
-                self.assertEqual(
-                    presentation["action"]["available"],
-                    ["defer", "reject"],
-                )
-                self.assertEqual(
-                    presentation["action"]["primary"],
-                    "inspect-exceptions",
-                )
-                self.assertFalse(inbox["primary_action"]["available"])
+        self.assertEqual(
+            presentation["members"][0]["decision_state"]["state"],
+            "blocked",
+        )
+        self.assertEqual(presentation["action"]["available"], ["defer", "reject"])
+        self.assertEqual(presentation["action"]["primary"], "inspect-exceptions")
+        self.assertFalse(inbox["primary_action"]["available"])
+
+    def test_safe_non_batchable_singleton_offers_only_individual_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, risk="R4")
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+            presentation = inbox["presentations"][0]
+
+        self.assertEqual(
+            presentation["members"][0]["decision_state"]["state"],
+            "non-batchable",
+        )
+        self.assertEqual(
+            presentation["action"]["available"],
+            ["approve", "defer", "reject"],
+        )
+        self.assertEqual(presentation["action"]["primary"], "approve")
+        self.assertFalse(inbox["primary_action"]["available"])
 
     def test_pack_decision_cannot_downgrade_or_transplant_its_presentation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -188,7 +195,7 @@ class ApprovalPresentationTests(unittest.TestCase):
         )
         self.assertIn(
             "--presentation-digest " + inbox["approval_commands"][0]["presentation_digest"],
-            inbox["approval_commands"][0]["approve_eligible"],
+            inbox["approval_commands"][0]["command"],
         )
 
 if __name__ == "__main__":

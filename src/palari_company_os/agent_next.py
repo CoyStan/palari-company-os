@@ -8,7 +8,7 @@ from .agent_finish import build_agent_finish
 from .agent_operation import AgentOperation
 from .command_surface import bind_palari_command_payload
 from .governance_kernel import TERMINAL_WORK_STATUSES
-from .agent_runtime import git_lease_statuses
+from .agent_runtime import agent_start_preflight_error, git_lease_statuses
 from .read_models import queue_items
 from .review_guides import palari_reviewer_candidate
 from .workspace import Workspace
@@ -161,6 +161,14 @@ def _candidates(
             mode=mode,
         )
         packet = operation.brief()
+        if packet.get("status") == "ready" and agent_start_preflight_error(
+            workspace,
+            work.id,
+            palari_id,
+            mode,
+            packet=packet,
+        ):
+            continue
         blockers = packet.get("blockers", [])
         lease = lease_statuses[work.id]
         claim_blocker = _claim_start_blocker(lease)
@@ -170,7 +178,6 @@ def _candidates(
             start_blockers.insert(0, claim_blocker)
         start_blockers = enrich_blockers(start_blockers)
         brief_command = f"palari agent brief {work.id} --as {palari_id} --mode {mode} --json"
-        check_command = _check_command(work.id, palari_id, mode)
         blocker_codes = [blocker.get("code", "") for blocker in blockers]
         finish = build_agent_finish(
             workspace,
@@ -196,8 +203,7 @@ def _candidates(
             handoff_guidance,
             finish_commands,
         )
-        doctor_command = _doctor_command(work.id, palari_id, mode)
-        loop_command = _loop_command(work.id, palari_id, mode)
+        status_command = _status_command(work.id, palari_id, mode)
         candidates.append(
             {
                 "workspace_file": str(workspace.data_path),
@@ -242,22 +248,18 @@ def _candidates(
                     )
                 ),
                 "next_command": next_command,
-                "doctor_command": doctor_command,
-                "loop_command": loop_command,
+                "status_command": status_command,
                 "next_commands": _candidate_next_commands(
                     item,
                     can_start,
                     brief_command,
-                    check_command,
                     handoff_guidance,
                     finish_commands,
                     next_command,
-                    doctor_command,
-                    loop_command,
+                    status_command,
                     mode,
                 ),
                 "brief_command": brief_command,
-                "check_command": check_command,
             }
         )
     return candidates
@@ -313,41 +315,34 @@ def _candidate_next_commands(
     item: Any,
     can_start: bool,
     brief_command: str,
-    check_command: str,
     handoff_guidance: list[dict[str, str]],
     finish_commands: list[str],
     next_command: str,
-    doctor_command: str,
-    loop_command: str,
+    status_command: str,
     mode: str,
 ) -> list[str]:
     if can_start and item.next_step_type == "check-active-proof":
-        commands = list(item.next_commands or [next_command, check_command])
-        _append_once(commands, doctor_command)
-        _append_once(commands, loop_command)
+        commands = list(item.next_commands or [next_command])
+        _append_once(commands, status_command)
         return commands
     if can_start and mode == "review":
         return [
             brief_command,
             f"palari review guide {item.id} --json",
-            check_command,
-            doctor_command,
-            loop_command,
+            status_command,
         ]
     if can_start:
-        return [brief_command, check_command, doctor_command, loop_command]
+        return [brief_command, status_command]
     if handoff_guidance:
         commands = [next_command]
         for guidance in handoff_guidance:
             _append_once(commands, guidance.get("guide_command", ""))
         for command in item.next_commands:
             _append_once(commands, command)
-        _append_once(commands, doctor_command)
-        _append_once(commands, loop_command)
+        _append_once(commands, status_command)
         return commands
     commands = list(finish_commands or item.next_commands)
-    _append_once(commands, doctor_command)
-    _append_once(commands, loop_command)
+    _append_once(commands, status_command)
     return commands
 
 
@@ -363,16 +358,8 @@ def _start_blockers(packet: dict[str, Any]) -> list[dict[str, Any]]:
     return blockers
 
 
-def _check_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent check {work_id} --as {palari_id} --mode {mode} --json"
-
-
-def _doctor_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent doctor {work_id} --as {palari_id} --mode {mode} --json"
-
-
-def _loop_command(work_id: str, palari_id: str, mode: str) -> str:
-    return f"palari agent loop {work_id} --as {palari_id} --mode {mode} --json"
+def _status_command(work_id: str, palari_id: str, mode: str) -> str:
+    return f"palari agent status {work_id} --as {palari_id} --mode {mode} --json"
 
 
 def _palari_can_see_work(
@@ -405,7 +392,7 @@ def _authority_correction(
     """Return the first authority-plan blocker (with its smallest correction).
 
     When the blocker is one a distinct review-only agent would resolve, attach a
-    concrete, copy-pasteable ``palari palari create`` command so a single
+    concrete, copy-pasteable ``palari reviewer add`` command so a single
     maintainer can unblock in one step instead of parsing prose.
     """
     for blocker in blockers:
@@ -428,7 +415,7 @@ def _authority_correction(
 
 
 def _reviewer_remediation_command(workspace: Workspace, work: Any) -> str:
-    """Build a ``palari palari create`` command that adds an eligible reviewer.
+    """Build a ``palari reviewer add`` command that adds an eligible reviewer.
 
     The reviewer is linked to the task goal (so it is eligible to review) and is
     given review-only ``forbidden_actions`` matching what ``palari init`` seeds.
@@ -444,17 +431,9 @@ def _reviewer_remediation_command(workspace: Workspace, work: Any) -> str:
     reviewer_id = "PALARI-REVIEWER"
     if reviewer_id in existing:
         reviewer_id = "PALARI-INDEPENDENT-REVIEWER"
-    forbidden = (
-        "build or modify task outputs,broaden task scope,"
-        "send external messages,record human approval"
-    )
     return (
-        f"palari palari create {reviewer_id} "
-        '--name "Independent Reviewer" '
-        '--role "Review-only AI partner" '
-        f"--owner-human {owner_human} "
-        f"--list linked_goals={goal} "
-        f'--list "forbidden_actions={forbidden}"'
+        f"palari reviewer add {reviewer_id} "
+        f"--goal {goal} --owner {owner_human}"
     )
 
 
@@ -538,9 +517,9 @@ def _candidate_commands(candidate: dict[str, Any]) -> list[str]:
     if candidate["next_command"] != candidate["brief_command"]:
         return candidate.get("next_commands") or [
             candidate["next_command"],
-            candidate["check_command"],
+            candidate["status_command"],
         ]
-    return [candidate["brief_command"], candidate["check_command"]]
+    return [candidate["brief_command"], candidate["status_command"]]
 
 
 def _append_once(commands: list[str], command: str) -> None:

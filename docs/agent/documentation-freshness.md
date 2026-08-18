@@ -7,12 +7,14 @@ into a process ritual.
 
 - public CLI commands or JSON output
 - workspace schema, validation, or collection semantics
-- agent task-brief, start, check, finish, handoff, doctor, or loop behavior
+- work-idea creation, human adoption, or task-boundary copying
+- agent task-brief, start, status, advance, or release behavior
 - source, run-record, check-result, review, or approval semantics
 - integration plan, approval, outbox, or external-write boundaries
 - required-check profile recommendations
 - examples, quickstarts, installation, or verification commands
 - public README or example claims
+- the checked repo tree when a file is added, moved, or removed
 - PCAW schemas, diagnostics, conformance vectors, verifier TCB, or tamper-evident
   history semantics
 
@@ -32,6 +34,7 @@ into a process ritual.
 - Required checks and approval: `docs/product/authority-and-gates.md`
 - Verification: `docs/agent/verification.md` and `docs/product/testing-guide.md`
 - Repo orientation: `docs/agent/repo-map.md`
+- Full file tree: `docs/agent/repo-tree.json`
 - PCAW protocol: `spec/pcaw/v1/README.md` and its schemas/vectors
 
 When unsure, prefer a short truthful doc update over leaving future agents to

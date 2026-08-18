@@ -62,12 +62,36 @@ OPTIONAL_COLLECTION_KEYS = (
     "proposals",
     "acceptance_records",
 )
-COLLECTION_FILE_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
+ALL_COLLECTION_KEYS = (*COLLECTION_KEYS, *OPTIONAL_COLLECTION_KEYS)
+
+REQUIRED_RECORD_FIELDS = {
+    "work_items": {"path_intents"},
+    "proposals": {"path_intents"},
+    "evidence_runs": {
+        "artifacts",
+        "artifact_hashes",
+        "output_binding_version",
+        "manifest_hash",
+        "receipt_hash",
+        "timestamp",
+    },
+    "review_verdicts": {
+        "binding_version",
+        "attempt_id",
+        "attempt_hash",
+        "evidence_reference",
+        "evidence_manifest_hash",
+        "receipt_reference",
+        "receipt_hash",
+        "work_contract_hash",
+        "proof_hash",
+        "timestamp",
+    },
+}
 
 ROOT_FIELDS = {
     "schema_version",
     "name",
-    "collection_files",
     *COLLECTION_KEYS,
     *OPTIONAL_COLLECTION_KEYS,
 }
@@ -413,6 +437,8 @@ ALLOWED_RECORD_FIELDS = {
         "proposer",
         "status",
         "summary",
+        "workbench_id",
+        "dependency_ids",
         "scope",
         "risk",
         "intensity",
@@ -420,12 +446,14 @@ ALLOWED_RECORD_FIELDS = {
         "allowed_sources",
         "allowed_actions",
         "output_targets",
+        "path_intents",
         "forbidden_actions",
         "acceptance_target",
         "verification_expectations",
         "recommended_playbooks",
         "conflict_targets",
         "parallel_policy",
+        "required_approval_count",
         "linked_work",
         "decision_id",
         "created_at",
@@ -480,7 +508,7 @@ CAPABILITY_KINDS = {
     "playbook",
     "policy",
 }
-CAPABILITY_STATUSES = {"enabled", "disabled", "review", "deprecated"}
+CAPABILITY_STATUSES = {"enabled", "disabled", "review"}
 PROPOSAL_STATUSES = {"proposed", "under-review", "adopted", "rejected", "deferred"}
 AUTHORITY_MODES = {"solo-founder", "team-safe", "strict", "custom"}
 ATTEMPT_STATUSES = {"active", "complete", "completed", "failed", "blocked"}
@@ -541,20 +569,6 @@ def validate_raw_contract(raw: dict[str, object]) -> None:
     for key in OPTIONAL_COLLECTION_KEYS:
         if key in raw:
             _validate_collection(raw, key)
-    if "collection_files" in raw:
-        _validate_collection_files(raw["collection_files"])
-
-
-def _validate_collection_files(value: object) -> None:
-    if not isinstance(value, dict):
-        raise WorkspaceError("workspace.collection_files must be an object")
-    unknown = sorted(set(value) - set(COLLECTION_FILE_KEYS))
-    if unknown:
-        fields = ", ".join(unknown)
-        raise WorkspaceError(f"workspace.collection_files has unknown collection(s): {fields}")
-    for key, paths in value.items():
-        if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
-            raise WorkspaceError(f"workspace.collection_files.{key} must be a list of paths")
 
 
 def _validate_collection(raw: dict[str, object], key: str) -> None:
@@ -564,6 +578,9 @@ def _validate_collection(raw: dict[str, object], key: str) -> None:
     for index, record in enumerate(records):
         label = _record_label(key, index, record)
         _reject_unknown_fields(label, record, ALLOWED_RECORD_FIELDS[key])
+        missing = sorted(REQUIRED_RECORD_FIELDS.get(key, set()) - set(record))
+        if missing:
+            raise WorkspaceError(f"{label} is missing field(s): {', '.join(missing)}")
 
 
 def validate_workspace_contract(workspace: Any) -> None:
@@ -617,6 +634,7 @@ def validate_workspace_contract(workspace: Any) -> None:
 
     for proposal in workspace.proposals:
         _validate_proposal(proposal, work_by_id, decisions_by_id)
+        _validate_path_intents(proposal, normalize_path, collection="proposals")
 
     for work in workspace.work_items:
         _require_allowed_value("work_items", work.id, "status", work.status, WORK_STATUSES)
@@ -695,16 +713,11 @@ def validate_workspace_contract(workspace: Any) -> None:
                 f"review_verdicts.{review.id}.reviewer must be independent from "
                 f"attempt actor {attempt.actor}"
             )
-        if review.binding_version:
-            from .governance_binding import review_binding_integrity_errors
+        from .governance_binding import review_binding_integrity_errors
 
-            binding_errors = review_binding_integrity_errors(workspace, review)
-            if binding_errors:
-                raise WorkspaceError(f"review_verdicts.{review.id}: {binding_errors[0]}")
-        elif review.verdict == "accept-ready":
-            raise WorkspaceError(
-                f"review_verdicts.{review.id}.verdict accept-ready requires exact proof binding"
-            )
+        binding_errors = review_binding_integrity_errors(workspace, review)
+        if binding_errors:
+            raise WorkspaceError(f"review_verdicts.{review.id}: {binding_errors[0]}")
         for field, value in (
             ("attempt_hash", review.attempt_hash),
             ("evidence_manifest_hash", review.evidence_manifest_hash),
@@ -715,15 +728,15 @@ def validate_workspace_contract(workspace: Any) -> None:
             _require_hash_prefix("review_verdicts", review.id, field, value)
 
     for decision in workspace.decisions:
-        _require_allowed_value("decisions", decision.id, "status", decision.status, DECISION_STATUSES)
+        _require_allowed_value(
+            "decisions", decision.id, "status", decision.status, DECISION_STATUSES
+        )
 
     latest_human_decisions: dict[tuple[str, str], HumanDecision] = {}
     for human_decision in workspace.human_decisions:
         key = (human_decision.work_item_id, human_decision.human_id)
         previous = latest_human_decisions.get(key)
-        if previous is None or _decision_order_key(human_decision) > _decision_order_key(
-            previous
-        ):
+        if previous is None or _decision_order_key(human_decision) > _decision_order_key(previous):
             latest_human_decisions[key] = human_decision
 
     for human_decision in workspace.human_decisions:
@@ -749,9 +762,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             QUORUM_STATUSES,
         )
         if not human_decision.timestamp:
-            raise WorkspaceError(
-                f"human_decisions.{human_decision.id}.timestamp is required"
-            )
+            raise WorkspaceError(f"human_decisions.{human_decision.id}.timestamp is required")
         try:
             parsed_timestamp = datetime.fromisoformat(
                 human_decision.timestamp.replace("Z", "+00:00")
@@ -779,9 +790,7 @@ def validate_workspace_contract(workspace: Any) -> None:
         _validate_approval_pack_decision(human_decision)
         if _is_acceptance(human_decision):
             latest_for_human = (
-                latest_human_decisions[
-                    (human_decision.work_item_id, human_decision.human_id)
-                ].id
+                latest_human_decisions[(human_decision.work_item_id, human_decision.human_id)].id
                 == human_decision.id
             )
             decision_evidence = evidence_by_id.get(human_decision.evidence_reference)
@@ -883,6 +892,7 @@ def validate_workspace_contract(workspace: Any) -> None:
             _validate_retired_work(workspace, work)
         elif work.status in TERMINAL_WORK_STATUSES:
             _validate_completed_work(workspace, work, attempts_by_id)
+
 
 def _reject_unknown_fields(label: str, record: dict[str, object], allowed: set[str]) -> None:
     unknown = sorted(set(record) - allowed)
@@ -995,7 +1005,9 @@ def _validate_capability(capability: Capability) -> None:
 def _validate_authority_profile(profile: AuthorityProfile) -> None:
     _require_allowed_value("authority_profiles", profile.id, "mode", profile.mode, AUTHORITY_MODES)
     for risk in profile.require_human_for_risks:
-        _require_allowed_value("authority_profiles", profile.id, "require_human_for_risks", risk, RISKS)
+        _require_allowed_value(
+            "authority_profiles", profile.id, "require_human_for_risks", risk, RISKS
+        )
     if profile.minimum_approval_count < 0:
         raise WorkspaceError(
             f"authority_profiles.{profile.id}.minimum_approval_count must be zero or greater"
@@ -1022,6 +1034,16 @@ def _validate_proposal(
         proposal.parallel_policy,
         PARALLEL_POLICIES,
     )
+    if proposal.required_approval_count < 0:
+        raise WorkspaceError(
+            f"proposals.{proposal.id}.required_approval_count must be zero or greater"
+        )
+    for dependency_id in proposal.dependency_ids:
+        if dependency_id not in work_by_id:
+            raise WorkspaceError(
+                f"proposals.{proposal.id}.dependency_ids references missing work item "
+                f"{dependency_id}"
+            )
     if proposal.status == "adopted":
         if not proposal.linked_work:
             raise WorkspaceError(f"proposals.{proposal.id}.linked_work is required when adopted")
@@ -1034,7 +1056,11 @@ def _validate_proposal(
         raise WorkspaceError(f"proposals.{proposal.id}.reason is required when {proposal.status}")
     if proposal.decision_id:
         decision = decisions_by_id[proposal.decision_id]
-        if decision.linked_work and proposal.linked_work and decision.linked_work != proposal.linked_work:
+        if (
+            decision.linked_work
+            and proposal.linked_work
+            and decision.linked_work != proposal.linked_work
+        ):
             raise WorkspaceError(
                 f"proposals.{proposal.id}.decision_id links to decision {decision.id} "
                 f"for different work item {decision.linked_work}"
@@ -1107,13 +1133,11 @@ def _validate_integration_plan(
     if plan.status in {"approved", "rejected", "canceled"}:
         if not plan.reviewed_by:
             raise WorkspaceError(
-                f"integration_plans.{plan.id}.reviewed_by is required when status is "
-                f"{plan.status}"
+                f"integration_plans.{plan.id}.reviewed_by is required when status is {plan.status}"
             )
         if not plan.reviewed_at:
             raise WorkspaceError(
-                f"integration_plans.{plan.id}.reviewed_at is required when status is "
-                f"{plan.status}"
+                f"integration_plans.{plan.id}.reviewed_at is required when status is {plan.status}"
             )
         human = humans_by_id[plan.reviewed_by]
         work = work_by_id[plan.work_item_id]
@@ -1254,16 +1278,16 @@ def _validate_integration_outbox_item(
         raise WorkspaceError(f"integration_outbox.{item.id}.payload_preview must be an object")
     if not isinstance(item.source_boundary, dict):
         raise WorkspaceError(f"integration_outbox.{item.id}.source_boundary must be an object")
-    _validate_no_raw_secret_values(f"integration_outbox.{item.id}.payload_preview", item.payload_preview)
+    _validate_no_raw_secret_values(
+        f"integration_outbox.{item.id}.payload_preview", item.payload_preview
+    )
     if item.payload_preview != plan.payload_preview:
         raise WorkspaceError(
-            f"integration_outbox.{item.id}.payload_preview does not match approved "
-            f"plan {plan.id}"
+            f"integration_outbox.{item.id}.payload_preview does not match approved plan {plan.id}"
         )
     if item.source_boundary != plan.source_boundary:
         raise WorkspaceError(
-            f"integration_outbox.{item.id}.source_boundary does not match approved "
-            f"plan {plan.id}"
+            f"integration_outbox.{item.id}.source_boundary does not match approved plan {plan.id}"
         )
 
 
@@ -1330,18 +1354,18 @@ def _validate_attempt_boundaries(
         )
 
 
-def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> None:
-    """Validate the additive exact-path mutation contract.
-
-    Legacy work items omit ``path_intents`` and retain their existing
-    output-target semantics. Once the field is present, every entry is an
-    exact canonical path with one unambiguous final-state intent.
-    """
+def _validate_path_intents(
+    work: WorkItem | Proposal,
+    normalize_path: PathNormalizer,
+    *,
+    collection: str = "work_items",
+) -> None:
+    """Validate the exact-path mutation contract."""
 
     seen: set[str] = set()
     boundaries = _write_boundaries(work)
     for index, item in enumerate(work.path_intents):
-        label = f"work_items.{work.id}.path_intents[{index}]"
+        label = f"{collection}.{work.id}.path_intents[{index}]"
         unknown = sorted(set(item) - {"path", "intent"})
         if unknown:
             raise WorkspaceError(f"{label} has unknown field(s): {', '.join(unknown)}")
@@ -1366,7 +1390,7 @@ def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> No
             raise WorkspaceError(f"{label}.path is not in canonical repository form: {path}")
         if path in seen:
             raise WorkspaceError(
-                f"work_items.{work.id}.path_intents contains duplicate path: {path}"
+                f"{collection}.{work.id}.path_intents contains duplicate path: {path}"
             )
         seen.add(path)
         for other in seen - {path}:
@@ -1376,13 +1400,10 @@ def _validate_path_intents(work: WorkItem, normalize_path: PathNormalizer) -> No
                 normalize_path,
             ):
                 raise WorkspaceError(
-                    f"work_items.{work.id}.path_intents paths overlap by prefix: "
-                    f"{other}, {path}"
+                    f"{collection}.{work.id}.path_intents paths overlap by prefix: {other}, {path}"
                 )
         if not boundaries or not _path_allowed(path, boundaries, normalize_path):
-            raise WorkspaceError(
-                f"{label}.path includes path outside declared boundaries: {path}"
-            )
+            raise WorkspaceError(f"{label}.path includes path outside declared boundaries: {path}")
 
 
 def _validate_receipt_boundaries(
@@ -1409,7 +1430,7 @@ def _validate_receipt_boundaries(
             )
 
 
-def _write_boundaries(work: WorkItem) -> list[str]:
+def _write_boundaries(work: WorkItem | Proposal) -> list[str]:
     return [*work.output_targets, *work.allowed_resources]
 
 
@@ -1448,9 +1469,7 @@ def _path_allowed(
             normalized_boundary = normalize_path(boundary)
         except ValueError:
             continue
-        if normalized == normalized_boundary or normalized.startswith(
-            f"{normalized_boundary}/"
-        ):
+        if normalized == normalized_boundary or normalized.startswith(f"{normalized_boundary}/"):
             return True
     return False
 
@@ -1480,7 +1499,7 @@ def _undo_ref_path(undo_ref: str) -> str:
     lower = stripped.lower()
     for prefix in ("delete ", "remove ", "revert ", "restore ", "unlink "):
         if lower.startswith(prefix):
-            return stripped[len(prefix):].strip()
+            return stripped[len(prefix) :].strip()
     if "/" in stripped or "." in stripped:
         return stripped
     return ""
@@ -1507,13 +1526,11 @@ def _validate_accepted_human_decision(
         )
     if not decision.evidence_reference:
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.evidence_reference is required "
-            "for accepted decisions"
+            f"human_decisions.{decision.id}.evidence_reference is required for accepted decisions"
         )
     if not decision.review_reference:
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is required "
-            "for accepted decisions"
+            f"human_decisions.{decision.id}.review_reference is required for accepted decisions"
         )
     evidence = evidence_by_id[decision.evidence_reference]
     review = reviews_by_id[decision.review_reference]
@@ -1528,11 +1545,7 @@ def _validate_accepted_human_decision(
             f"review for {review.work_item_id}, not {work.id}"
         )
     attempt = attempts_by_id[evidence.attempt_id]
-    if (
-        require_current
-        and work.current_attempt
-        and evidence.attempt_id != work.current_attempt
-    ):
+    if require_current and work.current_attempt and evidence.attempt_id != work.current_attempt:
         raise WorkspaceError(
             f"human_decisions.{decision.id}.evidence_reference is not for "
             f"current attempt {work.current_attempt}"
@@ -1546,8 +1559,7 @@ def _validate_accepted_human_decision(
         )
     if review.attempt_id != evidence.attempt_id:
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is bound to a "
-            "different attempt"
+            f"human_decisions.{decision.id}.review_reference is bound to a different attempt"
         )
     from .governance_binding import work_contract_hash
 
@@ -1602,9 +1614,7 @@ def _validate_acceptance_record(
     if not acceptance.decision_id:
         raise WorkspaceError(f"acceptance_records.{acceptance.id}.decision_id is required")
     if not acceptance.evidence_reference:
-        raise WorkspaceError(
-            f"acceptance_records.{acceptance.id}.evidence_reference is required"
-        )
+        raise WorkspaceError(f"acceptance_records.{acceptance.id}.evidence_reference is required")
     if not acceptance.review_reference:
         raise WorkspaceError(f"acceptance_records.{acceptance.id}.review_reference is required")
     evidence = evidence_by_id[acceptance.evidence_reference]
@@ -1672,12 +1682,7 @@ def _validate_ordered_trust_records(
     records: Iterable[Any],
     timestamp_fields: tuple[str, ...],
 ) -> None:
-    """Reject malformed or ambiguous timestamps used for latest-record selection.
-
-    Schema v2 historically allowed one undated record. Keep that representation
-    loadable when no ordering choice exists, but require an unambiguous instant as
-    soon as two records compete for the same work item.
-    """
+    """Reject missing, malformed, or ambiguous trust-record timestamps."""
 
     grouped: dict[str, list[Any]] = {}
     for record in records:
@@ -1696,14 +1701,8 @@ def _validate_ordered_trust_records(
                 values.append((field, value))
 
             if not values:
-                if len(work_records) > 1:
-                    fields = " or ".join(timestamp_fields)
-                    raise WorkspaceError(
-                        f"{collection}.{record_id}.{fields} is required because "
-                        f"{work_id} has multiple {collection} records; latest record "
-                        "would be ambiguous"
-                    )
-                continue
+                fields = " or ".join(timestamp_fields)
+                raise WorkspaceError(f"{collection}.{record_id}.{fields} is required")
 
             effective = timestamp_order(values[0][1])
             previous = seen.get(effective)
@@ -1724,13 +1723,9 @@ def _require_timezone_timestamp(
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (OverflowError, ValueError) as exc:
-        raise WorkspaceError(
-            f"{collection}.{record_id}.{field} must be ISO-8601"
-        ) from exc
+        raise WorkspaceError(f"{collection}.{record_id}.{field} must be ISO-8601") from exc
     if parsed.utcoffset() is None:
-        raise WorkspaceError(
-            f"{collection}.{record_id}.{field} must include a timezone"
-        )
+        raise WorkspaceError(f"{collection}.{record_id}.{field} must include a timezone")
     try:
         parsed.astimezone(timezone.utc)
     except OverflowError as exc:
@@ -1747,10 +1742,6 @@ def _validate_completed_work(
     evidence = _latest_for_work(workspace.evidence_runs, work.id)
     if evidence is None:
         raise WorkspaceError(f"work_items.{work.id}.status is terminal but evidence is missing")
-    if not evidence.output_binding_version:
-        _validate_historical_completed_work(workspace, work, attempts_by_id, evidence)
-        return
-
     from .pcaw_workspace import recorded_governance_projection
 
     projection = recorded_governance_projection(workspace, work.id)
@@ -1774,91 +1765,6 @@ def _validate_completed_work(
     )
 
 
-def _validate_historical_completed_work(
-    workspace: Any,
-    work: WorkItem,
-    attempts_by_id: dict[str, Attempt],
-    evidence: EvidenceRun,
-) -> None:
-    """Load the one committed unversioned terminal format for migration only."""
-
-    if _open_linked_decision(workspace, work.id) is not None:
-        raise WorkspaceError(f"work_items.{work.id}.status cannot be terminal with open decisions")
-    if not work.current_attempt:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current_attempt is missing"
-        )
-    attempt = attempts_by_id[work.current_attempt]
-    unfinished_dependencies = _unfinished_dependency_ids(workspace, work)
-    if unfinished_dependencies:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but dependencies are unfinished: "
-            f"{', '.join(unfinished_dependencies)}"
-        )
-    if attempt.status not in {"complete", "completed"}:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current attempt "
-            f"{attempt.id} is {attempt.status}"
-        )
-    if attempt.cleanliness.lower() not in {"clean", "pristine"}:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but current attempt "
-            f"{attempt.id} is not clean"
-        )
-    if evidence.attempt_id != work.current_attempt:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but latest evidence is "
-            f"not for current attempt {work.current_attempt}"
-        )
-    _require_fresh_passed_evidence(work.id, attempt, evidence)
-    if _historical_low_risk_completion(workspace, work, attempt):
-        return
-    review = _latest_for_work(workspace.review_verdicts, work.id)
-    if review is None:
-        raise WorkspaceError(f"work_items.{work.id}.status is terminal but review is missing")
-    _require_fresh_accept_ready_review(work.id, evidence, review)
-    if review.binding_version:
-        from .governance_binding import review_binding_integrity_errors, work_contract_hash
-
-        # The committed migration fixture pairs unversioned evidence with a
-        # versioned review. Validate that stored binding without promoting the
-        # historical evidence format to current completion authority.
-        binding_errors = review_binding_integrity_errors(workspace, review)
-        if review.work_contract_hash != work_contract_hash(work):
-            binding_errors.append(f"review {review.id} work contract is stale")
-        if binding_errors:
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but exact review proof is stale: "
-                f"{binding_errors[0]}"
-            )
-        matching_acceptance = _latest_for_work(workspace.acceptance_records, work.id)
-        if matching_acceptance is None:
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but exact acceptance record is missing"
-            )
-        if matching_acceptance.status != "accepted":
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but latest acceptance record "
-                f"{matching_acceptance.id} is {matching_acceptance.status}"
-            )
-        if (
-            matching_acceptance.review_reference != review.id
-            or matching_acceptance.evidence_reference != evidence.id
-            or matching_acceptance.reviewed_head != review.reviewed_head
-            or matching_acceptance.receipt_hash != review.receipt_hash
-        ):
-            raise WorkspaceError(
-                f"work_items.{work.id}.status is terminal but latest acceptance record "
-                "does not match current exact proof"
-            )
-    count = _historical_qualified_approval_count(workspace, work, review)
-    if count < work.required_approval_count:
-        raise WorkspaceError(
-            f"work_items.{work.id}.status is terminal but approval quorum is "
-            f"{count}/{work.required_approval_count}"
-        )
-
-
 def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
     """Validate explicit non-success terminalization without treating it as completion."""
 
@@ -1871,9 +1777,7 @@ def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
                 )
             continue
         if work.terminal_disposition not in RETIRED_WORK_STATUSES:
-            raise WorkspaceError(
-                f"work_items.{work.id}.terminal_disposition is invalid"
-            )
+            raise WorkspaceError(f"work_items.{work.id}.terminal_disposition is invalid")
         if not work.terminal_reason.strip():
             raise WorkspaceError(
                 f"work_items.{work.id}.terminal_reason is required when "
@@ -1910,9 +1814,7 @@ def _validate_work_retirement_graph(work_by_id: dict[str, WorkItem]) -> None:
     for work_id in sorted(work_by_id):
         visit(work_id)
 
-    retired_ids = {
-        work.id for work in work_by_id.values() if work.terminal_disposition
-    }
+    retired_ids = {work.id for work in work_by_id.values() if work.terminal_disposition}
     for work in work_by_id.values():
         retired_dependencies = sorted(set(work.dependency_ids) & retired_ids)
         if retired_dependencies:
@@ -1928,9 +1830,7 @@ def _validate_retired_work(
     work: WorkItem,
 ) -> None:
     if _open_linked_decision(workspace, work.id) is not None:
-        raise WorkspaceError(
-            f"work_items.{work.id} cannot be retired with open decisions"
-        )
+        raise WorkspaceError(f"work_items.{work.id} cannot be retired with open decisions")
     active_attempts = sorted(
         attempt.id
         for attempt in workspace.attempts
@@ -1984,38 +1884,10 @@ def _stored_evidence_integrity_errors(
     ]
     receipt = max(receipts, key=record_time_key) if receipts else None
     work = workspace.work_item(evidence.work_item_id)
-    versioned = bool(evidence.output_binding_version)
     return stored_evidence_integrity_errors(
         evidence,
         receipt,
         path_intents=work.path_intents if work is not None else [],
-        require_output_coverage=versioned,
-        require_version=versioned,
-    )
-
-
-def _historical_low_risk_completion(
-    workspace: Any,
-    work: WorkItem,
-    attempt: Attempt,
-) -> bool:
-    """Load committed R1/R2 evidence history without granting current authority."""
-
-    if (
-        work.risk not in {"R1", "R2"}
-        or work.required_approval_count != 0
-        or bool(set(work.allowed_actions) & EXTERNAL_WRITE_ACTIONS)
-        or attempt.status not in {"complete", "completed"}
-        or _unfinished_dependency_ids(workspace, work)
-    ):
-        return False
-    receipt = _latest_for_work(workspace.receipts, work.id)
-    return bool(
-        receipt is not None
-        and receipt.attempt_id == work.current_attempt
-        and not receipt.external_writes
-        and not receipt.planned_external_writes
-        and not receipt.queued_external_writes
     )
 
 
@@ -2092,6 +1964,21 @@ def _validate_receipt(
 
 
 def _validate_evidence_manifest_shape(evidence: EvidenceRun, work: WorkItem) -> None:
+    from .evidence_manifest import OUTPUT_BINDING_VERSION
+
+    if evidence.output_binding_version != OUTPUT_BINDING_VERSION:
+        raise WorkspaceError(
+            f"evidence_runs.{evidence.id}.output_binding_version must be "
+            f"{OUTPUT_BINDING_VERSION}"
+        )
+    if not evidence.artifacts:
+        raise WorkspaceError(f"evidence_runs.{evidence.id}.artifacts must not be empty")
+    if not evidence.artifact_hashes:
+        raise WorkspaceError(
+            f"evidence_runs.{evidence.id}.artifact_hashes must not be empty"
+        )
+    if not evidence.timestamp:
+        raise WorkspaceError(f"evidence_runs.{evidence.id}.timestamp is required")
     delete_paths = {
         str(item.get("path"))
         for item in work.path_intents
@@ -2104,9 +1991,7 @@ def _validate_evidence_manifest_shape(evidence: EvidenceRun, work: WorkItem) -> 
         digest = artifact_hash.get("sha256")
         status = artifact_hash.get("status")
         if not isinstance(path, str) or not path:
-            raise WorkspaceError(
-                f"evidence_runs.{evidence.id}.artifact_hashes items require path"
-            )
+            raise WorkspaceError(f"evidence_runs.{evidence.id}.artifact_hashes items require path")
         if not isinstance(digest, str) or not digest.startswith("sha256:"):
             raise WorkspaceError(
                 f"evidence_runs.{evidence.id}.artifact_hashes.{path} requires sha256 digest"
@@ -2199,39 +2084,6 @@ def _require_fresh_accept_ready_review(
         raise WorkspaceError(f"work_items.{work_id} review {review.id} is stale")
 
 
-def _historical_qualified_approval_count(
-    workspace: Any,
-    work: WorkItem,
-    review: ReviewVerdict,
-) -> int:
-    seen_humans: set[str] = set()
-    humans_by_id = {human.id: human for human in workspace.humans}
-    latest_by_human: dict[str, HumanDecision] = {}
-    for decision in workspace.human_decisions:
-        if decision.work_item_id != work.id:
-            continue
-        if decision.reviewed_head != review.reviewed_head:
-            continue
-        previous = latest_by_human.get(decision.human_id)
-        if previous is None or _decision_order_key(decision) > _decision_order_key(previous):
-            latest_by_human[decision.human_id] = decision
-    for decision in latest_by_human.values():
-        if not _is_acceptance(decision):
-            continue
-        if (
-            decision.review_reference != review.id
-            or decision.evidence_reference != review.evidence_reference
-        ):
-            continue
-        human = humans_by_id.get(decision.human_id)
-        if work.required_approval_capability and (
-            human is None or work.required_approval_capability not in human.approval_capabilities
-        ):
-            continue
-        seen_humans.add(decision.human_id)
-    return len(seen_humans)
-
-
 def _decision_order_key(decision: HumanDecision) -> tuple[datetime, str]:
     try:
         timestamp = datetime.fromisoformat(decision.timestamp.replace("Z", "+00:00"))
@@ -2265,13 +2117,9 @@ def _validate_approval_pack_decision(decision: HumanDecision) -> None:
             f"human_decisions.{decision.id} has incomplete approval-pack binding: {missing}"
         )
     if decision.acceptance_mode != "approval-pack":
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.acceptance_mode must be approval-pack"
-        )
+        raise WorkspaceError(f"human_decisions.{decision.id}.acceptance_mode must be approval-pack")
     if decision.approval_pack_action not in APPROVAL_PACK_ACTIONS:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.approval_pack_action is unsupported"
-        )
+        raise WorkspaceError(f"human_decisions.{decision.id}.approval_pack_action is unsupported")
     for field in (
         "approval_pack_digest",
         "approval_pack_member_digest",
@@ -2280,26 +2128,20 @@ def _validate_approval_pack_decision(decision: HumanDecision) -> None:
     ):
         value = getattr(decision, field)
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
-            raise WorkspaceError(
-                f"human_decisions.{decision.id}.{field} must be a sha256 digest"
-            )
+            raise WorkspaceError(f"human_decisions.{decision.id}.{field} must be a sha256 digest")
     expected = {
         "approve": ({"accepted", "approved"}, {"accepted", "approved"}),
         "reject": ({"rejected"}, {"rejected"}),
         "defer": ({"deferred"}, {"deferred"}),
     }[decision.approval_pack_action]
     if decision.decision not in expected[0] or decision.status not in expected[1]:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id} action contradicts decision or status"
-        )
+        raise WorkspaceError(f"human_decisions.{decision.id} action contradicts decision or status")
     presentation_fields = {
         "approval_presentation_schema_version": decision.approval_presentation_schema_version,
         "approval_presentation_digest": decision.approval_presentation_digest,
         "approval_presentation_surface": decision.approval_presentation_surface,
     }
-    presentation_present = {
-        key for key, value in presentation_fields.items() if value
-    }
+    presentation_present = {key for key, value in presentation_fields.items() if value}
     if not presentation_present:
         if decision.approval_presentation:
             raise WorkspaceError(
@@ -2340,9 +2182,7 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
 
     for pack_digest, bound in grouped.items():
         manifests = [
-            decision.approval_pack_manifest
-            for decision in bound
-            if decision.approval_pack_manifest
+            decision.approval_pack_manifest for decision in bound if decision.approval_pack_manifest
         ]
         if len(manifests) != 1:
             raise WorkspaceError(
@@ -2356,11 +2196,7 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
             raise WorkspaceError(
                 f"human_decisions approval pack {pack_digest} manifest digest does not match"
             )
-        unbound = [
-            decision.id
-            for decision in bound
-            if not decision.approval_presentation_digest
-        ]
+        unbound = [decision.id for decision in bound if not decision.approval_presentation_digest]
         if unbound:
             raise WorkspaceError(
                 "human_decisions approval pack requires presentation binding: "
@@ -2369,9 +2205,9 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
         presentation_groups: dict[str, list[HumanDecision]] = {}
         for decision in bound:
             if decision.approval_presentation_digest:
-                presentation_groups.setdefault(
-                    decision.approval_presentation_digest, []
-                ).append(decision)
+                presentation_groups.setdefault(decision.approval_presentation_digest, []).append(
+                    decision
+                )
         from .approval_presentations import (
             approval_presentation_digest,
             validate_approval_presentation,
@@ -2426,8 +2262,7 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
                     (
                         item
                         for item in workspace.attempts
-                        if item.work_item_id == work.id
-                        and item.id == member["proof"]["attempt_id"]
+                        if item.work_item_id == work.id and item.id == member["proof"]["attempt_id"]
                     ),
                     None,
                 )
@@ -2453,9 +2288,9 @@ def _validate_approval_pack_decision_sets(workspace: Any) -> None:
 def _validate_human_decision_order(decisions: Iterable[HumanDecision]) -> None:
     seen: dict[tuple[str, str, str, datetime], str] = {}
     for decision in decisions:
-        timestamp = datetime.fromisoformat(
-            decision.timestamp.replace("Z", "+00:00")
-        ).astimezone(timezone.utc)
+        timestamp = datetime.fromisoformat(decision.timestamp.replace("Z", "+00:00")).astimezone(
+            timezone.utc
+        )
         key = (
             decision.work_item_id,
             decision.human_id,

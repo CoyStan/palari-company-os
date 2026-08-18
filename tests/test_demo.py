@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -30,10 +31,7 @@ class DemoCommandTests(unittest.TestCase):
         self.assertIn("Initialize a solo-maintainer workspace", titles)
         self.assertIn("Founder approves once", titles)
         self.assertTrue(
-            any(
-                "AUTHORITY_PLAN_UNSATISFIABLE" in sentence
-                for sentence in payload["plain_summary"]
-            )
+            any("AUTHORITY_PLAN_UNSATISFIABLE" in sentence for sentence in payload["plain_summary"])
         )
         self.assertEqual(result.returncode, 0)
 
@@ -67,8 +65,13 @@ class DemoCommandTests(unittest.TestCase):
         self.assertNotIn("deterministic proof", transcript)
         self.assertNotIn("active attempts", transcript)
         self.assertIn("run record, and check results", transcript)
-        self.assertTrue(
-            any("agent advance WORK-0003" in step["command"] for step in payload["steps"])
+        commands = "\n".join(step["command"] for step in payload["steps"])
+        self.assertNotIn("agent check", commands)
+        self.assertNotIn("agent finish", commands)
+        self.assertNotIn("agent handoff", commands)
+        self.assertRegex(
+            commands,
+            re.compile(r"agent advance WORK-[0-9A-F]{12}4[0-9A-F]{3}[89AB][0-9A-F]{15}"),
         )
 
     def test_demo_writes_only_inside_target_directory(self) -> None:
@@ -79,7 +82,7 @@ class DemoCommandTests(unittest.TestCase):
 
             self.assertEqual([path.name for path in parent.iterdir()], ["demo"])
             self.assertTrue((demo_dir / "workspace.json").exists())
-            self.assertFalse((demo_dir / ".palari" / "claims" / "WORK-0003.json").exists())
+            self.assertFalse(any((demo_dir / ".palari" / "claims").glob("*.json")))
             self.assertTrue(any((demo_dir / ".palari" / "packets").iterdir()))
             self.assertTrue((demo_dir / "docs" / "product" / "company-os.md").exists())
 

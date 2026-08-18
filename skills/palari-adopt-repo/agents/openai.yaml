@@ -1,0 +1,4 @@
+interface:
+  display_name: "Palari Adopt Repo"
+  short_description: "Adopt a repository into Palari safely"
+  default_prompt: "Use $palari-adopt-repo to initialize Palari safely in this repository."

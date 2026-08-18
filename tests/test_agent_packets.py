@@ -19,7 +19,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_checks import _completion_checks, build_agent_check
 from palari_company_os.agent_directive import compile_agent_directive
-from palari_company_os.agent_doctor import build_agent_doctor
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_handoff import build_agent_handoff
 from palari_company_os.agent_isolation import (
@@ -27,7 +26,6 @@ from palari_company_os.agent_isolation import (
     isolation_branch,
     start_isolated_agent,
 )
-from palari_company_os.agent_loop import build_agent_loop
 from palari_company_os.agent_next import build_agent_next, build_agent_next_all
 from palari_company_os.agent_packets import _context_hash, build_agent_brief
 from palari_company_os.agent_runtime import (
@@ -36,10 +34,12 @@ from palari_company_os.agent_runtime import (
     PROJECTION_SNAPSHOT_VERSION,
     ClaimContentionError,
     claim_integrity_error,
+    governance_projection_snapshot_error,
     release_agent,
     start_agent,
     start_next_agent,
 )
+from palari_company_os.agent_status import build_agent_status
 from palari_company_os.command_surface import (
     palari_command_parts,
     palari_workspace_command,
@@ -75,6 +75,7 @@ def _workspace_data(*, include_unrelated: bool = False) -> dict[str, Any]:
             "allowed_resources": [ALLOWED_PATH],
             "allowed_sources": [],
             "output_targets": [ALLOWED_PATH],
+            "path_intents": [{"path": ALLOWED_PATH, "intent": "modify"}],
             "forbidden_actions": ["deploy"],
             "verification_expectations": ["focused packet test passes"],
         }
@@ -97,6 +98,7 @@ def _workspace_data(*, include_unrelated: bool = False) -> dict[str, Any]:
                 "allowed_resources": ["unrelated.txt"],
                 "allowed_sources": [],
                 "output_targets": ["unrelated.txt"],
+                "path_intents": [{"path": "unrelated.txt", "intent": "modify"}],
                 "forbidden_actions": [],
                 "verification_expectations": ["unrelated check passes"],
             }
@@ -195,6 +197,16 @@ class AgentPacketProjectionTests(unittest.TestCase):
             "write": [ALLOWED_PATH],
         })
         self.assertEqual(packet["required_output"]["output_targets"], [ALLOWED_PATH])
+        self.assertEqual(
+            set(packet["required_output"]),
+            {
+                "acceptance_target",
+                "must_not",
+                "output_targets",
+                "path_intents",
+                "verification_expectations",
+            },
+        )
         self.assertTrue(packet["completion_contract"]["requires_receipt"])
         self.assertTrue(packet["completion_contract"]["requires_evidence"])
         self.assertFalse(packet["completion_contract"]["requires_review"])
@@ -317,9 +329,9 @@ class AgentPacketProjectionTests(unittest.TestCase):
         # The correction is actionable: a concrete command that adds an eligible
         # review-only agent linked to the task goal.
         command = authority["next_command"]
-        self.assertIn("palari create PALARI-REVIEWER", command)
-        self.assertIn("--owner-human HUMAN-OWNER", command)
-        self.assertIn("linked_goals=GOAL-PACKET", command)
+        self.assertIn("reviewer add PALARI-REVIEWER", command)
+        self.assertIn("--owner HUMAN-OWNER", command)
+        self.assertIn("--goal GOAL-PACKET", command)
 
     def test_agent_next_authority_correction_omits_command_for_missing_approver(
         self,
@@ -591,7 +603,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
             palari_workspace_command(
                 self.workspace_file,
                 "agent",
-                "handoff",
+                "status",
                 WORK_ID,
                 "--as",
                 OTHER_PALARI_ID,
@@ -631,8 +643,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
                 build_agent_brief(workspace, WORK_ID, PALARI_ID, "execute"),
                 build_agent_check(workspace, WORK_ID, PALARI_ID),
                 build_agent_finish(workspace, WORK_ID, PALARI_ID),
-                build_agent_doctor(workspace, WORK_ID, PALARI_ID),
-                build_agent_loop(workspace, WORK_ID, PALARI_ID),
+                build_agent_status(workspace, WORK_ID, PALARI_ID),
                 build_agent_handoff(workspace, WORK_ID, PALARI_ID),
             ]
 
@@ -644,8 +655,7 @@ class AgentPacketProjectionTests(unittest.TestCase):
                 "palari.agent_packet.v1",
                 "palari.agent_check.v1",
                 "palari.agent_finish.v1",
-                "palari.agent_doctor.v1",
-                "palari.agent_loop.v1",
+                "palari.agent_status.v1",
                 "palari.agent_handoff.v1",
             ],
         )
@@ -804,11 +814,11 @@ class AgentPacketProjectionTests(unittest.TestCase):
 
         check = build_agent_check(workspace, WORK_ID, PALARI_ID)
         finish = build_agent_finish(workspace, WORK_ID, PALARI_ID)
-        loop = build_agent_loop(workspace, WORK_ID, PALARI_ID)
+        status = build_agent_status(workspace, WORK_ID, PALARI_ID)
 
         self.assertEqual(check["next_step_type"], "check-active-proof")
         self.assertEqual(finish["next_step_type"], "check-active-proof")
-        self.assertEqual(loop["next_step_type"], "check-active-proof")
+        self.assertEqual(status["next_step_type"], "check-active-proof")
         self.assertTrue(
             palari_command_parts(check["next_allowed_commands"][0])[:2]
             == ("agent", "start")
@@ -857,44 +867,19 @@ class AgentPacketProjectionTests(unittest.TestCase):
             "\n".join(directive["next_allowed_commands"]),
         )
 
-    def test_loop_composes_the_read_only_packet_check_and_finish_stages(self) -> None:
-        result = build_agent_loop(self.workspace(), WORK_ID, PALARI_ID)
-
-        self.assertEqual(result["schema_version"], "palari.agent_loop.v1")
-        self.assertEqual(result["status"], "missing-proof")
-        self.assertFalse(result["would_mutate"])
-        self.assertEqual(
-            [stage["name"] for stage in result["stages"]],
-            ["brief", "check", "finish"],
-        )
-        self.assertNotIn("handoff", result["commands"])
-
-    def test_doctor_explains_the_existing_loop_without_new_policy(self) -> None:
-        result = build_agent_doctor(self.workspace(), WORK_ID, PALARI_ID)
-
-        self.assertEqual(result["schema_version"], "palari.agent_doctor.v1")
-        self.assertEqual(result["status"], "missing-proof")
-        self.assertTrue(result["agent_safe"])
-        self.assertFalse(result["human_handoff_required"])
-        self.assertIn("RECEIPT_PRESENT", result["summary"])
-        self.assertEqual(
-            {item["code"] for item in result["checks"]},
-            {"PACKET", "CONTRACT", "FINISH"},
-        )
-
     def test_blocked_review_machine_payload_never_recommends_execute_advance(self) -> None:
         check = build_agent_check(
             self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
         )
-        doctor = build_agent_doctor(
+        status = build_agent_status(
             self.workspace(), WORK_ID, OTHER_PALARI_ID, mode="review"
         )
 
         self.assertEqual(check["packet_status"], "blocked")
         self.assertEqual(check["next_step_type"], "blocked")
         self.assertNotIn("palari agent advance", "\n".join(check["next_allowed_commands"]))
-        self.assertEqual(doctor["status"], "missing-proof")
-        self.assertTrue(doctor["agent_safe"])
+        self.assertEqual(status["status"], "missing-proof")
+        self.assertTrue(status["agent_may_execute"])
 
     def test_cli_start_next_is_one_current_golden_path(self) -> None:
         result = self.run_cli(
@@ -1081,6 +1066,13 @@ class AgentGitBoundaryTests(unittest.TestCase):
                 snapshot["schema_version"], PROJECTION_SNAPSHOT_VERSION
             )
             self.assertEqual(snapshot["changed_paths"], [])
+            workspace_projection = next(
+                item for item in snapshot["files"] if item["path"] == "workspace.json"
+            )
+            self.assertRegex(workspace_projection["git_sha256"], r"^sha256:[0-9a-f]{64}$")
+            self.assertEqual(
+                workspace_projection["live_sha256"], workspace_projection["git_sha256"]
+            )
             self.assertRegex(
                 claim["governance_projection_snapshot_digest"],
                 r"^sha256:[0-9a-f]{64}$",
@@ -1118,6 +1110,46 @@ class AgentGitBoundaryTests(unittest.TestCase):
 
             self.assertIn("snapshot", error.lower())
             self.assertIn("digest", error.lower())
+
+    def test_live_workspace_projection_change_after_claim_fails_closed(self) -> None:
+        with self.git_workspace() as (_, workspace_file):
+            claim = start_agent(
+                Workspace.load(workspace_file), workspace_file, WORK_ID, PALARI_ID
+            )["start"]["claim"]
+            changed = json.loads(workspace_file.read_text(encoding="utf-8"))
+            changed["name"] = "Changed after claim start"
+            workspace_file.write_text(json.dumps(changed), encoding="utf-8")
+
+            error = governance_projection_snapshot_error(
+                workspace_file,
+                claim["git_baseline"],
+                claim["governance_projection_snapshot"],
+                require_worktree_match=True,
+            )
+
+            self.assertEqual(
+                error,
+                "governance projection changed after claim start: workspace.json",
+            )
+
+    def test_previous_projection_snapshot_schema_is_unsupported(self) -> None:
+        with self.git_workspace() as (_, workspace_file):
+            claim = start_agent(
+                Workspace.load(workspace_file), workspace_file, WORK_ID, PALARI_ID
+            )["start"]["claim"]
+            previous = deepcopy(claim["governance_projection_snapshot"])
+            previous["schema_version"] = (
+                "palari.governance_projection_snapshot.v2"
+            )
+
+            error = governance_projection_snapshot_error(
+                workspace_file,
+                claim["git_baseline"],
+                previous,
+                require_worktree_match=True,
+            )
+
+            self.assertEqual(error, "governance projection snapshot has an unsupported schema")
 
     def test_shared_git_lease_blocks_a_second_worktree_then_transfers(self) -> None:
         with self.git_workspace() as (root, workspace_file):

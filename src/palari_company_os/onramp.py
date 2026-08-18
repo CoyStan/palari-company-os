@@ -28,8 +28,8 @@ from .command_surface import palari_workspace_command
 from .governance_journal import MutationMetadata, utc_timestamp
 from .path_policy import validate_workspace_path
 from .store import WorkspaceStore, load_store, write_store
-from .validation import COLLECTION_FILE_KEYS
-from .work_identity import generate_work_id
+from .validation import ALL_COLLECTION_KEYS
+from .work_identity import generate_proposal_id, generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
 
 HUMAN_ID = "HUMAN-FOUNDER"
@@ -60,14 +60,14 @@ palari agent advance WORK-ID --as PALARI-ID --json
 review or human approval. When it stops for review, start the emitted
 review-mode packet for the review-only agent ID returned by `palari init`
 (`REVIEWER-ID` in generic examples) and record only that agent's advisory
-verdict. The reviewer can then run `palari agent handoff WORK-ID --as
+verdict. The reviewer can then run `palari agent status WORK-ID --as
 REVIEWER-ID --mode review --json`.
 
-For one eligible reversible local task, that handoff's JSON contains one exact
+For one eligible reversible local task, that status JSON contains one exact
 presentation-bound command in `human_action_commands[].command`. A qualified
 human runs that emitted command once. Agents may quote the exact command but
 must never run it, reconstruct a bare approval command, or run any
-`human-decision` command. Use `palari agent doctor WORK-ID --as PALARI-ID
+`human-decision` command. Use `palari agent status WORK-ID --as PALARI-ID
 --json` for the next safe action. Repository orientation lives under
 `docs/agent/`.
 """,
@@ -95,19 +95,19 @@ test, and documentation ownership here before asking an agent to work broadly.
 Start ordinary work with `palari agent start --next --as PALARI-ID --json`.
 Follow the task brief (`packet`), commit only the bounded change, and run
 `palari agent advance WORK-ID --as PALARI-ID --json`. If blocked, run `palari
-agent doctor` and report its exact next safe action. For a review handoff,
+agent status` and report its exact next safe action. For a review handoff,
 start the exact review packet emitted for the review-only agent ID returned by
 `palari init` (`REVIEWER-ID` in generic examples), record its advisory verdict,
-and let that reviewer present `agent handoff --mode review`. For one eligible
+and let that reviewer present `agent status --mode review`. For one eligible
 reversible local task, a qualified human runs the exact presentation-bound
-command in the handoff's `human_action_commands[].command`; agents must not run
+command in the status projection's `human_action_commands[].command`; agents must not run
 or manually reconstruct approval commands.
 """,
     "docs/agent/verification.md": """# Verification
 
 Run the task's declared checks while editing. Before reporting completion,
-run `palari validate --json` and `palari agent check WORK-ID --as PALARI-ID
---mode execute --git-diff --json`. Authoritative `palari agent advance` does
+run `palari validate --json` and inspect `palari agent status WORK-ID --as
+PALARI-ID --mode execute --json`. Authoritative `palari agent advance` does
 not execute task prose. It runs fixed, built-in, shell-free verification
 profiles before recording check results. For R1 work, the profile is an exact
 Git base-to-head `git --literal-pathspecs diff --check BASE HEAD -- CHANGED_PATHS`
@@ -147,9 +147,7 @@ def initialize_starter_workspace(
         from .agent_adoption import SUPPORTED_HOSTS
 
         if selected_host not in SUPPORTED_HOSTS:
-            raise WorkspaceError(
-                "host must be one of: " + ", ".join(SUPPORTED_HOSTS)
-            )
+            raise WorkspaceError("host must be one of: " + ", ".join(SUPPORTED_HOSTS))
     if strict_git and selected_host != "cursor":
         raise WorkspaceError("--strict-git is only valid with --host cursor")
     bootstrap_adoption_blocker = _bootstrap_adoption_blocker(
@@ -158,21 +156,15 @@ def initialize_starter_workspace(
     workspace_name = name.strip() or directory.name or "workspace"
     palari_label = palari_name.strip() or "Claude"
     palari_id = _palari_id(palari_label)
-    reviewer_id = (
-        REVIEWER_ID
-        if palari_id != REVIEWER_ID
-        else "PALARI-INDEPENDENT-REVIEWER"
-    )
+    reviewer_id = REVIEWER_ID if palari_id != REVIEWER_ID else "PALARI-INDEPENDENT-REVIEWER"
     human_name = _git_user_name(directory) or "Founder"
-    default_worker = (
-        "claude-code" if palari_label.lower() == "claude" else palari_label.lower()
-    )
+    default_worker = "claude-code" if palari_label.lower() == "claude" else palari_label.lower()
 
     data: dict[str, Any] = {
         "schema_version": CURRENT_SCHEMA_VERSION,
         "name": workspace_name,
     }
-    for key in COLLECTION_FILE_KEYS:
+    for key in ALL_COLLECTION_KEYS:
         data[key] = []
     data["humans"] = [
         {
@@ -312,7 +304,7 @@ def initialize_starter_workspace(
     command_name = str(adoption.get("executable") or _current_cli_executable())
     workspace_arg = _workspace_cli_argument(directory)
     next_commands = [
-        f'{quote(command_name)}{workspace_arg} work add "First task" --write docs/notes.md',
+        f'{quote(command_name)}{workspace_arg} work add "First task" --create docs/notes.md',
         f"{quote(command_name)}{workspace_arg} agent start --next --as {palari_id} --json",
     ]
     if authority_anchor["status"] == "blocked":
@@ -339,13 +331,9 @@ def initialize_starter_workspace(
         "next_commands": next_commands,
         "message": (
             f"Starter workspace '{workspace.name}' created. Add a bounded task "
-            "with: palari work add \"Title\" --write PATH. "
+            'with: palari work add "Title" --create PATH. '
             + str(authority_anchor["message"])
-            + (
-                f" Host adoption: {adoption.get('status', 'unknown')}."
-                if selected_host
-                else ""
-            )
+            + (f" Host adoption: {adoption.get('status', 'unknown')}." if selected_host else "")
         ),
     }
 
@@ -354,7 +342,6 @@ def quick_add_work(
     workspace_path: str | Path,
     title: str,
     *,
-    write: list[str],
     create: list[str] | None = None,
     modify: list[str] | None = None,
     delete: list[str] | None = None,
@@ -367,16 +354,15 @@ def quick_add_work(
     scope: str = "",
     acceptance_target: str = "",
     verify: list[str] | None = None,
-    work_id: str = "",
     approvals: int = 0,
     dependencies: list[str] | None = None,
     parallel_policy: str = "independent",
+    idea: bool = False,
 ) -> dict[str, Any]:
-    """Create one agent-startable task from a title and its write paths."""
+    """Add one bounded task, or an authority-free idea for a human to approve."""
     clean_title = title.strip()
     if not clean_title:
         raise WorkspaceError("work title is required")
-    legacy_write_paths = _normalized_paths(write, "--write")
     intent_inputs = {
         "create": _normalized_paths(create or [], "--create"),
         "modify": _normalized_paths(modify or [], "--modify"),
@@ -387,24 +373,13 @@ def quick_add_work(
         for intent, paths in intent_inputs.items()
         for path in paths
     ]
-    if legacy_write_paths and path_intents:
-        raise WorkspaceError(
-            "legacy --write cannot be combined with exact --create, --modify, or "
-            "--delete intents"
-        )
     exact_paths = [str(item["path"]) for item in path_intents]
     if len(exact_paths) != len(set(exact_paths)):
-        raise WorkspaceError(
-            "an exact path may declare only one create, modify, or delete intent"
-        )
-    write_paths = legacy_write_paths or exact_paths
+        raise WorkspaceError("an exact path may declare only one create, modify, or delete intent")
+    write_paths = exact_paths
     if not write_paths:
-        raise WorkspaceError(
-            "at least one --write path or exact --create, --modify, or --delete "
-            "path is required"
-        )
+        raise WorkspaceError("at least one --create, --modify, or --delete path is required")
     read_paths = _normalized_paths(read or [], "--read")
-
     store = load_store(workspace_path)
     workbench = _resolve_optional_default(store.data, "workbenches", workbench_id, "--workbench")
     palari = _resolve_default_palari(
@@ -413,14 +388,13 @@ def quick_add_work(
         workbench_id=workbench,
     )
     goal = _resolve_default(store.data, "goals", goal_id, "--goal")
-    resolved_id = work_id.strip() or generate_work_id(
-        _collection_ids(store.data, "work_items")
-    )
+    collection = "proposals" if idea else "work_items"
+    id_factory = generate_proposal_id if idea else generate_work_id
+    resolved_id = id_factory(_collection_ids(store.data, collection))
     dependency_ids = _normalized_ids(dependencies or [], "--depends-on")
     if parallel_policy not in {"independent", "coordinate", "exclusive"}:
         raise WorkspaceError(
-            f"--parallel-policy must be independent, coordinate, or exclusive: "
-            f"{parallel_policy}"
+            f"--parallel-policy must be independent, coordinate, or exclusive: {parallel_policy}"
         )
     known_work_ids = set(_collection_ids(store.data, "work_items"))
     for dependency_id in dependency_ids:
@@ -428,7 +402,6 @@ def quick_add_work(
             raise WorkspaceError(f"--depends-on cannot reference the new work item {resolved_id}")
         if dependency_id not in known_work_ids:
             raise WorkspaceError(f"--depends-on references unknown work item {dependency_id}")
-
     allowed_sources: list[str] = []
     workbench_outputs_added: list[str] = []
     bench: dict[str, Any] | None = None
@@ -438,16 +411,16 @@ def quick_add_work(
         # A task's outputs must live inside its project boundary, so declaring
         # a new write path here also declares it on the stored workbench.
         existing_outputs = [str(item) for item in (bench or {}).get("output_target_ids", [])]
-        workbench_outputs_added = [path for path in write_paths if path not in existing_outputs]
+        workbench_outputs_added = (
+            [] if idea else [path for path in write_paths if path not in existing_outputs]
+        )
         if workbench_outputs_added:
             assert bench is not None
             bench["output_target_ids"] = existing_outputs + workbench_outputs_added
-
     resources: list[str] = []
     for path in read_paths + write_paths:
         if path not in resources:
             resources.append(path)
-
     record = {
         "id": resolved_id,
         "title": clean_title,
@@ -457,7 +430,7 @@ def quick_add_work(
         "dependency_ids": dependency_ids,
         "risk": risk,
         "intensity": intensity,
-        "status": "active",
+        "status": "proposed" if idea else "active",
         "scope": scope.strip() or f"Do exactly this: {clean_title}.",
         "allowed_resources": resources,
         "allowed_sources": allowed_sources,
@@ -466,18 +439,43 @@ def quick_add_work(
         "parallel_policy": parallel_policy,
         "forbidden_actions": ["write outside the declared write paths"],
         "acceptance_target": (
-            acceptance_target.strip()
-            or (
-                "Declared path intents hold and verification passes."
-                if path_intents
-                else "Declared outputs exist and verification passes."
-            )
+            acceptance_target.strip() or "Declared path intents hold and verification passes."
         ),
         "verification_expectations": list(verify or []),
         "required_approval_count": max(0, approvals),
     }
-    if path_intents:
-        record["path_intents"] = path_intents
+    record["path_intents"] = path_intents
+    if idea:
+        record.update({"proposer": palari, "created_at": utc_timestamp()})
+        ideas = store.data.setdefault("proposals", [])
+        if any(item.get("id") == resolved_id for item in ideas):
+            raise WorkspaceError(f"idea already exists: {resolved_id}")
+        ideas.append(record)
+        workspace = write_store(
+            store,
+            metadata=MutationMetadata(
+                command="work add --idea",
+                actor=palari,
+                action="suggested-bounded-work",
+                timestamp=utc_timestamp(),
+                objects=({"type": "proposal", "collection": "proposals", "id": resolved_id},),
+            ),
+        )
+        next_command = palari_workspace_command(
+            store.data_path, "approve", resolved_id, "--as", "HUMAN-ID", "--json"
+        )
+        return {
+            "schema_version": "palari.work_idea.v1",
+            "workspace": workspace.name,
+            "workspace_file": str(store.data_path),
+            "idea": record,
+            "path_intents": path_intents,
+            "status": "waiting-on-human",
+            "next_step_type": "human-approval",
+            "next_action": next_command,
+            "next_commands": [next_command],
+            "message": f"{resolved_id} suggested by {palari}; it grants no task authority.",
+        }
     work_items = store.data.setdefault("work_items", [])
     if any(item.get("id") == resolved_id for item in work_items):
         raise WorkspaceError(f"work already exists: {resolved_id}")
@@ -492,9 +490,7 @@ def quick_add_work(
             f"{authority_anchor['next_command']}"
         )
     work_items.append(record)
-    objects = [
-        {"type": "work", "collection": "work_items", "id": resolved_id}
-    ]
+    objects = [{"type": "work", "collection": "work_items", "id": resolved_id}]
     if workbench_outputs_added:
         objects.insert(
             0,
@@ -510,11 +506,7 @@ def quick_add_work(
             objects=tuple(objects),
         ),
     )
-    authority_plan = build_authority_plan(
-        workspace,
-        resolved_id,
-        builder_id=palari,
-    )
+    authority_plan = build_authority_plan(workspace, resolved_id, builder_id=palari)
     authority_blocked = not authority_plan["viable"]
     next_commands = (
         [
@@ -541,14 +533,9 @@ def quick_add_work(
         ]
     )
     next_action = (
-        str(authority_plan["smallest_correction"])
-        if authority_blocked
-        else next_commands[0]
+        str(authority_plan["smallest_correction"]) if authority_blocked else next_commands[0]
     )
-    message = (
-        f"{resolved_id} created for {palari}: write boundary is "
-        f"{', '.join(write_paths)}."
-    )
+    message = f"{resolved_id} created for {palari}: write boundary is {', '.join(write_paths)}."
     if authority_blocked:
         message += (
             f" Task is blocked before agent start. {authority_plan['message']} "
@@ -658,9 +645,7 @@ def _validate_agent_doc_paths(directory: Path) -> None:
         try:
             candidate.resolve(strict=False).relative_to(directory)
         except (OSError, ValueError) as exc:
-            raise WorkspaceError(
-                f"agent documentation path is unsafe: {relative}: {exc}"
-            ) from exc
+            raise WorkspaceError(f"agent documentation path is unsafe: {relative}: {exc}") from exc
         cursor = directory
         parts = Path(relative).parts
         for index, part in enumerate(parts):
@@ -742,15 +727,12 @@ def _anchor_starter_authority(
             "commit": head,
             "paths": [workspace_relative],
             "next_command": "",
-            "message": (
-                "The trusted Git starting point already exists and was not rewritten."
-            ),
+            "message": ("The trusted Git starting point already exists and was not rewritten."),
         }
 
     candidate_paths = [
         workspace_file,
         workspace_file.parent / ".palari" / "governance-journal.v2.jsonl",
-        workspace_file.parent / ".palari" / "governance-journal.v1.jsonl",
         *(workspace_file.parent / relative for relative in created_docs),
         *(additional_files or []),
     ]
@@ -786,8 +768,7 @@ def _anchor_starter_authority(
 
     operation_markers = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD")
     if any(
-        _git_output(root, ["rev-parse", "-q", "--verify", marker])
-        for marker in operation_markers
+        _git_output(root, ["rev-parse", "-q", "--verify", marker]) for marker in operation_markers
     ):
         return {
             "schema_version": "palari.authority_anchor.v1",
@@ -795,9 +776,7 @@ def _anchor_starter_authority(
             "commit": "",
             "paths": relative_paths,
             "next_command": command,
-            "message": (
-                "Git is already completing another history operation; finish it first."
-            ),
+            "message": ("Git is already completing another history operation; finish it first."),
         }
 
     add = _run_git(root, ["add", "-f", "--", *relative_paths])
@@ -820,9 +799,7 @@ def _anchor_starter_authority(
         _restore_anchor_index(root, relative_paths, bool(head))
         return _blocked_anchor(relative_paths, command, commit.stderr)
     anchored_head = _git_output(root, ["rev-parse", "--verify", "HEAD^{commit}"])
-    if not anchored_head or not _git_blob_exists(
-        root, anchored_head, workspace_relative
-    ):
+    if not anchored_head or not _git_blob_exists(root, anchored_head, workspace_relative):
         raise WorkspaceError(
             "Trusted-start commit (authority_anchor) did not contain workspace.json"
         )
@@ -865,10 +842,7 @@ def _restore_anchor_index(root: Path, paths: list[str], has_head: bool) -> None:
 
 
 def _authority_anchor_command(root: Path, paths: list[str]) -> str:
-    prefix = (
-        f"git -C {quote(str(root))} -c core.hooksPath=/dev/null "
-        "-c commit.gpgSign=false"
-    )
+    prefix = f"git -C {quote(str(root))} -c core.hooksPath=/dev/null -c commit.gpgSign=false"
     rendered = " ".join(quote(path) for path in paths)
     return (
         f"{prefix} add -f -- {rendered} && {prefix} commit --only "
@@ -1023,9 +997,7 @@ def _resolve_default(data: dict[str, Any], collection: str, explicit: str, flag:
     if len(ids) == 1:
         return ids[0]
     if not ids:
-        raise WorkspaceError(
-            f"workspace has no {collection}; run palari init or create one first"
-        )
+        raise WorkspaceError(f"workspace has no {collection}; run palari init or create one first")
     raise WorkspaceError(
         f"workspace has {len(ids)} {collection} ({', '.join(ids)}); pass {flag} to pick one"
     )
@@ -1043,9 +1015,7 @@ def _resolve_default_palari(
         workbench = _find_record(data, "workbenches", workbench_id)
         known = set(_collection_ids(data, "palaris"))
         builder_ids = [
-            str(item)
-            for item in (workbench or {}).get("palari_ids", [])
-            if str(item) in known
+            str(item) for item in (workbench or {}).get("palari_ids", []) if str(item) in known
         ]
         if len(builder_ids) == 1:
             return builder_ids[0]

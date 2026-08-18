@@ -15,7 +15,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from palari_company_os.agent_advance import (
+    _attempt_reusable_for_head,
     _git_commit_timestamp,
+    _governed_artifacts,
     _verify_path_intents,
     agent_advance,
     plan_advance,
@@ -27,6 +29,7 @@ from palari_company_os.agent_runtime import (
     start_agent,
 )
 from palari_company_os.authoring import (
+    _assert_reconciliation_git_state,
     create_human_decision,
     create_record,
     reconcile_agent_proof,
@@ -39,7 +42,6 @@ from palari_company_os.evidence_manifest import (
 from palari_company_os.governance_journal import (
     MutationMetadata,
     _prepare_v2_record,
-    checkpoint_workspace_journal,
     journal_file_path,
     pending_workspace_journal_context,
     transact,
@@ -63,6 +65,30 @@ from palari_company_os.verification_attestations import (
 from palari_company_os.workspace import Workspace as Ws
 from palari_company_os.workspace import WorkspaceError
 from tests.workspace_fixture import write_current_agent_workspace
+
+
+class AttemptReuseTests(unittest.TestCase):
+    def test_parked_or_failed_attempt_starts_fresh(self) -> None:
+        for status in ("blocked", "failed"):
+            with self.subTest(status=status):
+                self.assertFalse(
+                    _attempt_reusable_for_head(status, "old-head", "new-head")
+                )
+
+    def test_active_attempt_continues_and_complete_attempt_is_idempotent(self) -> None:
+        self.assertTrue(_attempt_reusable_for_head("active", "old-head", "new-head"))
+        self.assertTrue(_attempt_reusable_for_head("complete", "same-head", "same-head"))
+        self.assertFalse(_attempt_reusable_for_head("complete", "old-head", "new-head"))
+
+    def test_only_the_real_workspace_file_is_control_state(self) -> None:
+        self.assertEqual(
+            _governed_artifacts(
+                ["workspace.json", "examples/acme-company-os/workspace.json"],
+                REPO_ROOT / "workspace.json",
+                REPO_ROOT,
+            ),
+            ["examples/acme-company-os/workspace.json"],
+        )
 
 
 class PathIntentAncestryTests(unittest.TestCase):
@@ -116,6 +142,21 @@ class PathIntentAncestryTests(unittest.TestCase):
         self.assertEqual(
             [item["status"] for item in result["checks"]],
             ["verified", "verified", "verified"],
+        )
+
+    def test_final_reconciliation_keeps_a_verified_delete_absent(self) -> None:
+        _assert_reconciliation_git_state(
+            str(self.root),
+            str(self.root / "workspace.json"),
+            ["delete.txt"],
+            self.head,
+            [
+                {
+                    "path": "delete.txt",
+                    "sha256": "sha256:absent",
+                    "status": "absent",
+                }
+            ],
         )
 
     def test_mislabeled_and_unchanged_intents_fail_closed(self) -> None:
@@ -536,11 +577,6 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = Path(tempfile.mkdtemp())
         write_current_agent_workspace(self.temp_dir / "workspace.json")
-        palari = self.temp_dir / ".palari"
-        if palari.exists():
-            shutil.rmtree(palari)
-        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
-        self.assertTrue(checkpoint["ok"])
         self.work_id = "WORK-TEST-ADVANCE"
         create_record(
             str(self.temp_dir),
@@ -561,6 +597,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "forbidden_actions": ["deploy", "human_review"],
                 "verification_expectations": ["repository verification"],
             },
@@ -622,6 +659,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "parallel_policy": "independent",
                 "forbidden_actions": ["deploy", "human_review"],
                 "verification_expectations": ["repository verification"],
@@ -686,6 +724,10 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "scope": "Expanded beyond the immutable work authority.",
                 "allowed_resources": ["README.md", "AGENTS.md"],
                 "output_targets": ["README.md", "AGENTS.md"],
+                "path_intents": [
+                    {"path": "README.md", "intent": "modify"},
+                    {"path": "AGENTS.md", "intent": "modify"},
+                ],
             },
             command="test pre-claim scope authority expansion",
             actor="HUMAN-FOUNDER",
@@ -745,6 +787,15 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             text=True,
         )
         self.assertNotIn(self.work_id, lease_refs)
+
+        next_work = build_agent_next(
+            Ws.load(self.temp_dir),
+            "PALARI-STEWARD",
+        )
+        self.assertNotIn(
+            self.work_id,
+            [candidate["work_item_id"] for candidate in next_work["candidates"]],
+        )
 
     def test_current_only_catalog_rejects_post_lease_parallel_race_without_persisting(
         self,
@@ -849,7 +900,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
             tombstone,
             {"path": "README.md", "sha256": "sha256:absent", "status": "absent"},
         )
-        report = verify_evidence(workspace, evidence.id, require_output_coverage=True)
+        report = verify_evidence(workspace, evidence.id)
         self.assertTrue(report["ok"], report)
 
     def test_changes_requested_refresh_previews_and_rebinds_without_claim(self) -> None:
@@ -939,7 +990,83 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         self.assertEqual(stale_review.reviewed_head, previous_head)
         self.assertNotEqual(stale_review.reviewed_head, refreshed_attempt.head_sha)
 
-    def test_changes_requested_refresh_rejects_unbound_review(self) -> None:
+    def test_changes_requested_rework_restarts_from_immutable_base(self) -> None:
+        initial_claim_path = (
+            self.temp_dir / ".palari" / "claims" / f"{self.work_id}.json"
+        )
+        initial_claim = json.loads(initial_claim_path.read_text(encoding="utf-8"))
+        original_base = initial_claim["git_baseline"]["head_sha"]
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required", first)
+        if initial_claim_path.exists():
+            release_agent(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        workspace = Ws.load(self.temp_dir)
+        work = workspace.work_item(self.work_id)
+        self.assertIsNotNone(work)
+        assert work is not None and work.current_attempt
+        attempt = next(item for item in workspace.attempts if item.id == work.current_attempt)
+        reviewed_head = attempt.head_sha or attempt.commits[-1]
+        self._record_changes_requested(reviewed_head, "REVIEW-REWORK-CHANGES")
+
+        (self.temp_dir / "README.md").write_text("after reviewed rework\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "add", "README.md"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(self.temp_dir), "commit", "-qm", "reviewed rework"],
+            check=True,
+        )
+        restarted = start_agent(
+            Ws.load(self.temp_dir),
+            self.temp_dir,
+            self.work_id,
+            "PALARI-STEWARD",
+            "execute",
+        )["start"]["claim"]
+
+        self.assertEqual(restarted["git_baseline"]["head_sha"], original_base)
+        self.assertIn(
+            "workspace.json",
+            restarted["governance_projection_snapshot"]["changed_paths"],
+        )
+        workspace_projection = next(
+            item
+            for item in restarted["governance_projection_snapshot"]["files"]
+            if item["path"] == "workspace.json"
+        )
+        self.assertNotEqual(
+            workspace_projection["live_sha256"], workspace_projection["git_sha256"]
+        )
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        self.assertEqual(result["status"], "review-required", result)
+        self.assertEqual(result["preflight"]["base_sha"], original_base)
+        self.assertEqual(result["preflight"]["changed_files"], ["README.md"])
+
+    def test_changes_requested_review_cannot_be_saved_without_current_proof(self) -> None:
         with patch(
             "palari_company_os.agent_advance.run_or_reuse",
             side_effect=self._passing_attestation,
@@ -959,46 +1086,13 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         previous_head = attempt.head_sha or attempt.commits[-1]
 
         (self.temp_dir / "README.md").write_text("temporarily altered\n", encoding="utf-8")
-        self._record_changes_requested(previous_head, "REVIEW-REFRESH-UNBOUND")
-        reviewed = Ws.load(self.temp_dir).review_verdicts[-1]
-        self.assertFalse(reviewed.binding_version)
-        self.assertFalse(reviewed.proof_hash)
-
-        (self.temp_dir / "README.md").write_text("after\n", encoding="utf-8")
-        (self.temp_dir / "RELATED.md").write_text(
-            "separately governed context\n", encoding="utf-8"
-        )
-        subprocess.run(["git", "-C", str(self.temp_dir), "add", "-A"], check=True)
-        subprocess.run(
-            ["git", "-C", str(self.temp_dir), "commit", "-qm", "unbound review"],
-            check=True,
-        )
-
-        preview = agent_advance(
-            Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-            dry_run=True,
-            refresh_verification=True,
-        )
-        self.assertEqual(preview["status"], "blocked", preview)
-        self.assertFalse(preview["can_advance"])
-        self.assertEqual(
-            preview["blockers"][0]["code"], "REFRESH_REVIEW_BINDING_INVALID"
-        )
-
-        attempted = agent_advance(
-            Ws.load(self.temp_dir),
-            self.temp_dir,
-            self.work_id,
-            "PALARI-STEWARD",
-            refresh_verification=True,
-        )
-        self.assertEqual(attempted["status"], "blocked", attempted)
-        self.assertFalse(attempted["can_advance"])
-        self.assertEqual(
-            attempted["blockers"][0]["code"], "REFRESH_REVIEW_BINDING_INVALID"
+        with self.assertRaisesRegex(WorkspaceError, "cannot bind review"):
+            self._record_changes_requested(previous_head, "REVIEW-REFRESH-UNBOUND")
+        self.assertFalse(
+            any(
+                review.id == "REVIEW-REFRESH-UNBOUND"
+                for review in Ws.load(self.temp_dir).review_verdicts
+            )
         )
 
     def test_current_human_decision_allows_deterministic_terminalization(self) -> None:
@@ -1164,6 +1258,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                     "allowed_resources": ["README.md"],
                     "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                     "output_targets": ["README.md"],
+                    "path_intents": [{"path": "README.md", "intent": "modify"}],
                     "forbidden_actions": ["deploy"],
                     "verification_expectations": ["affected verification"],
                 },
@@ -1340,6 +1435,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "forbidden_actions": ["deploy", "human_review"],
                 "verification_expectations": ["affected verification"],
             },
@@ -1391,7 +1487,7 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         ).strip()
         self.assertEqual(evidence.head_sha, current_head)
         self.assertTrue(
-            verify_evidence(workspace, evidence.id, require_output_coverage=True)["ok"]
+            verify_evidence(workspace, evidence.id)["ok"]
         )
 
     def test_v2_crash_before_apply_aborts_prepare_and_retries(self) -> None:
@@ -1818,14 +1914,13 @@ class NonGitAgentStartTests(unittest.TestCase):
                 "allowed_resources": ["README.md"],
                 "allowed_sources": ["SOURCE-REPO-FOUNDATION"],
                 "output_targets": ["README.md"],
+                "path_intents": [{"path": "README.md", "intent": "modify"}],
                 "forbidden_actions": ["deploy", "human_review"],
                 "verification_expectations": ["repository verification"],
             },
             command="test non-Git setup",
             actor="PALARI-STEWARD",
         )
-        checkpoint = checkpoint_workspace_journal(self.temp_dir, "PALARI-STEWARD")
-        self.assertTrue(checkpoint["ok"])
         (self.temp_dir / "README.md").write_text("before\n", encoding="utf-8")
         self.assertFalse((self.temp_dir / ".git").exists())
 

@@ -93,14 +93,9 @@ def verification_profiles(
     *,
     base_sha: str = "",
     head_sha: str = "",
-    python_executable: str | None = None,
 ) -> tuple[VerificationProfile, ...]:
     """Return executable, shell-free profiles; work-item prose is never executed."""
 
-    # Keep the compatibility keyword while the R1 profile no longer depends on
-    # a repository-owned Python helper. Exact successful preflight supplies
-    # both revisions; ``run_or_reuse`` independently refuses missing bindings.
-    _ = python_executable
     diff_check = VerificationProfile(
         "diff-check",
         (

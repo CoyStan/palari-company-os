@@ -23,7 +23,6 @@
   "properties": {
     "schema_version": { "type": "integer", "const": 2 },
     "name": { "type": "string", "minLength": 1 },
-    "collection_files": { "$ref": "#/$defs/collection_files" },
     "goals": { "type": "array", "items": { "$ref": "#/$defs/goal" } },
     "humans": { "type": "array", "items": { "$ref": "#/$defs/human" } },
     "palaris": { "type": "array", "items": { "$ref": "#/$defs/palari" } },
@@ -65,33 +64,6 @@
     "string_list": {
       "type": "array",
       "items": { "type": "string" }
-    },
-    "collection_files": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "goals": { "$ref": "#/$defs/string_list" },
-        "humans": { "$ref": "#/$defs/string_list" },
-        "palaris": { "$ref": "#/$defs/string_list" },
-        "sources": { "$ref": "#/$defs/string_list" },
-        "workbenches": { "$ref": "#/$defs/string_list" },
-        "capabilities": { "$ref": "#/$defs/string_list" },
-        "authority_profiles": { "$ref": "#/$defs/string_list" },
-        "playbook_sources": { "$ref": "#/$defs/string_list" },
-        "integrations": { "$ref": "#/$defs/string_list" },
-        "integration_plans": { "$ref": "#/$defs/string_list" },
-        "integration_outbox": { "$ref": "#/$defs/string_list" },
-        "work_items": { "$ref": "#/$defs/string_list" },
-        "proposals": { "$ref": "#/$defs/string_list" },
-        "attempts": { "$ref": "#/$defs/string_list" },
-        "evidence_runs": { "$ref": "#/$defs/string_list" },
-        "review_verdicts": { "$ref": "#/$defs/string_list" },
-        "human_decisions": { "$ref": "#/$defs/string_list" },
-        "acceptance_records": { "$ref": "#/$defs/string_list" },
-        "receipts": { "$ref": "#/$defs/string_list" },
-        "decisions": { "$ref": "#/$defs/string_list" },
-        "outcomes": { "$ref": "#/$defs/string_list" }
-      }
     },
     "finding": {
       "type": "object",
@@ -221,7 +193,7 @@
         "provider": { "type": "string" },
         "status": {
           "type": "string",
-          "enum": ["enabled", "disabled", "review", "deprecated"]
+          "enum": ["enabled", "disabled", "review"]
         },
         "owner_human": { "type": "string" },
         "allowed_actions": { "$ref": "#/$defs/string_list" },
@@ -302,7 +274,7 @@
     "integration_plan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "integration_id", "work_item_id", "event", "action"],
+      "required": ["id", "integration_id", "work_item_id", "event", "action", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "integration_id": { "type": "string" },
@@ -349,7 +321,7 @@
     "integration_outbox_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "plan_id", "integration_id", "work_item_id", "event", "action", "enqueued_by"],
+      "required": ["id", "plan_id", "integration_id", "work_item_id", "event", "action", "enqueued_by", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "plan_id": { "type": "string" },
@@ -424,7 +396,7 @@
     "work_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "goal", "palari"],
+      "required": ["id", "title", "goal", "palari", "path_intents"],
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
@@ -491,7 +463,7 @@
     "proposal": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "goal", "palari"],
+      "required": ["id", "title", "goal", "palari", "path_intents"],
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
@@ -503,6 +475,8 @@
           "enum": ["proposed", "under-review", "adopted", "rejected", "deferred"]
         },
         "summary": { "type": "string" },
+        "workbench_id": { "type": "string" },
+        "dependency_ids": { "$ref": "#/$defs/string_list" },
         "scope": { "type": "string" },
         "risk": { "type": "string", "enum": ["R1", "R2", "R3", "R4", "R5"] },
         "intensity": { "type": "string", "enum": ["light", "standard", "high"] },
@@ -510,6 +484,18 @@
         "allowed_sources": { "$ref": "#/$defs/string_list" },
         "allowed_actions": { "$ref": "#/$defs/string_list" },
         "output_targets": { "$ref": "#/$defs/string_list" },
+        "path_intents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "intent"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "intent": { "type": "string", "enum": ["create", "modify", "delete"] }
+            }
+          }
+        },
         "forbidden_actions": { "$ref": "#/$defs/string_list" },
         "acceptance_target": { "type": "string" },
         "verification_expectations": { "$ref": "#/$defs/string_list" },
@@ -519,6 +505,7 @@
           "type": "string",
           "enum": ["independent", "coordinate", "exclusive"]
         },
+        "required_approval_count": { "type": "integer", "minimum": 0 },
         "linked_work": { "type": "string" },
         "decision_id": { "type": "string" },
         "created_at": { "type": "string" },
@@ -536,6 +523,10 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "work_item_id", "actor"],
+      "anyOf": [
+        { "required": ["started_at"] },
+        { "required": ["updated_at"] }
+      ],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
@@ -565,7 +556,19 @@
     "evidence_run": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "attempt_id", "head_sha", "status"],
+      "required": [
+        "id",
+        "work_item_id",
+        "attempt_id",
+        "head_sha",
+        "status",
+        "artifacts",
+        "artifact_hashes",
+        "output_binding_version",
+        "manifest_hash",
+        "receipt_hash",
+        "timestamp"
+      ],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
@@ -600,27 +603,22 @@
     "review_verdict": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "reviewed_head", "reviewer", "verdict"],
-      "allOf": [
-        {
-          "if": {
-            "properties": { "verdict": { "const": "accept-ready" } },
-            "required": ["verdict"]
-          },
-          "then": {
-            "required": [
-              "binding_version",
-              "attempt_id",
-              "attempt_hash",
-              "evidence_reference",
-              "evidence_manifest_hash",
-              "receipt_reference",
-              "receipt_hash",
-              "work_contract_hash",
-              "proof_hash"
-            ]
-          }
-        }
+      "required": [
+        "id",
+        "work_item_id",
+        "reviewed_head",
+        "reviewer",
+        "verdict",
+        "binding_version",
+        "attempt_id",
+        "attempt_hash",
+        "evidence_reference",
+        "evidence_manifest_hash",
+        "receipt_reference",
+        "receipt_hash",
+        "work_contract_hash",
+        "proof_hash",
+        "timestamp"
       ],
       "properties": {
         "id": { "type": "string" },
@@ -700,7 +698,7 @@
     "acceptance_record": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "human_id", "reviewed_head"],
+      "required": ["id", "work_item_id", "human_id", "reviewed_head", "accepted_at"],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
@@ -723,7 +721,7 @@
     "receipt": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "attempt_id", "actor"],
+      "required": ["id", "work_item_id", "attempt_id", "actor", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },
@@ -773,7 +771,7 @@
     "outcome": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "work_item_id", "summary"],
+      "required": ["id", "work_item_id", "summary", "timestamp"],
       "properties": {
         "id": { "type": "string" },
         "work_item_id": { "type": "string" },

@@ -20,18 +20,10 @@ from palari_company_os.evidence_manifest import (
     evidence_artifact_root,
     verify_evidence,
 )
-from palari_company_os.workspace import WorkspaceError, _collection_file_path
+from palari_company_os.workspace import WorkspaceError
 
 
 class FilesystemReadBoundaryTests(unittest.TestCase):
-    def test_split_collection_symlink_escape_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as root_name, tempfile.TemporaryDirectory() as outside_name:
-            root = Path(root_name)
-            (root / "records").symlink_to(Path(outside_name), target_is_directory=True)
-
-            with self.assertRaisesRegex(WorkspaceError, "workspace-relative"):
-                _collection_file_path(root, "work_items", "records/work-items.json")
-
     def test_runtime_symlink_escape_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as root_name, tempfile.TemporaryDirectory() as outside_name:
             root = Path(root_name)

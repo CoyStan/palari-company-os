@@ -116,12 +116,30 @@ class DocumentationTests(unittest.TestCase):
             REPO_ROOT / "docs/agent/contracts-and-invariants.md"
         ).read_text(encoding="utf-8")
         pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        tree = json.loads(
+            (REPO_ROOT / "docs/agent/repo-tree.json").read_text(encoding="utf-8")
+        )
 
         self.assertTrue(contract_path.exists())
         self.assertIn("[Minimality Contract](docs/product/minimality-contract.md)", readme)
         self.assertIn("[Minimality Contract](minimality-contract.md)", quickstart)
         self.assertIn("[Minimality Contract](../product/minimality-contract.md)", invariants)
         self.assertRegex(pyproject, r"(?m)^dependencies = \[\]$")
+        self.assertEqual(
+            [part["name"] for part in tree["parts"]],
+            ["app", "tests", "docs", "tools", "data"],
+        )
+        self.assertEqual(
+            [part["name"] for part in tree["product"]["parts"]],
+            ["goals", "team", "work", "checks", "limits"],
+        )
+        for rule in (
+            "three to five",
+            "do not overlap",
+            "nothing left out",
+            "short, common words",
+        ):
+            self.assertIn(rule, contract)
         for forbidden_growth in (
             "runtime dependency",
             "background service by default",
@@ -133,19 +151,7 @@ class DocumentationTests(unittest.TestCase):
 
     def test_historical_implementation_docs_are_not_current_product_docs(self) -> None:
         archive = REPO_ROOT / "docs/archive"
-        allowed_archive = {
-            archive / "pr19-contracts" / "README.md",
-            archive / "pr19-contracts" / "SUPERSESSION.md",
-            archive / "pr19-contracts" / "compact-journal-v2-contract.md",
-            archive / "pr19-contracts" / "golden-path-repair-contract.md",
-            archive / "pr19-contracts" / "invisible-adoption-foundation-contract.md",
-            archive / "pr19-contracts" / "invisible-product-surface-contract.md",
-            archive / "pr19-contracts" / "universal-agent-adoption-contract.md",
-        }
-        self.assertEqual(
-            {path for path in archive.rglob("*") if path.is_file()},
-            allowed_archive,
-        )
+        self.assertEqual({path for path in archive.rglob("*") if path.is_file()}, set())
         self.assertFalse((REPO_ROOT / "docs/plans").exists())
         self.assertFalse((REPO_ROOT / "docs/research").exists())
         self.assertFalse((REPO_ROOT / "docs/product/ai-ops-memory-roadmap-review.md").exists())
@@ -209,26 +215,23 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertIn(non_goal, loop)
 
-    def test_agent_loop_smoke_is_linked_and_names_core_commands(self) -> None:
-        smoke = (REPO_ROOT / "docs/product/agent-loop-smoke.md").read_text(
+    def test_agent_workflow_smoke_is_linked_and_names_core_commands(self) -> None:
+        smoke = (REPO_ROOT / "docs/product/agent-workflow-smoke.md").read_text(
             encoding="utf-8"
         )
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
         for doc in (readme, agents):
-            self.assertIn("docs/product/agent-loop-smoke.md", doc)
+            self.assertIn("docs/product/agent-workflow-smoke.md", doc)
 
         required_snippets = [
             'PALARI_SMOKE_ROOT="$(mktemp -d)"',
             'cp -R examples/acme-company-os "$PALARI_SMOKE_ROOT/workspace"',
             './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent next --all',
             './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent brief WORK-0003 --as PALARI-SOFIA --mode execute --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent check WORK-0003 --as PALARI-SOFIA --mode execute --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent finish WORK-0003 --as PALARI-SOFIA --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent doctor WORK-0003 --as PALARI-SOFIA --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent loop WORK-0003 --as PALARI-SOFIA --json',
-            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent handoff WORK-0001 --as PALARI-ALFRED --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0003 --as PALARI-SOFIA --json',
+            './bin/palari --workspace "$PALARI_SMOKE_ROOT/workspace" agent status WORK-0001 --as PALARI-ALFRED --mode review --json',
             "human_action_boundary",
             "human_action_commands",
         ]
@@ -342,7 +345,11 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual(payload["repo"], str(repo))
 
     def test_agent_packet_includes_compact_doc_hints(self) -> None:
-        workspace = Workspace.from_raw(current_recommendation_data(), REPO_ROOT)
+        data = current_recommendation_data()
+        data["work_items"][0]["path_intents"] = [
+            {"path": "notes/result.md", "intent": "modify"}
+        ]
+        workspace = Workspace.from_raw(data, REPO_ROOT)
 
         packet = build_agent_brief(workspace, "WORK-1", "PALARI-1", "execute")
 

@@ -151,7 +151,7 @@ def _check_proposal_adopt(
         blockers.append(TransitionBlocker("WORK_EXISTS", f"work already exists: {work_id}"))
     if not work_id:
         blockers.append(TransitionBlocker("WORK_ID_MISSING", "adoption requires a work id"))
-    next_commands.append(f"palari proposal adopt {proposal_id} --work-id WORK-ID --by HUMAN-ID --json")
+    next_commands.append(f"palari approve {proposal_id} --as HUMAN-ID --json")
 
 
 def _check_agent_start(
@@ -214,14 +214,14 @@ def _check_attempt_closeout(
                 TransitionBlocker(
                     "EVIDENCE_MISSING",
                     f"attempt {attempt_id} cannot close out without evidence for head {head_sha}",
-                    (
-                        "palari evidence record EVIDENCE-ID "
-                        f"--work-item-id {attempt.work_item_id} --attempt-id {attempt_id} "
-                        f"--head-sha {head_sha} --status passed --json"
-                    ),
+                    f"palari agent advance {attempt.work_item_id} "
+                    f"--as {attempt.actor or 'PALARI-ID'} --json",
                 )
             )
-    next_commands.append(f"palari attempt closeout {attempt_id} --json")
+    next_commands.append(
+        f"palari agent advance {attempt.work_item_id} "
+        f"--as {attempt.actor or 'PALARI-ID'} --json"
+    )
 
 
 def _check_evidence_record(
@@ -259,8 +259,8 @@ def _check_evidence_record(
     if _evidence(workspace, evidence_id) is not None and not context.get("allow_existing"):
         blockers.append(TransitionBlocker("EVIDENCE_EXISTS", f"evidence already exists: {evidence_id}"))
     next_commands.append(
-        f"palari evidence record {evidence_id or 'EVIDENCE-ID'} "
-        f"--work-item-id {work_id or 'WORK-ID'} --attempt-id {attempt_id or 'ATTEMPT-ID'} --json"
+        f"palari agent advance {work_id or 'WORK-ID'} "
+        f"--as {attempt.actor or 'PALARI-ID'} --json"
     )
 
 
@@ -336,9 +336,7 @@ def _check_review_record(
     binding: dict[str, str] = {}
     proof_errors: list[str] = []
     if supplied_binding_digest or verdict == "accept-ready":
-        binding, proof_errors = current_review_binding(
-            workspace, work_id, require_output_coverage=True
-        )
+        binding, proof_errors = current_review_binding(workspace, work_id)
     if supplied_binding_digest:
         if proof_errors:
             blockers.append(
@@ -363,7 +361,7 @@ def _check_review_record(
                     "EXACT_PROOF_NOT_READY",
                     "accept-ready review requires complete exact proof: "
                     + "; ".join(proof_errors),
-                    f"palari agent doctor {work_id} --as PALARI-ID --mode review --json",
+                    f"palari agent status {work_id} --as PALARI-ID --mode review --json",
                 )
             )
         elif binding.get("attempt_id") and binding.get("evidence_reference"):
@@ -555,7 +553,7 @@ def _check_acceptance_prerequisites(
             TransitionBlocker(
                 "GOVERNANCE_AUTHORITY_NOT_READY",
                 str(exc),
-                f"palari agent doctor {work_id} --json",
+                f"palari agent status {work_id} --json",
             )
         )
         return None
@@ -576,7 +574,7 @@ def _check_acceptance_prerequisites(
             )
             blockers.append(_candidate_blocker(work_id, candidate, diagnostic))
     next_commands.append(
-        f"palari work accept {work_id} --by HUMAN-ID --reviewed-head HEAD --json"
+        f"palari queue --approval-inbox --select {work_id} --json"
     )
     return candidate
 
@@ -622,7 +620,7 @@ def _check_work_complete(
                 (
                     first_error.next_action
                     if first_error is not None
-                    else f"palari agent doctor {work_id} --json"
+                    else f"palari agent status {work_id} --json"
                 ),
             )
         )
@@ -776,7 +774,7 @@ def _candidate_blocker(
     return TransitionBlocker(
         "GOVERNANCE_AUTHORITY_NOT_READY",
         "governance kernel derives " + candidate.governance.derived_state,
-        f"palari agent doctor {work_id} --json",
+        f"palari agent status {work_id} --json",
     )
 
 

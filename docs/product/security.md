@@ -82,15 +82,17 @@ Safety rules:
   authority differences in another worktree, coordinated catalog/JSON rehashing,
   and actors added after the anchor fail closed. This is not authentication
   against a hostile same-user process that can rewrite local Git metadata.
-  Every complete Git-backed claim uses the current v2 witness, v2 lease, and v2
-  governance-projection snapshot, including an explicit empty changed-path set
-  when the projection is unchanged. Legacy v1 claim witnesses, leases, and
-  snapshots are unsupported and are not upgraded in place; a historical
-  current-only baseline without a catalog requires a successor.
-- Persisted v2 witness ref/head/history, lease, and projection-snapshot binding
-  are checked before restart lease acquisition and again before claim
-  persistence. Unsupported claim state is rejected by claim integrity and
-  cannot reach `agent advance`.
+  Every complete Git-backed claim uses the current v2 witness and lease with a
+  v3 governance-projection snapshot. The snapshot lease-binds both session-Git
+  and exact live digests for every projection file and classifies their
+  differences; an unchanged projection has an explicit empty changed-path set. Legacy
+  v1 claim witnesses and leases and v1/v2 projection snapshots are unsupported
+  and are not upgraded in place; a historical current-only baseline without a
+  catalog requires a successor.
+- Persisted witness ref/head/history, lease, exact live-projection digests, and
+  projection-snapshot binding are checked before restart lease acquisition and
+  again before claim persistence. Unsupported claim state or a workspace change
+  after claim start is rejected before `agent advance`.
 - Durable parking crash recovery is the sole narrow exception to live status
   equality: after confirming the exact persisted parking-attempt/claim epoch, it
   normalizes current `blocked` status back to the immutable packet status and
@@ -142,17 +144,16 @@ Safety rules:
   `delete` intent authorizes only its exact normalized path and succeeds only
   when Git reports deletion and the path is absent. Create/modify mismatches,
   traversal, symlink escape, duplicate or prefix-overlapping intents, and
-  undeclared changes fail closed. Legacy work without path intents keeps its
-  presence-required output semantics.
+  undeclared changes fail closed. Output and read lists cannot replace the
+  required path rules.
 - durable `agent release` is claim-bound interruption state, not completion. It records a
   blocked attempt, packet/head/workspace bindings, observed boundary changes,
   a human-readable reason, and one next safe action in a journaled mutation
   before releasing the owned execute claim. Crash retry is idempotent only for
   the exact same durable record and repository state. It creates no receipt,
   evidence, review, decision, acceptance, outcome, or convergence.
-  Parking requires a current writable governance journal; legacy workspaces
-  fail before mutation with an explicit `history --checkpoint` next action and
-  never receive a retroactive continuity claim.
+  Parking requires a current writable governance journal. Workspaces without
+  one fail before mutation and cannot be upgraded in place.
 - Hook and packet checks reject ambiguous execute claims; review claims are
   read-only. Execute hooks also compare persisted scope with a freshly compiled
   workspace packet, deny human-attributed and generic packet-authority Palari
@@ -160,8 +161,8 @@ Safety rules:
   path-qualified executables, unquoted pathname expansion, tree-shaped writes,
   hidden backup outputs, hook self-modification, unclassified Palari commands,
   dynamic shell indirection, and Git witness mutations even when Git global
-  options precede the subcommand. Generic work updates are blocked
-  while a claim is active, and active claims cannot be renewed against changed
+  options precede the subcommand. Generic public work updates are absent, and
+  active claims cannot be renewed against changed
   packet authority. Shell review is segment-independent: an observed allowed
   write cannot mask a later unsafe segment, and command environment assignments,
   execution-capable Git config/diff options, and `rg --pre` require review.
@@ -228,9 +229,9 @@ Safety rules:
   output artifacts, whose current bytes must still match their evidence hashes.
 - Trust-record ordering normalizes timezone-bearing ISO timestamps to UTC
   instants, including acceptance `accepted_at`. Malformed or timezone-free
-  values, UTC-normalization overflows, and equivalent-instant competitors fail
-  closed, so offset spelling or caller-chosen ids cannot hide later adverse
-  evidence, review, or revocation.
+  values, missing times, UTC-normalization overflows, and equivalent-instant
+  competitors fail closed, so offset spelling or caller-chosen ids cannot hide
+  later adverse evidence, review, or revocation.
 
 The local JSON and claim hashes detect mismatch and accidental tampering; they
 are not signatures and do not authenticate a human identity against an
@@ -261,44 +262,28 @@ PCAW v1 does not claim portable deletion-history proof. Local workspace
 and verifier guarantees remain limited to their documented named subjects and
 governance properties.
 
-Tamper-evident history v1 (the `governance journal` in stored filenames) is a
-strictly read-only predecessor. An operator may run
-`history --checkpoint` against its valid, fully committed head exactly to
-activate the current writer; pending v1 state cannot be completed by appending
-a current record. Activation verifies the complete v1 chain, leaves its bytes
-untouched, and starts `.palari/governance-journal.v2.jsonl`, whose first
-restore point binds the exact v1 file SHA-256, byte length, head record digest,
-record count, replay digest, transaction counts, and continuity state. Every
-later verification re-hashes the sealed v1 bytes and streams the strict v2
-JSONL tail from its content-bound workspace checkpoint. It does not trust a
-persistent advisory cache.
-
-New workspaces and explicit restore points for existing workspaces without history
-write v2 directly. Ordinary mutation of such a workspace fails closed until that
-restore point exists. V2 records are never written to or
-accepted from the v1 filename.
+New workspaces write v2 directly. Manual repair of a current workspace may add
+an explicit continuity-break restore point. A workspace with no current history
+fails closed and cannot be upgraded in place.
 
 V2 mutation prepares contain deterministic add/remove/replace values rather
 than another full status snapshot. A restore point still contains one full
 snapshot so replay has a trusted base. Record, transaction, before/after
-project, predecessor, and terminal digests remain fail-closed;
+project, and terminal digests remain fail-closed;
 truncation, reordering, duplicate terminals, malformed or non-canonical deltas,
-changed predecessor bytes, pending transactions, and workspace divergence are
-rejected. The sealed predecessor hash makes ordinary verification bounded in
-memory and avoids reparsing historical v1 JSON, but it does not authenticate
-the operator who created the restore point against a hostile same-user process
-that can rewrite both local journals.
+pending transactions, and workspace divergence are rejected. This does not
+authenticate the operator who created the restore point against a hostile
+same-user process that can rewrite local files.
 
-PCAW distinguishes optional `reviewer_authorities` from `humans`. A declared
+PCAW distinguishes required `reviewer_authorities` from `humans`. A declared
 Palari may supply an independent advisory review, but only identities in
-`humans` can contribute human decisions or quorum. Legacy statements without
-`reviewer_authorities` retain their original canonical bytes and verification
-behavior.
+`humans` can contribute human decisions or quorum. Statements without an
+explicit reviewer-role list fail closed.
 
 Approval Packs use the same declared-identity limitation. A canonical pack and
 each member digest are persisted with the human decision. Pack-v3 actions
-retain declared and effective final counts; the reader remains compatible with
-pack v2. Both versions require and persist the digest of a strict canonical
+retain declared and effective final counts. Other pack versions fail closed.
+Pack v3 requires and persists the digest of a strict canonical
 decision presentation covering the pack, proof, boundaries, effects, available
 actions, execution order, and relevant current decisions. Current bytes,
 review, recursively bound dependency state, authority, effective final count,
@@ -318,19 +303,10 @@ supports the narrower claim that those bytes were made available to the
 decision action. Neither claim proves browser pixels under compromised
 software, human attention, understanding, or judgment.
 
-Restore-point recovery is local state restoration, not external rollback.
-Sent messages, filings, payments, access changes, and provider effects cannot
-be reversed by replacing `workspace.json`. When effect-bearing run-record fields
-or a sent/failed outbox transition show that an effect occurred or may have
-occurred after the selected restore point, restoration fails closed before
-changing local state. Detection scans all committed projections after the
-earliest occurrence of the selected content digest, including when a later
-projection removed the record or returned to the same bytes. Compensation must
-be a separate governed action; it is never inferred from local restoration.
+Restore-point recovery is not part of the current product. Removed restoration
+spellings remain denied by session hooks, and external compensation must always
+be a separate governed action.
 
-`history --restore` is human-only in the supported session-hook enforcement
-boundaries. A declared human id is attribution, not authority delegation:
-agent-issued shell commands are denied before they can mutate the workspace.
 `human-decision pack` receives the same hard denial; agent Bash cannot record
 approve, reject, or defer authority through a bare, reordered, path-qualified,
 equals-form, or compound command.

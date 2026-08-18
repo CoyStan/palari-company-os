@@ -267,6 +267,8 @@ class Proposal:
     proposer: str = ""
     status: str = "proposed"
     summary: str = ""
+    workbench_id: str = ""
+    dependency_ids: list[str] = field(default_factory=list)
     scope: str = ""
     risk: str = "R1"
     intensity: str = "light"
@@ -274,12 +276,14 @@ class Proposal:
     allowed_sources: list[str] = field(default_factory=list)
     allowed_actions: list[str] = field(default_factory=list)
     output_targets: list[str] = field(default_factory=list)
+    path_intents: list[Record] = field(default_factory=list)
     forbidden_actions: list[str] = field(default_factory=list)
     acceptance_target: str = ""
     verification_expectations: list[str] = field(default_factory=list)
     recommended_playbooks: list[str] = field(default_factory=list)
     conflict_targets: list[str] = field(default_factory=list)
     parallel_policy: str = "independent"
+    required_approval_count: int = 1
     linked_work: str = ""
     decision_id: str = ""
     created_at: str = ""
@@ -302,6 +306,8 @@ class Proposal:
             proposer=_string(record, "proposer"),
             status=_string(record, "status", "proposed"),
             summary=_string(record, "summary"),
+            workbench_id=_string(record, "workbench_id"),
+            dependency_ids=_strings(record, "dependency_ids"),
             scope=_string(record, "scope"),
             risk=_string(record, "risk", "R1"),
             intensity=_string(record, "intensity", "light"),
@@ -309,12 +315,14 @@ class Proposal:
             allowed_sources=_strings(record, "allowed_sources"),
             allowed_actions=_strings(record, "allowed_actions"),
             output_targets=_strings(record, "output_targets"),
+            path_intents=_records(record, "path_intents"),
             forbidden_actions=_strings(record, "forbidden_actions"),
             acceptance_target=_string(record, "acceptance_target"),
             verification_expectations=_strings(record, "verification_expectations"),
             recommended_playbooks=_strings(record, "recommended_playbooks"),
             conflict_targets=_strings(record, "conflict_targets"),
             parallel_policy=_string(record, "parallel_policy", "independent"),
+            required_approval_count=_integer(record, "required_approval_count", 1),
             linked_work=_string(record, "linked_work"),
             decision_id=_string(record, "decision_id"),
             created_at=_string(record, "created_at"),
@@ -696,17 +704,17 @@ class EvidenceRun:
     attempt_id: str
     head_sha: str
     status: str
+    artifacts: list[str]
+    artifact_hashes: list[Record]
+    output_binding_version: str
+    manifest_hash: str
+    receipt_hash: str
+    timestamp: str
     base_ref: str = ""
     commands: list[str] = field(default_factory=list)
-    artifacts: list[str] = field(default_factory=list)
-    artifact_hashes: list[Record] = field(default_factory=list)
-    output_binding_version: str = ""
-    manifest_hash: str = ""
-    receipt_hash: str = ""
     previous_receipt_hash: str = ""
     summary: str = ""
     freshness: str = ""
-    timestamp: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "EvidenceRun":
@@ -737,19 +745,19 @@ class ReviewVerdict:
     reviewed_head: str
     reviewer: str
     verdict: str
-    binding_version: str = ""
-    attempt_id: str = ""
-    attempt_hash: str = ""
-    evidence_reference: str = ""
-    evidence_manifest_hash: str = ""
-    receipt_reference: str = ""
-    receipt_hash: str = ""
-    work_contract_hash: str = ""
-    proof_hash: str = ""
+    binding_version: str
+    attempt_id: str
+    attempt_hash: str
+    evidence_reference: str
+    evidence_manifest_hash: str
+    receipt_reference: str
+    receipt_hash: str
+    work_contract_hash: str
+    proof_hash: str
+    timestamp: str
     findings: list[Record] = field(default_factory=list)
     checks_inspected: list[str] = field(default_factory=list)
     residual_risks: list[str] = field(default_factory=list)
-    timestamp: str = ""
 
     @classmethod
     def from_record(cls, record: Record) -> "ReviewVerdict":

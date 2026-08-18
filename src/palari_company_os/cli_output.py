@@ -6,18 +6,15 @@ from typing import Any
 from .cli_output_agent import (
     print_agent_adopt,
     print_agent_brief,
-    print_agent_check,
-    print_agent_doctor,
     print_agent_advance,
-    print_agent_finish,
-    print_agent_handoff,
-    print_agent_loop,
+    print_agent_home,
     print_agent_next,
     print_agent_next_all,
     print_agent_park,
     print_agent_release,
     print_agent_session_contract,
     print_agent_start,
+    print_agent_status,
 )
 from .cli_dispatch import CommandResult
 from .cli_output_integrations import (
@@ -82,13 +79,6 @@ def print_result(result: CommandResult) -> None:
             print_json(result.payload)
         else:
             print_state(result.payload)
-        return
-
-    if result.kind == "data-map":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_data_map(result.payload)
         return
 
     if result.kind == "docs-check":
@@ -188,28 +178,16 @@ def print_result(result: CommandResult) -> None:
         print_agent_next(result.payload, result.as_json)
         return
 
+    if result.kind == "agent-home":
+        print_agent_home(result.payload, result.as_json)
+        return
+
     if result.kind == "agent-next-all":
         print_agent_next_all(result.payload, result.as_json)
         return
 
-    if result.kind == "agent-check":
-        print_agent_check(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-finish":
-        print_agent_finish(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-handoff":
-        print_agent_handoff(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-loop":
-        print_agent_loop(result.payload, result.as_json)
-        return
-
-    if result.kind == "agent-doctor":
-        print_agent_doctor(result.payload, result.as_json)
+    if result.kind == "agent-status":
+        print_agent_status(result.payload, result.as_json)
         return
 
     if result.kind == "agent-advance":
@@ -224,16 +202,7 @@ def print_result(result: CommandResult) -> None:
         print_decision_guide(result.payload, result.as_json)
         return
 
-    if result.kind in {
-        "capabilities",
-        "capability-check",
-        "capability-policy",
-        "authority-profiles",
-        "authority-check",
-        "evidence-verify",
-        "proposal-decision",
-        "linear",
-    }:
+    if result.kind == "linear":
         if result.as_json:
             print_json(result.payload)
         else:
@@ -246,6 +215,10 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "work-add":
         print_work_add(result.payload, result.as_json)
+        return
+
+    if result.kind in {"work-idea", "work-idea-accept"}:
+        print_work_idea_accept(result.payload, result.as_json)
         return
 
     if result.kind == "claude-hook":
@@ -313,20 +286,6 @@ def print_result(result: CommandResult) -> None:
             print_history_journal(result.payload)
         return
 
-    if result.kind == "history-checkpoints":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_history_checkpoints(result.payload)
-        return
-
-    if result.kind == "history-restoration":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_history_restoration(result.payload)
-        return
-
     if result.kind == "mission-control-serve":
         print_mission_control_serve(result.payload)
         return
@@ -336,29 +295,6 @@ def print_result(result: CommandResult) -> None:
 
     if result.kind == "mutation":
         print_mutation(result.payload, result.as_json)
-        return
-
-    if result.kind == "maintainer-status":
-        if result.as_json:
-            print_json(result.payload)
-        else:
-            print_maintainer_status(result.payload)
-        return
-
-    if result.kind == "playbooks":
-        print_playbooks(result.payload, result.as_json)
-        return
-
-    if result.kind == "playbook-recommendations":
-        print_playbook_recommendations(result.payload, result.as_json)
-        return
-
-    if result.kind == "gate-profiles":
-        print_gate_profiles(result.payload, result.as_json)
-        return
-
-    if result.kind == "gate-recommendations":
-        print_gate_recommendations(result.payload, result.as_json)
         return
 
     raise ValueError(f"unknown command result kind: {result.kind}")
@@ -404,24 +340,18 @@ def print_mutation(result: Any, as_json: bool) -> None:
 
 
 def print_governance_payload(payload: dict[str, Any]) -> None:
-    schema = payload.get("schema_version", "palari.payload.v1")
-    print(schema)
-    if "workspace" in payload:
-        print(f"Workspace: {payload['workspace']}")
+    print(payload.get("schema_version", "palari.payload.v1"))
+    for key, label in (
+        ("workspace", "Workspace"),
+        ("status", "Status"),
+        ("next_action", "Next"),
+    ):
+        if payload.get(key) not in (None, ""):
+            print(f"{label}: {plain_message(payload[key])}")
     if "ok" in payload:
         print(f"OK: {_yes_no(bool(payload['ok']))}")
-    if "next_action" in payload:
-        print(f"Next: {plain_message(payload['next_action'])}")
-    if "capabilities" in payload:
-        print(f"Capabilities: {len(payload['capabilities'])}")
-    if "allowed_capabilities" in payload:
-        print(f"Allowed capabilities: {len(payload['allowed_capabilities'])}")
-    if "profiles" in payload:
-        print(f"Approval profiles: {len(payload['profiles'])}")
-    if "blockers" in payload and payload["blockers"]:
-        print("Blockers:")
-        for blocker in payload["blockers"]:
-            print(f"  - {plain_message(blocker)}")
+    for blocker in payload.get("blockers", []):
+        print(f"  blocker: {plain_message(blocker)}")
 
 
 def print_demo(payload: dict[str, Any], as_json: bool) -> None:
@@ -488,28 +418,6 @@ def print_history_journal(payload: dict[str, Any]) -> None:
         )
 
 
-def print_history_checkpoints(payload: dict[str, Any]) -> None:
-    print(f"Restore points: {payload['count']}")
-    print(f"Current restore point: {payload['current_checkpoint_digest']}")
-    for item in payload["checkpoints"]:
-        print(
-            f"  {item['checkpoint_digest']} [{item['event_kind']}] "
-            f"by {item['metadata']['actor']} via {item['metadata']['command']}"
-        )
-    print("Restoration appends history; it does not undo external effects.")
-
-
-def print_history_restoration(payload: dict[str, Any]) -> None:
-    print(f"Restore-point recovery: {payload['status']}")
-    print(f"Restore point: {payload['checkpoint_digest']}")
-    print(f"Class: {payload['restoration_class']}")
-    print(f"Idempotent replay: {_yes_no(bool(payload['idempotent']))}")
-    if payload.get("message"):
-        print(plain_message(payload["message"]))
-    for effect in payload.get("external_effects_not_undone", []):
-        print(f"  NOT UNDONE: {effect}")
-
-
 def print_proof(payload: dict[str, Any], as_json: bool) -> None:
     if as_json:
         print_json(payload)
@@ -547,13 +455,6 @@ def print_proof(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  warning {item.get('code', '')}: {item.get('message', '')}")
     for item in payload.get("security_limitations", []):
         print(f"  limitation: {item}")
-
-
-def print_data_map(payload: dict[str, Any]) -> None:
-    from .data_map import format_data_map
-
-    for line in format_data_map(payload):
-        print(line)
 
 
 def print_docs_check(payload: dict[str, Any], as_json: bool) -> None:
@@ -611,102 +512,6 @@ def print_docs_map(payload: dict[str, Any], as_json: bool) -> None:
 def print_mission_control_serve(payload: dict[str, Any]) -> None:
     print(f"Mission Control stopped: {payload['url']}")
     print(f"Workspace file: {payload['workspace_file']}")
-
-
-def print_playbooks(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Playbook sources: {payload['workspace']}")
-    if not payload["sources"]:
-        print("No playbook sources configured.")
-        return
-    for source in payload["sources"]:
-        enabled = "enabled" if source.get("enabled", True) else "disabled"
-        print(f"{source['id']}: {source['label']} [{enabled}]")
-        print(f"  uri: {source.get('uri', '')}")
-        if source.get("ref"):
-            print(f"  ref: {source['ref']}")
-        if source.get("license"):
-            print(f"  license: {source['license']}")
-    if payload["playbooks"]:
-        print("")
-        if payload.get("core_defaults"):
-            print("Core default playbooks")
-            for playbook in payload["core_defaults"]:
-                print(f"  {playbook['id']}: {playbook['label']}")
-            print("")
-        print("Available playbooks")
-        for playbook in payload["playbooks"]:
-            marker = " [core default]" if playbook.get("core_default") else ""
-            print(f"  {playbook['id']}: {playbook['label']}{marker}")
-            if playbook.get("description"):
-                print(f"    {playbook['description']}")
-            if playbook.get("uri"):
-                print(f"    {playbook['uri']}")
-
-
-def print_playbook_recommendations(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Playbook recommendations for {payload['work_item']}: {payload['title']}")
-    if not payload["recommended"]:
-        print("No playbook recommendations.")
-        print(f"Next: {plain_message(payload['next_action'])}")
-        return
-    for item in payload["recommended"]:
-        if item.get("selected_by_user"):
-            prefix = "pinned"
-        elif item.get("core_default"):
-            prefix = "default"
-        else:
-            prefix = "suggested"
-        print(f"{item['id']} [{prefix}]")
-        print(f"  {plain_message(item['reason'])}")
-    if payload.get("operating_guidance"):
-        print("")
-        print("Operating guidance")
-        print("Use this as guidance; the task's limits and permissions remain the source of truth.")
-        for item in payload["operating_guidance"]:
-            print(f"- {item['label']}: {plain_message(item['guidance'])}")
-    print(f"Next: {plain_message(payload['next_action'])}")
-
-
-def print_gate_profiles(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    print(f"Review checklists: {payload['workspace']}")
-    for profile in payload["profiles"]:
-        print(f"{profile['id']}: {profile['label']}")
-        print(f"  {plain_message(profile['summary'])}")
-        print(f"  reviewer: {profile['reviewer_role']}")
-
-
-def print_gate_recommendations(payload: dict[str, Any], as_json: bool) -> None:
-    if as_json:
-        print_json(payload)
-        return
-    work = payload["work_item"]
-    print(f"Recommended review checks for {work['id']}: {work['title']}")
-    if payload["no_special_gate_required"]:
-        print("No special review check is needed.")
-        print(f"Next: {plain_message(payload['next_action'])}")
-        return
-    for gate in payload["recommended_gates"]:
-        print(f"{gate['id']}: {gate['label']}")
-        print(f"  reason: {plain_message(gate['reason'])}")
-        contract = gate["review_contract"]
-        print(f"  reviewer: {contract['reviewer_role']}")
-        print("  blocks approval if:")
-        for item in contract["blocker_checklist"]:
-            print(f"    - {plain_message(item)}")
-        print(
-            "  ready for approval when: "
-            f"{plain_message(contract['accept_ready_standard'])}"
-        )
-    print(f"Next: {plain_message(payload['next_action'])}")
 
 
 def print_review_guide(payload: dict[str, Any], as_json: bool) -> None:
@@ -851,6 +656,22 @@ def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  {command}")
 
 
+def print_work_idea_accept(payload: dict[str, Any], as_json: bool) -> None:
+    if as_json:
+        print_json(payload)
+        return
+    if "idea" in payload:
+        idea = payload["idea"]
+        print(f"Idea added: {idea['id']} {idea['title']}")
+        print("This idea grants no task authority.")
+        print(f"Human next step: {payload['next_action']}")
+        return
+    work = payload["work_item"]
+    print(f"Idea approved: {payload['idea_id']}")
+    print(f"Task created: {work['id']} {work['title']}")
+    print(f"Next: {payload['next_action']}")
+
+
 def print_git_readiness(payload: dict[str, Any]) -> None:
     print(f"Git integration readiness: {payload['work_item']}")
     print(f"Status: {payload['status']} | ready: {_yes_no(payload['ready'])}")
@@ -935,13 +756,6 @@ def print_decision_guide(payload: dict[str, Any], as_json: bool) -> None:
         print(f"  - {item}")
     print("Suggested results:")
     print(f"  {', '.join(payload['suggested_results'])}")
-    commands_for_results = payload.get("decision_update_commands", [])
-    if commands_for_results:
-        print("Suggested update commands:")
-        for item in commands_for_results:
-            print(f"  - {item['result']}: {item['command']}")
-    print("Update template:")
-    print(f"  {payload['decision_update_command_template']}")
     commands = payload.get("next_commands", [])
     if commands:
         print("Next commands:")
@@ -998,10 +812,8 @@ def print_queue(workspace: Workspace, items: list[Any]) -> None:
             print(f"  active runs: {attempts}")
         for warning in item.coordination_warnings:
             print(f"  coordination: {warning}")
-        if item.agent_loop_command:
-            print(f"  agent loop: {item.agent_loop_command}")
-        if item.agent_handoff_command:
-            print(f"  agent handoff: {item.agent_handoff_command}")
+        if item.agent_status_command:
+            print(f"  agent status: {item.agent_status_command}")
         if item.terminal_disposition:
             print(f"  retired: {item.terminal_disposition} ({item.terminal_reason})")
             if item.successor_work_item_id:
@@ -1145,9 +957,6 @@ def print_detail(payload: dict[str, Any]) -> None:
         print("Next commands:")
         for command in display_commands:
             print(f"  {command}")
-    if payload.get("agent_handoff_command"):
-        print("Agent handoff:")
-        print(f"  {payload['agent_handoff_command']}")
     safety = payload["safety"]
     print(
         "Safety: "
@@ -1250,31 +1059,6 @@ def print_detail(payload: dict[str, Any]) -> None:
     _print_section("Result", payload["outcome"])
 
 
-def print_maintainer_status(payload: dict[str, Any]) -> None:
-    print("External Maintainer Status")
-    print(f"Repo: {payload['repo']}")
-    print(f"Branch: {payload['branch']}")
-    print(f"Head: {payload['head']}")
-    print(f"Upstream: {payload['upstream'] or '(none)'}")
-    print(f"Divergence: {payload['divergence']}")
-    print(f"PR readiness: {payload['pr_readiness']} - {payload['pr_readiness_reason']}")
-    focused_tests = payload["focused_tests_run"]
-    if focused_tests:
-        print("Focused tests run:")
-        for item in focused_tests:
-            print(f"  {item}")
-        print(f"Focused tests source: {payload['focused_tests_source']}")
-    else:
-        print(f"Focused tests run: unknown ({payload['focused_tests_source']})")
-    dirty = payload["dirty_files"]
-    if dirty:
-        print("Dirty files:")
-        for item in dirty:
-            print(f"  {item}")
-    else:
-        print("Dirty files: none")
-
-
 def print_state(payload: dict[str, Any]) -> None:
     print(f"Palari workspace status: {payload['workspace']}")
     print("Counts")
@@ -1321,10 +1105,8 @@ def print_state(payload: dict[str, Any]) -> None:
                 f"{plain_step(display_step, next_command=display_command)}"
             )
         print(f"  why: {plain_message(top['why'])}")
-        if top.get("agent_loop_command"):
-            print(f"  agent loop: {top['agent_loop_command']}")
-        if top.get("agent_handoff_command"):
-            print(f"  agent handoff: {top['agent_handoff_command']}")
+        if top.get("agent_status_command"):
+            print(f"  agent status: {top['agent_status_command']}")
         if display_command:
             print(f"  command: {display_command}")
     if payload.get("active_parallel_work"):
@@ -1465,4 +1247,3 @@ def print_cursor_status(payload: dict[str, Any]) -> None:
     else:
         print("Active task locks: none")
     print(plain_message(payload.get("message", "")))
-

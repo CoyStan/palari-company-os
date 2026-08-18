@@ -23,7 +23,6 @@ def current_review_binding(
     workspace: Any,
     work_id: str,
     *,
-    require_output_coverage: bool | None = None,
     journal_context: JournalVerificationContext | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """Return the exact current proof binding and fail-closed eligibility errors."""
@@ -31,7 +30,6 @@ def current_review_binding(
         workspace,
         work_id,
         inspect_external=True,
-        require_output_coverage=require_output_coverage,
         journal_context=journal_context,
     )
 
@@ -41,7 +39,6 @@ def _current_review_binding(
     work_id: str,
     *,
     inspect_external: bool,
-    require_output_coverage: bool | None,
     journal_context: JournalVerificationContext | None,
 ) -> tuple[dict[str, str], list[str]]:
     work = workspace.work_item(work_id)
@@ -77,7 +74,6 @@ def _current_review_binding(
                 evidence,
                 receipt,
                 inspect_external=inspect_external,
-                require_output_coverage=require_output_coverage,
                 journal_context=journal_context,
             )
         )
@@ -148,7 +144,6 @@ def current_review_binding_errors(
     workspace: Any,
     review: Any,
     *,
-    require_output_coverage: bool | None = None,
     journal_context: JournalVerificationContext | None = None,
 ) -> list[str]:
     """Require a structurally sound review to match the current proof and contract."""
@@ -156,7 +151,6 @@ def current_review_binding_errors(
     binding, current_errors = current_review_binding(
         workspace,
         review.work_item_id,
-        require_output_coverage=require_output_coverage,
         journal_context=journal_context,
     )
     errors.extend(current_errors)
@@ -180,7 +174,6 @@ def recorded_current_proof_errors(workspace: Any, work_id: str) -> list[str]:
         workspace,
         work_id,
         inspect_external=False,
-        require_output_coverage=True,
         journal_context=None,
     )
     return errors
@@ -202,7 +195,6 @@ def recorded_current_review_binding_errors(workspace: Any, review: Any) -> list[
         workspace,
         review.work_item_id,
         inspect_external=False,
-        require_output_coverage=True,
         journal_context=None,
     )
     errors.extend(current_errors)
@@ -307,7 +299,6 @@ def _evidence_errors(
     receipt: Any | None,
     *,
     inspect_external: bool,
-    require_output_coverage: bool | None,
     journal_context: JournalVerificationContext | None,
 ) -> list[str]:
     errors: list[str] = []
@@ -327,7 +318,6 @@ def _evidence_errors(
         verification = verify_evidence(
             workspace,
             evidence.id,
-            require_output_coverage=require_output_coverage,
             journal_context=journal_context,
         )
         if not verification["ok"]:
@@ -339,8 +329,6 @@ def _evidence_errors(
                 evidence,
                 receipt,
                 path_intents=getattr(work, "path_intents", ()),
-                require_output_coverage=True,
-                require_version=True,
             )
         )
     artifact_statuses = {

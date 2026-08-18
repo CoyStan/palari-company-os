@@ -253,7 +253,7 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertFalse(inbox["primary_action"]["available"])
         self.assertEqual(inbox["approval_commands"], [])
 
-    def test_legacy_review_that_consumed_the_only_approver_stays_blocked(self) -> None:
+    def test_reviewer_who_is_the_only_approver_stays_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = make_ready_workspace(Path(directory), count=1)
             store = load_store(data_path)
@@ -335,6 +335,174 @@ class ApprovalPackTests(unittest.TestCase):
                 item["command"],
             )
             self.assertNotIn("--pack-digest", item["command"])
+
+    def test_r4_singleton_uses_individual_approval_without_becoming_batchable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, risk="R4")
+            store = load_store(data_path)
+            workspace = Workspace.load(data_path)
+            inbox = build_approval_inbox(workspace, store.data)
+            pack = inbox["packs"][0]
+            command = inbox["approval_commands"][0]
+            handoff = build_agent_handoff(workspace, "WORK-001", "PALARI-SOFIA")
+
+            with self.assertRaisesRegex(WorkspaceError, "no currently eligible members"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=command["presentation_digest"],
+                    human_id="HUMAN-PRODUCT",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            result = apply_pack_decision(
+                str(data_path),
+                pack_digest=pack["pack_digest"],
+                presentation_digest=command["presentation_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve=["WORK-001"],
+                pack_members=["WORK-001"],
+            )
+
+        self.assertFalse(pack["members"][0]["batch_policy"]["batchable"])
+        self.assertEqual(inbox["counts"]["non_batchable"], 1)
+        self.assertEqual(command["mode"], "individual-effect")
+        self.assertIn("--approve WORK-001", command["command"])
+        self.assertNotIn("--approve-eligible", command["command"])
+        self.assertFalse(inbox["primary_action"]["available"])
+        approval = handoff["human_approval_handoff"]["approval_pack"]
+        self.assertTrue(approval["available"])
+        self.assertEqual(approval["mode"], "individual-effect")
+        self.assertEqual(approval["approve_eligible_commands"], [])
+        self.assertEqual(approval["approve_eligible_command"], "")
+        self.assertEqual(len(handoff["human_action_commands"]), 2)
+        self.assertTrue(
+            all(
+                " approve WORK-001 " in item["command"]
+                for item in handoff["human_action_commands"]
+            )
+        )
+        self.assertEqual(result["executed"], ["WORK-001"])
+
+    def test_individual_approval_rejects_external_non_batchable_member(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(Path(directory), count=1, risk="R4")
+            changed = load_store(data_path)
+            changed.data["work_items"][0]["allowed_actions"] = ["external_write"]
+            write_store(changed)
+            store = load_store(data_path)
+            inbox = build_approval_inbox(Workspace.load(data_path), store.data)
+            pack = inbox["packs"][0]
+            presentation = inbox["presentations"][0]
+
+            with self.assertRaisesRegex(WorkspaceError, "approve only current eligible"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=pack["pack_digest"],
+                    presentation_digest=approval_presentation_digest(
+                        presentation,
+                        pack,
+                    ),
+                    human_id="HUMAN-PRODUCT",
+                    approve=["WORK-001"],
+                    pack_members=["WORK-001"],
+                )
+
+        self.assertEqual(inbox["approval_commands"], [])
+        self.assertEqual(
+            presentation["action"]["available"],
+            ["defer", "reject"],
+        )
+
+    def test_r4_partial_quorum_remains_individual_for_every_vote(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_path = make_ready_workspace(
+                Path(directory),
+                count=1,
+                risk="R4",
+                approvals=2,
+            )
+            first_store = load_store(data_path)
+            first_inbox = build_approval_inbox(
+                Workspace.load(data_path),
+                first_store.data,
+            )
+            first_pack = first_inbox["packs"][0]
+            first_command = first_inbox["approval_commands"][0]
+            first = apply_pack_decision(
+                str(data_path),
+                pack_digest=first_pack["pack_digest"],
+                presentation_digest=first_command["presentation_digest"],
+                human_id="HUMAN-PRODUCT",
+                approve=["WORK-001"],
+                pack_members=["WORK-001"],
+            )
+
+            current = load_store(data_path)
+            current_workspace = Workspace.load(data_path)
+            second_inbox = build_approval_inbox(current_workspace, current.data)
+            second_command = second_inbox["approval_commands"][0]
+            second_handoff = build_agent_handoff(
+                current_workspace,
+                "WORK-001",
+                "PALARI-SOFIA",
+            )
+            continued_evaluation = evaluate_approval_pack(
+                current_workspace,
+                first_pack,
+            )
+            continued_presentation = build_approval_presentation(
+                current_workspace,
+                first_pack,
+                continued_evaluation,
+            )
+            continued_digest = approval_presentation_digest(
+                continued_presentation,
+                first_pack,
+            )
+
+            with self.assertRaisesRegex(WorkspaceError, "no currently eligible members"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=first_pack["pack_digest"],
+                    presentation_digest=continued_digest,
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    pack_members=["WORK-001"],
+                )
+
+            with self.assertRaisesRegex(WorkspaceError, "cannot select non-batchable"):
+                apply_pack_decision(
+                    str(data_path),
+                    pack_digest=first_pack["pack_digest"],
+                    presentation_digest=continued_digest,
+                    human_id="HUMAN-SECOND",
+                    approve_eligible=True,
+                    approve=["WORK-001"],
+                    pack_members=["WORK-001"],
+                )
+
+            second = apply_pack_decision(
+                str(data_path),
+                pack_digest=first_pack["pack_digest"],
+                presentation_digest=continued_digest,
+                human_id="HUMAN-SECOND",
+                approve=["WORK-001"],
+                pack_members=["WORK-001"],
+            )
+
+        self.assertEqual(first["executed"], [])
+        self.assertEqual(first["parked"], ["WORK-001"])
+        self.assertEqual(continued_evaluation["members"][0]["state"], "approved")
+        self.assertEqual(second_command["mode"], "individual-effect")
+        self.assertIn("--approve WORK-001", second_command["command"])
+        self.assertNotIn("--approve-eligible", second_command["command"])
+        self.assertEqual(
+            second_handoff["human_approval_handoff"]["approval_pack"]["mode"],
+            "individual-effect",
+        )
+        self.assertEqual(second["executed"], ["WORK-001"])
 
     def test_agent_handoff_never_bypasses_an_unavailable_exact_pack(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -466,20 +634,20 @@ class ApprovalPackTests(unittest.TestCase):
                 "--json",
             )
 
-        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v2")
+        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v3")
         self.assertIn("Status: Needs approval", rendered_inbox)
         self.assertIn("Owner: qualified human", rendered_inbox)
         self.assertIn("Next: palari --workspace", rendered_inbox)
         self.assertIn("human-decision pack", rendered_inbox)
         self.assertLessEqual(len(rendered_inbox.splitlines()), 8)
-        self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["approve_eligible"])
+        self.assertIn("--pack-member WORK-001", inbox["approval_commands"][0]["command"])
         self.assertTrue(inbox["approval_commands"])
         for command in inbox["approval_commands"]:
             self.assertIn(
                 f"--human-id {command['human_id']}",
-                command["approve_eligible"],
+                command["command"],
             )
-            self.assertNotIn("--human-id HUMAN-ID", command["approve_eligible"])
+            self.assertNotIn("--human-id HUMAN-ID", command["command"])
         self.assertEqual(decision["executed"], ["WORK-001"])
 
     def test_batch_policy_translates_only_structured_kernel_facts(self) -> None:
@@ -725,7 +893,7 @@ class ApprovalPackTests(unittest.TestCase):
         self.assertTrue(inbox["approval_commands"])
         self.assertTrue(
             all(
-                f"palari --workspace {custom_data_path}" in item["approve_eligible"]
+                f"palari --workspace {custom_data_path}" in item["command"]
                 for item in inbox["approval_commands"]
             )
         )
@@ -1014,82 +1182,39 @@ class ApprovalPackTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, r"members\[\] has unknown or missing fields"):
             validate_pack_manifest(bad_member)
 
-    def test_pack_v2_stored_manifest_can_continue_to_second_quorum_vote(self) -> None:
+    def test_pack_outputs_accept_only_content_digests_or_the_deletion_tombstone(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            data_path = make_ready_workspace(Path(directory), count=1, approvals=2)
+            data_path = make_ready_workspace(Path(directory), count=1)
             store = load_store(data_path)
-            workspace = Workspace.load(data_path)
-            inbox = build_approval_inbox(workspace, store.data)
-            legacy_pack = deepcopy(inbox["packs"][0])
-            legacy_pack["schema_version"] = "palari.approval-pack.v2"
-            for member in legacy_pack["members"]:
-                member["authority"].pop("effective_final_approval_count")
-                member["member_digest"] = canonical_sha256(
-                    {
-                        key: value
-                        for key, value in member.items()
-                        if key != "member_digest"
-                    }
-                )
-            legacy_pack["pack_digest"] = canonical_sha256(
-                {
-                    key: value
-                    for key, value in legacy_pack.items()
-                    if key != "pack_digest"
-                }
+            pack = build_approval_inbox(Workspace.load(data_path), store.data)["packs"][0]
+
+        def with_output_digest(value: str) -> dict[str, object]:
+            candidate = deepcopy(pack)
+            member = candidate["members"][0]
+            member["outputs"][0]["sha256"] = value
+            member["member_digest"] = canonical_sha256(
+                {key: item for key, item in member.items() if key != "member_digest"}
             )
-            validate_pack_manifest(legacy_pack)
-            legacy_evaluation = evaluate_approval_pack(workspace, legacy_pack)
-            legacy_presentation = build_approval_presentation(
-                workspace,
-                legacy_pack,
-                legacy_evaluation,
+            candidate["pack_digest"] = canonical_sha256(
+                {key: item for key, item in candidate.items() if key != "pack_digest"}
             )
-            legacy_inbox = {
-                **inbox,
-                "packs": [legacy_pack],
-                "presentations": [legacy_presentation],
-            }
-            with patch(
-                "palari_company_os.approval_packs.build_approval_inbox",
-                return_value=legacy_inbox,
+            return candidate
+
+        validate_pack_manifest(with_output_digest("sha256:absent"))
+        for malformed in (
+            "",
+            "sha256:deleted",
+            "SHA256:absent",
+            "sha256:" + ("A" * 64),
+            "sha256:" + ("g" * 64),
+        ):
+            with self.subTest(malformed=malformed), self.assertRaisesRegex(
+                WorkspaceError,
+                "must be a sha256 digest",
             ):
-                first = _apply_pack_decision(
-                    str(data_path),
-                    pack_digest=legacy_pack["pack_digest"],
-                    presentation_digest=approval_presentation_digest(
-                        legacy_presentation,
-                        legacy_pack,
-                    ),
-                    human_id="HUMAN-PRODUCT",
-                    approve_eligible=True,
-                    pack_members=["WORK-001"],
-                )
-
-            current_workspace = Workspace.load(data_path)
-            current_evaluation = evaluate_approval_pack(
-                current_workspace,
-                legacy_pack,
-            )
-            current_presentation = build_approval_presentation(
-                current_workspace,
-                legacy_pack,
-                current_evaluation,
-            )
-            second = _apply_pack_decision(
-                str(data_path),
-                pack_digest=legacy_pack["pack_digest"],
-                presentation_digest=approval_presentation_digest(
-                    current_presentation,
-                    legacy_pack,
-                ),
-                human_id="HUMAN-SECOND",
-                approve_eligible=True,
-                pack_members=["WORK-001"],
-            )
-
-        self.assertEqual(first["parked"], ["WORK-001"])
-        self.assertEqual(second["executed"], ["WORK-001"])
+                validate_pack_manifest(with_output_digest(malformed))
 
     def test_terminal_pack_proof_is_historical_but_changed_bytes_report_stale(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1508,6 +1633,7 @@ def make_ready_workspace(
                 "allowed_resources": [output_path],
                 "allowed_actions": ["write local draft"],
                 "output_targets": [output_path],
+                "path_intents": [],
                 "forbidden_actions": ["external writes", "send messages"],
                 "acceptance_target": "Human confirms the exact reviewed local draft.",
                 "current_attempt": attempt_id,
@@ -1572,7 +1698,6 @@ def make_ready_workspace(
         binding, errors = current_review_binding(
             workspace,
             work_id,
-            require_output_coverage=True,
         )
         if errors:
             raise AssertionError(errors)

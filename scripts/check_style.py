@@ -9,11 +9,21 @@ from pathlib import Path
 CHECK_SUFFIXES = {".py", ".md", ".json", ".yml", ".yaml", ".sh"}
 SKIP_DIRS = {".git", ".palari-company-os", "__pycache__", ".pytest_cache", ".mypy_cache"}
 SKIP_PREFIXES = {("workspaces", "palari-company-os")}
+PRODUCTION_LINE_BUDGET = 53_100
 
 
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     failures: list[str] = []
+    production_lines = sum(
+        len(path.read_text(encoding="utf-8").splitlines())
+        for path in (repo / "src" / "palari_company_os").glob("*.py")
+    )
+    if production_lines > PRODUCTION_LINE_BUDGET:
+        failures.append(
+            "src/palari_company_os: "
+            f"{production_lines} lines exceeds the {PRODUCTION_LINE_BUDGET} line budget"
+        )
     for path in sorted(repo.rglob("*")):
         if not path.is_file() or _skip(path, repo):
             continue
@@ -29,7 +39,7 @@ def main() -> int:
         for failure in failures:
             print(f"  {failure}", file=sys.stderr)
         return 1
-    print("Style check passed.")
+    print(f"Style check passed (production lines: {production_lines}/{PRODUCTION_LINE_BUDGET}).")
     return 0
 
 

@@ -230,14 +230,14 @@ class PlainLanguageContractTests(unittest.TestCase):
                     "attention": "needs-evidence",
                     "next_step_type": "check-active-proof",
                     "next_command": (
-                        "palari agent check WORK-1 --as PALARI-1 "
+                        "palari agent status WORK-1 --as PALARI-1 "
                         "--mode execute --json"
                     ),
                     "claim": {"active": False, "status": "unclaimed"},
                 }
             ],
             "next_allowed_commands": [
-                "palari agent check WORK-1 --as PALARI-1 --mode execute --json"
+                "palari agent status WORK-1 --as PALARI-1 --mode execute --json"
             ],
         }
 
@@ -278,13 +278,13 @@ class PlainLanguageContractTests(unittest.TestCase):
         self.assertIn("Blocked: 1", rendered)
         self.assertNotIn("Needs approval: 1", rendered)
 
-    def test_text_output_shows_task_lock_before_checks_without_changing_json(self) -> None:
+    def test_text_output_shows_task_lock_before_status_without_changing_json(self) -> None:
         prefix = ("--workspace", "examples/acme-company-os")
         machine = json.loads(
             self.run_cli(
                 *prefix,
                 "agent",
-                "check",
+                "status",
                 "WORK-0001",
                 "--as",
                 "PALARI-SOFIA",
@@ -304,7 +304,7 @@ class PlainLanguageContractTests(unittest.TestCase):
                 "--mode",
                 "execute",
             )
-            for command in ("brief", "check", "finish", "loop")
+            for command in ("brief", "status")
         ]
 
         self.assertEqual(machine["next_step_type"], "check-active-proof")
@@ -319,19 +319,18 @@ class PlainLanguageContractTests(unittest.TestCase):
             "execute",
             "--json",
         )
-        for rendered in rendered_outputs:
+        for rendered in rendered_outputs[:1]:
             self.assertIn("Next step: Start or continue task", rendered)
             self.assertIn(start_command, rendered)
-        for rendered in rendered_outputs[2:]:
-            self.assertIn("Start or continue this task before running its checks", rendered)
-            self.assertNotIn("Record or refresh the missing checks", rendered)
+        self.assertIn("Task status:", rendered_outputs[1])
+        self.assertIn(start_command, rendered_outputs[1])
 
     def test_blocked_review_text_exposes_only_read_only_recovery(self) -> None:
         rendered = self.run_cli(
             "--workspace",
             "examples/acme-company-os",
             "agent",
-            "check",
+            "status",
             "WORK-0001",
             "--as",
             "PALARI-ALFRED",
@@ -339,7 +338,7 @@ class PlainLanguageContractTests(unittest.TestCase):
             "review",
         )
 
-        self.assertIn("Next step: Inspect details", rendered)
+        self.assertIn("Status: Blocked", rendered)
         self.assertNotIn(" agent advance ", rendered)
 
     def test_linked_decision_is_not_presented_as_final_approval(self) -> None:
@@ -354,73 +353,47 @@ class PlainLanguageContractTests(unittest.TestCase):
             "--mode",
             "execute",
         )
-        check_output = self.run_cli(
+        status_output = self.run_cli(
             *prefix,
-            "check",
+            "status",
             "WORK-0002",
             "--as",
             "PALARI-ALFRED",
             "--mode",
             "execute",
         )
-        loop_output = self.run_cli(
-            *prefix,
-            "loop",
-            "WORK-0002",
-            "--as",
-            "PALARI-ALFRED",
-            "--mode",
-            "execute",
-        )
-        finish_output = self.run_cli(
-            *prefix,
-            "finish",
-            "WORK-0002",
-            "--as",
-            "PALARI-ALFRED",
-        )
-        doctor_output = self.run_cli(
-            *prefix,
-            "doctor",
-            "WORK-0002",
-            "--as",
-            "PALARI-ALFRED",
-        )
-
         self.assertIn("next step: Ask a human to decide", next_output)
-        handoff_command = palari_workspace_command(
+        status_command = palari_workspace_command(
             REPO_ROOT / "examples" / "acme-company-os",
             "agent",
-            "handoff",
+            "status",
             "WORK-0002",
             "--as",
             "PALARI-ALFRED",
             "--json",
         )
-        for output in (brief_output, check_output, loop_output):
-            self.assertIn("Next step: Ask a human to decide", output)
-            self.assertIn(handoff_command, output)
-            self.assertNotIn(" agent advance ", output)
-            self.assertNotIn("Record or refresh the missing checks", output)
-        self.assertIn("Ready for decision handoff: yes", finish_output)
-        self.assertIn("Next step: Ask a human to decide", finish_output)
-        self.assertNotIn(" agent advance ", finish_output)
-        self.assertIn("waiting for a human answer to a linked decision", doctor_output)
+        self.assertIn("Next step: Ask a human to decide", brief_output)
+        self.assertIn(status_command, brief_output)
+        self.assertNotIn(" agent advance ", brief_output)
+        self.assertIn("Task status:", status_output)
+        self.assertIn(status_command, status_output)
+        self.assertNotIn(" agent advance ", status_output)
 
     def test_review_wait_guidance_returns_missing_checks_to_builder(self) -> None:
         prefix = ("--workspace", "examples/acme-company-os", "agent")
-        for command in ("finish", "loop"):
-            output = self.run_cli(
-                *prefix,
-                command,
-                "WORK-0001",
-                "--as",
-                "PALARI-SOFIA",
-                "--mode",
-                "review",
-            )
-            self.assertIn("Return this task to its builder", output)
-            self.assertNotIn("Record or refresh the missing checks", output)
+        status = self.run_cli(
+            *prefix,
+            "status",
+            "WORK-0001",
+            "--as",
+            "PALARI-SOFIA",
+            "--mode",
+            "review",
+        )
+
+        self.assertIn("Status: Blocked", status)
+        self.assertIn("Owner: reviewer", status)
+        self.assertNotIn(" agent advance ", status)
 
     def test_default_help_describes_the_product_without_architecture_jargon(self) -> None:
         help_text = build_parser().format_help()
@@ -470,6 +443,8 @@ class PlainLanguageContractTests(unittest.TestCase):
             "outcomes",
         ):
             self.assertIn(name, schema["properties"])
+        self.assertIn("path_intents", schema["$defs"]["work_item"]["required"])
+        self.assertIn("path_intents", schema["$defs"]["proposal"]["required"])
 
 
 if __name__ == "__main__":

@@ -50,7 +50,6 @@ class CustomWorkspaceProjectionTests(unittest.TestCase):
                 projection_paths,
                 {
                     "governance-state.json",
-                    ".palari/governance-journal.v1.jsonl",
                     ".palari/governance-journal.v2.jsonl",
                 },
             )
@@ -89,6 +88,10 @@ class CustomWorkspaceProjectionTests(unittest.TestCase):
             for palari in store.data["palaris"]:
                 if palari["id"] == "PALARI-STEWARD":
                     palari["active_work"] = ["WORK-CUSTOM"]
+            self.assertEqual(
+                store.data["work_items"][0]["path_intents"],
+                [{"path": "README.md", "intent": "modify"}],
+            )
             write_store(store)
             default_path.rename(custom_path)
             (root / "README.md").write_text("before\n", encoding="utf-8")

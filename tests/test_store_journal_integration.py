@@ -14,7 +14,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.governance_journal import (
     checkpoint_workspace_journal,
     journal_file_path,
-    legacy_journal_file_path,
     v2_journal_file_path,
     verify_workspace_journal,
 )
@@ -44,7 +43,6 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             second = verify_workspace_journal(data_path)
             self.assertEqual(journal_file_path(data_path), v2_journal_file_path(data_path))
             self.assertTrue(v2_journal_file_path(data_path).exists())
-            self.assertFalse(legacy_journal_file_path(data_path).exists())
 
         self.assertTrue(first["ok"])
         self.assertEqual(first["journal_schema_version"], "palari.governance-journal.v2")
@@ -53,7 +51,7 @@ class StoreJournalIntegrationTests(unittest.TestCase):
         self.assertEqual(second["committed_transactions"], 2)
         self.assertEqual(second["replay_workspace_digest"], second["current_workspace_digest"])
 
-    def test_existing_unjournaled_workspace_requires_explicit_v2_checkpoint(self) -> None:
+    def test_existing_unjournaled_workspace_cannot_be_upgraded(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = Path(directory) / "workspace.json"
             shutil.copy(FIXTURE, data_path)
@@ -67,23 +65,16 @@ class StoreJournalIntegrationTests(unittest.TestCase):
             self.assertEqual(data_path.read_bytes(), original)
             self.assertFalse(journal_file_path(data_path).exists())
             checkpoint = checkpoint_workspace_journal(data_path, "HUMAN-OPERATOR")
-            self.assertEqual(
-                journal_file_path(data_path), v2_journal_file_path(data_path)
-            )
-            self.assertFalse(legacy_journal_file_path(data_path).exists())
-            continued = load_store(data_path)
-            continued.data["name"] = "Current v2 continuation"
-            write_store(continued)
 
-        self.assertTrue(checkpoint["ok"])
-        self.assertEqual(checkpoint["continuity"]["initial_coverage"], "from-checkpoint")
-        self.assertEqual(checkpoint["journal_schema_version"], "palari.governance-journal.v2")
+        self.assertFalse(checkpoint["ok"])
+        self.assertEqual(checkpoint["errors"][0]["code"], "JOURNAL_NOT_ENABLED")
+        self.assertFalse(journal_file_path(data_path).exists())
 
     def test_manual_divergence_blocks_next_journaled_write(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_path = Path(directory) / "workspace.json"
-            shutil.copy(FIXTURE, data_path)
-            checkpoint_workspace_journal(data_path, "HUMAN-OPERATOR")
+            data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+            write_store(WorkspaceStore(data_path=data_path, data=data))
             raw = json.loads(data_path.read_text(encoding="utf-8"))
             raw["name"] = "Manual divergence"
             data_path.write_text(json.dumps(raw), encoding="utf-8")
@@ -187,6 +178,7 @@ class StoreJournalIntegrationTests(unittest.TestCase):
                     "palari": data["work_items"][0]["palari"],
                     "status": "adopted",
                     "linked_work": "WORK-1",
+                    "path_intents": [],
                 }
             ]
             write_store(WorkspaceStore(data_path=data_path, data=data))

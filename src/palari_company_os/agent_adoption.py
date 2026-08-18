@@ -254,7 +254,7 @@ def adopt_agent_host(
         "mcp": {
             "transport": "stdio",
             "command": _mcp_command(executable, workspace_path),
-            "authority": "agent-loop-only; no human acceptance or external-write authority",
+            "authority": "agent-status-only; no human acceptance or external-write authority",
         },
         "next_commands": _agent_next_commands(executable, workspace_path, actor),
         "limitations": limitations,
@@ -797,7 +797,7 @@ human or external-write boundary, commit the bounded change, then run:
 palari agent advance WORK-ID --as {palari_id} --json
 ```
 
-Use `palari agent doctor WORK-ID --as {palari_id} --json` for one actionable
+Use `palari agent status WORK-ID --as {palari_id} --json` for one actionable
 diagnosis. Never manufacture review, human approval, merge, push, deployment,
 provider, credential, or external-write permission.
 {AGENTS_END}"""

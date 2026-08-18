@@ -42,7 +42,7 @@ copy IDs and digests by hand:
 
 ```bash
 palari init --host codex
-palari work add "Draft onboarding note" --write docs/onboarding.md
+palari work add "Draft onboarding note" --create docs/onboarding.md
 palari agent start --next --as PALARI-ID --json
 # work inside the packet and commit the bounded result
 palari agent advance WORK-ID --as PALARI-ID --json
@@ -60,9 +60,8 @@ the commit gate. Existing workspaces use
 still refuses an existing workspace when no host is given. Other unnamed agent
 hosts may consume the provider-neutral session rules without a named profile.
 
-The presence-only `--write` form requires an output to exist. Use repeatable
-`--create`, `--modify`, and `--delete` when the exact change type matters; exact
-intents cannot be mixed with `--write`.
+Use repeatable `--create`, `--modify`, and `--delete` paths so every task says
+what kind of file change it will make.
 
 `start --next` chooses one task the queue already considers safe, writes its
 task brief and portable session rules, and acquires its task lock (`claim`).
@@ -81,7 +80,7 @@ the human handoff presents the exact current task and a qualified person takes
 one ordinary, presentation-bound action:
 
 ```bash
-palari agent handoff WORK-ID --as PALARI-REVIEWER --mode review --json
+palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
 # A human runs the exact emitted human_action_commands[].command.
 ```
 
@@ -113,35 +112,14 @@ palari agent release WORK-ID --as PALARI-ID \
 This records one blocked run and its next safe action, then releases ownership.
 It creates no run record, check results, review, approval, completion, or result.
 The workspace must already have writable tamper-evident history (the
-`governance_journal`). A legacy workspace receives the exact explicit `history
---checkpoint` activation action; Palari does not pretend the earlier history is
-continuous.
+`governance_journal`). A workspace without it is unsupported and cannot be
+upgraded in place.
 
-## Retire Obsolete Tasks Without Calling Them Complete
+## Historical Retired Tasks
 
-When an unclaimed task is genuinely obsolete, give it an explicit final status
-through the existing update command:
-
-```bash
-palari work update WORK-OLD \
-  --status superseded \
-  --terminal-reason "A narrower contract now owns the objective." \
-  --successor-work-item-id WORK-NEW --json
-
-palari work update WORK-EXPERIMENT \
-  --status abandoned \
-  --terminal-reason "The experiment no longer earns operator attention." --json
-```
-
-`superseded` and `abandoned` close the task without claiming success. They do
-not create a run, run record, check results, review, human-decision record,
-approval, or result. A reason is required. A successor is optional, but it must name a
-different existing task.
-
-Palari rejects successor cycles, retirement during an active run, retirement
-with an open decision or unresolved external action, and retirement while other
-tasks still depend on the old task. Point each dependent task to the explicit
-successor first.
+Stored `superseded` and `abandoned` tasks remain inspectable and never count as
+completed work. The generic task-update command was removed in the minimality
+pass; create an explicit successor task for new work.
 
 Retired tasks disappear from the ordinary queue, `agent next`, and Approval
 Inbox. They remain visible through `queue --include-closed` and `detail`, and an

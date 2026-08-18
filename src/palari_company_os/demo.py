@@ -15,7 +15,6 @@ from .workspace import WorkspaceError
 
 BLOCKED_PATH = "deploy/production.yml"
 ALLOWED_PATH = "docs/product/company-os.md"
-WORK_ID = "WORK-0003"
 PALARI_ID = "PALARI-SOFIA"
 
 
@@ -29,7 +28,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
         workspace_dir = Path(temp_directory.name)
 
     try:
-        _create_demo_workspace(workspace_dir)
+        work_id = _create_demo_workspace(workspace_dir)
         steps: list[dict[str, Any]] = []
         queue_step = _run_step(
             workspace_dir,
@@ -38,7 +37,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             ["queue"],
         )
         queue_step["display_stdout"] = _queue_display_summary(
-            _run_json(workspace_dir, ["queue"])
+            _run_json(workspace_dir, ["queue"]), work_id
         )
         steps.append(queue_step)
         steps.append(
@@ -49,43 +48,45 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
                 ["agent", "start", "--next", "--as", PALARI_ID, "--mode", "execute"],
             )
         )
+        blocked_path = workspace_dir / BLOCKED_PATH
+        blocked_path.parent.mkdir(parents=True, exist_ok=True)
+        blocked_path.write_text("unsafe demo change\n", encoding="utf-8")
         blocked_step = _run_step(
             workspace_dir,
             "The unsafe change is blocked",
             "The named file change is checked against Sofia's allowed files.",
             [
                 "agent",
-                "check",
-                WORK_ID,
+                "status",
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
                 "execute",
-                "--changed",
-                BLOCKED_PATH,
             ],
         )
         blocked_payload = _run_json(
             workspace_dir,
             [
                 "agent",
-                "check",
-                WORK_ID,
+                "status",
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
                 "execute",
-                "--changed",
-                BLOCKED_PATH,
             ],
         )
         blocked_step["display_stdout"] = _agent_check_display_summary(
             blocked_payload,
+            work_id=work_id,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
         blocked_step["stdout"] = blocked_step["display_stdout"]
         blocked_step.update(_blocked_highlight(blocked_payload))
         steps.append(blocked_step)
+        blocked_path.unlink()
+        blocked_path.parent.rmdir()
 
         _commit_demo_change(workspace_dir)
         allowed_step = _run_step(
@@ -94,32 +95,29 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
             "The safe file is listed in Sofia's task brief and is ready for checks.",
             [
                 "agent",
-                "check",
-                WORK_ID,
+                "status",
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
                 "execute",
-                "--changed",
-                ALLOWED_PATH,
             ],
         )
         allowed_payload = _run_json(
             workspace_dir,
             [
                 "agent",
-                "check",
-                WORK_ID,
+                "status",
+                work_id,
                 "--as",
                 PALARI_ID,
                 "--mode",
                 "execute",
-                "--changed",
-                ALLOWED_PATH,
             ],
         )
         allowed_step["display_stdout"] = _agent_check_display_summary(
             allowed_payload,
+            work_id=work_id,
             focus_code="FILE_CHANGES_WITHIN_WRITE_BOUNDARY",
         )
         allowed_step["stdout"] = allowed_step["display_stdout"]
@@ -132,7 +130,7 @@ def run_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, Any]:
                 "One command records checks and finishes the safe local task",
                 "Advance records the committed range, run record, and check "
                 "results without copied IDs.",
-                ["agent", "advance", WORK_ID, "--as", PALARI_ID],
+                ["agent", "advance", work_id, "--as", PALARI_ID],
             )
         )
         return {
@@ -326,8 +324,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
         concrete_review = next(
             str(item["command"])
             for item in reviewer_packet["review_context"]["agent_review_commands"]
-            if item.get("reviewer") == "PALARI-REVIEWER"
-            and item.get("verdict") == "accept-ready"
+            if item.get("reviewer") == "PALARI-REVIEWER" and item.get("verdict") == "accept-ready"
         )
         _run_emitted_json(workspace_dir, concrete_review)
         steps.append(
@@ -344,11 +341,11 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             }
         )
 
-        handoff = _run_json(
+        status = _run_json(
             workspace_dir,
             [
                 "agent",
-                "handoff",
+                "status",
                 work_id,
                 "--as",
                 "PALARI-REVIEWER",
@@ -356,7 +353,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
                 "review",
             ],
         )
-        human_command = str(handoff["human_action_commands"][0]["command"])
+        human_command = str(status["human_action_commands"][0]["command"])
         approved = _run_emitted_json(workspace_dir, human_command)
         steps.append(
             {
@@ -390,7 +387,7 @@ def run_solo_journey_demo(demo_dir: str | None, *, no_pause: bool) -> dict[str, 
             "try_next_commands": [
                 "palari demo --journey --no-pause",
                 "palari init",
-                "palari work add \"Reviewed local result\" --create notes/result.md --risk R2 --json",
+                'palari work add "Reviewed local result" --create notes/result.md --risk R2 --json',
             ],
         }
     finally:
@@ -428,15 +425,9 @@ def _run_repo_step(
     workspace_flag: bool = True,
 ) -> dict[str, Any]:
     command = (
-        _display_command(workspace_dir, args)
-        if workspace_flag
-        else " ".join(["palari", *args])
+        _display_command(workspace_dir, args) if workspace_flag else " ".join(["palari", *args])
     )
-    cli_args = (
-        ["--workspace", str(workspace_dir), *args]
-        if workspace_flag
-        else list(args)
-    )
+    cli_args = ["--workspace", str(workspace_dir), *args] if workspace_flag else list(args)
     result = _run_cli_raw(workspace_dir, cli_args)
     if result.returncode != 0:
         raise WorkspaceError(result.stderr.strip() or result.stdout.strip())
@@ -494,7 +485,7 @@ def _ensure_empty_demo_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def _create_demo_workspace(workspace_dir: Path) -> None:
+def _create_demo_workspace(workspace_dir: Path) -> str:
     workspace_dir.mkdir(parents=True, exist_ok=True)
     verification_script = workspace_dir / "scripts" / "verification_profiles.py"
     verification_script.parent.mkdir(parents=True, exist_ok=True)
@@ -517,15 +508,15 @@ print("demo affected verification passed")
         name="Palari boundary demo",
         palari_name="Sofia",
     )
-    quick_add_work(
+    result = quick_add_work(
         workspace_dir,
         "Improve the Company OS onboarding note",
-        write=[ALLOWED_PATH],
-        work_id=WORK_ID,
+        create=[ALLOWED_PATH],
         risk="R1",
         intensity="light",
         acceptance_target="The bounded onboarding note exists and proof is current.",
     )
+    return str(result["work_item"]["id"])
 
 
 def _commit_demo_change(workspace_dir: Path) -> None:
@@ -656,16 +647,16 @@ def _display_command(workspace_dir: Path, args: list[str]) -> str:
     return " ".join(["palari", "--workspace", str(workspace_dir), *args])
 
 
-def _queue_display_summary(payload: dict[str, Any]) -> str:
+def _queue_display_summary(payload: dict[str, Any], work_id: str) -> str:
     items = _dict_items(payload.get("queue"))
     selected: list[dict[str, Any]] = []
 
-    target = _first_item(items, "id", WORK_ID)
+    target = _first_item(items, "id", work_id)
     if target:
         selected.append(target)
 
     for item in items:
-        if item.get("id") != WORK_ID and item.get("waiting_on_human"):
+        if item.get("id") != work_id and item.get("waiting_on_human"):
             selected.append(item)
             break
 
@@ -692,8 +683,7 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
         active_attempts = _dict_items(item.get("active_attempts"))
         if active_attempts:
             attempt_ids = ", ".join(
-                str(attempt.get("attempt_id", ""))
-                for attempt in active_attempts
+                str(attempt.get("attempt_id", "")) for attempt in active_attempts
             )
             lines.append(f"  active runs: {attempt_ids}")
 
@@ -701,20 +691,17 @@ def _queue_display_summary(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) -> str:
-    checks = _dict_items(payload.get("checks"))
+def _agent_check_display_summary(payload: dict[str, Any], *, work_id: str, focus_code: str) -> str:
+    check = payload.get("check") or {}
+    checks = _dict_items(check.get("requirements"))
     passed = [check for check in checks if check.get("status") == "pass"]
     failed = [check for check in checks if check.get("status") != "pass"]
     focus = _first_item(checks, "code", focus_code)
-    other_failures = [
-        check
-        for check in failed
-        if check.get("code") != focus_code
-    ]
+    other_failures = [check for check in failed if check.get("code") != focus_code]
 
     lines = [
-        f"Task check: {payload.get('check_id', 'check')}",
-        f"OK: {'yes' if payload.get('ok') else 'no'}",
+        f"Task status: {check.get('check_id', work_id)}",
+        f"OK: {'yes' if check.get('ok') else 'no'}",
         f"Next step: {_demo_check_step(payload)}",
         f"Checks: {len(passed)} passed.",
     ]
@@ -727,16 +714,11 @@ def _agent_check_display_summary(payload: dict[str, Any], *, focus_code: str) ->
         )
 
     if other_failures:
-        codes = ", ".join(
-            str(check.get("code", "UNKNOWN")) for check in other_failures
-        )
+        codes = ", ".join(str(check.get("code", "UNKNOWN")) for check in other_failures)
         lines.append(f"Other blockers still pending before completion: {codes}.")
 
     if focus and focus.get("status") == "pass":
-        lines.append(
-            f"Next safe action: palari agent advance {WORK_ID} "
-            f"--as {PALARI_ID} --json"
-        )
+        lines.append(f"Next safe action: palari agent advance {work_id} --as {PALARI_ID} --json")
     return "\n".join(lines)
 
 
@@ -770,9 +752,13 @@ def _first_item(
 
 
 def _blocked_highlight(payload: dict[str, Any]) -> dict[str, Any]:
-    file_changes = payload.get("file_changes") or {}
+    file_changes = (payload.get("check") or {}).get("file_changes") or {}
     outside = list(file_changes.get("outside_write_boundary") or [])
-    allowed = list(file_changes.get("allowed_write_paths") or [])
+    allowed = list(
+        (payload.get("task_limits") or {})
+        .get("allowed_paths", {})
+        .get("write", [])
+    )
     return {
         "block_marker": "*** BLOCKED: file change is outside Sofia's allowed files ***",
         "offending_path": outside[0] if outside else BLOCKED_PATH,
@@ -781,7 +767,7 @@ def _blocked_highlight(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _allowed_highlight(payload: dict[str, Any]) -> dict[str, Any]:
-    file_changes = payload.get("file_changes") or {}
+    file_changes = (payload.get("check") or {}).get("file_changes") or {}
     inside = list(file_changes.get("inside_write_boundary") or [])
     return {
         "pass_marker": (
