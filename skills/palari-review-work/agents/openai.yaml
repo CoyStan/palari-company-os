@@ -1,0 +1,4 @@
+interface:
+  display_name: "Palari Review Work"
+  short_description: "Review Palari work at exact proof boundaries"
+  default_prompt: "Use $palari-review-work to independently review the current Palari work item."
