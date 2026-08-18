@@ -1,5 +1,6 @@
 palari demo
 palari init
+palari do
 palari approve
 palari queue
 palari inbox

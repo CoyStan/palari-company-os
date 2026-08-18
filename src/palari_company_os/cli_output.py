@@ -639,9 +639,9 @@ def print_work_add(payload: dict[str, Any], as_json: bool) -> None:
     work = payload["work_item"]
     print(f"Task created: {work['id']} {work['title']}")
     print(f"Agent: {work['palari']} | risk {work['risk']} | intensity {work['intensity']}")
-    print("Write boundary:")
-    for path in work["output_targets"]:
-        print(f"  - {path}")
+    print("Path intents:")
+    for item in work.get("path_intents") or payload.get("path_intents") or []:
+        print(f"  - {item['intent']} {item['path']}")
     reads = [path for path in work["allowed_resources"] if path not in work["output_targets"]]
     if reads:
         print("Extra read paths:")

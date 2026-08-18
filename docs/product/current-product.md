@@ -72,7 +72,7 @@ its status:
 
 ```text
 palari init [--host claude|codex|cursor]
-palari work add TITLE --create PATH | --modify PATH | --delete PATH
+palari do TITLE PATH
 palari inbox
 palari detail WORK-ID
 ```
@@ -80,7 +80,7 @@ palari detail WORK-ID
 Between a goal and a task, an agent may add a bounded idea:
 
 ```text
-palari work add TITLE --idea --create PATH | --modify PATH | --delete PATH
+palari work add TITLE --idea PATH
 ```
 
 The idea keeps the proposed owner, project, file limits, dependencies, checks,
@@ -155,7 +155,7 @@ stop for independent review before that human step.
 **Current guarantee:** `palari init` seeds `HUMAN-FOUNDER`, a builder Palari,
 and `PALARI-REVIEWER`. The first R2 task for that builder has a viable authority
 plan out of the box. CI covers the product-command closeout
-(init → work add → start → advance → inbox → approve). Operators can replay
+(init → do → start → advance → inbox → approve). Operators can replay
 the narration with `palari demo --journey --no-pause`.
 
 ## Supported verification and storage

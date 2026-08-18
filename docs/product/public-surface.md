@@ -48,19 +48,19 @@ matrix.
 
 ## Command surface
 
-Current CLI command count from parser inspection: **82**. The August 2026
+Current CLI command count from parser inspection: **83**. The August 2026
 minimality pass removed 65 commands: generic record mutation, restore-point
 recovery, and advisory data-map, maintainer, gate, and playbook views. The
 ordinary journey, supported adapters, and safety boundaries remain.
 
 The agent surface uses `agent status` as its single read-only task projection.
 
-The default help is intentionally narrow. It leads with `demo`, `init`, `work`,
-`agent`, `approve`, `inbox`, `queue`, `detail`, and `validate`, plus this ordinary
+The default help is intentionally narrow. It leads with `demo`, `init`, `do`,
+`work`, `agent`, `approve`, `inbox`, `queue`, `detail`, and `validate`, plus this ordinary
 journey:
 
 ```text
-init -> work add -> agent start --next -> agent advance
+init -> do -> agent start --next -> agent advance
 -> inbox -> approve
 ```
 

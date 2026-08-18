@@ -891,7 +891,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             args.json,
         )
 
-    if args.command == "work" and args.object_command == "add":
+    if args.command == "do" or (args.command == "work" and args.object_command == "add"):
         from .onramp import quick_add_work
 
         return CommandResult(
@@ -902,6 +902,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 create=args.create,
                 modify=args.modify,
                 delete=args.delete,
+                paths=args.paths,
                 read=args.read,
                 palari_id=args.palari_id,
                 goal_id=args.goal,

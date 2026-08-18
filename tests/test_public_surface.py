@@ -17,8 +17,9 @@ class PublicSurfaceTests(unittest.TestCase):
         expected = _fixture_lines("public_commands.txt")
         actual = _collect_commands()
 
-        self.assertEqual(len(actual), 79)
-        self.assertEqual(len(_collect_leaf_commands()), 64)
+        self.assertEqual(len(actual), 80)
+        self.assertEqual(len(_collect_leaf_commands()), 65)
+        self.assertIn("palari do", actual)
         self.assertIn("palari agent status", actual)
         self.assertNotIn("palari agent check", actual)
         self.assertNotIn("palari agent finish", actual)
@@ -38,13 +39,14 @@ class PublicSurfaceTests(unittest.TestCase):
         help_text = build_parser().format_help()
 
         self.assertIn(
-            "init -> work add -> agent start --next -> agent advance",
+            "init -> do -> agent start --next -> agent advance",
             help_text,
         )
         self.assertIn("inbox -> approve", help_text)
         for command in (
             "demo",
             "init",
+            "do",
             "work",
             "agent",
             "approve",
@@ -87,7 +89,7 @@ class PublicSurfaceTests(unittest.TestCase):
         self.assertIn("| Mission Control and local serve | visual |", surface)
         self.assertIn("| Cursor host profile | adapter |", surface)
         self.assertNotRegex(surface, r"(?i)desktop[- ]prototype|desktop[- ]serve")
-        self.assertIn("Current CLI command count from parser inspection: **82**.", surface)
+        self.assertIn("Current CLI command count from parser inspection: **83**.", surface)
 
 
     def test_provider_surface_is_bounded(self) -> None:

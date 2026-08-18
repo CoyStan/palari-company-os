@@ -117,14 +117,14 @@ Initialize Palari, add one task, and let an agent take the next safe task:
 
 ```bash
 palari init --palari Agent --host codex --json
-palari work add "Clean up launch notes" --create docs/notes.md --json
+palari do "Clean up launch notes" docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
 An agent can also add a bounded idea without creating a task:
 
 ```bash
-palari work add "Draft the next launch page" --idea --create docs/launch.md --json
+palari work add "Draft the next launch page" --idea docs/launch.md --json
 ```
 
 Palari stores the goal, owner, project, file limits, checks, and approval count,
@@ -172,11 +172,11 @@ profiles; Cursor has a tested host profile (`palari init --host cursor`)
 with a default git commit gate. No profile grants permission to review, approve,
 merge, push, deploy, call a provider, or perform an external write.
 
-Tell Palari what kind of file change the task must make:
+Tell Palari which files the task may change. Bare paths infer create or modify
+from Git HEAD; `--delete` stays explicit:
 
 ```bash
-palari work add "Replace obsolete guidance" \
-  --create docs/new.md --modify docs/current.md --delete docs/obsolete.md
+palari do "Replace obsolete guidance" docs/new.md docs/current.md --delete docs/obsolete.md
 ```
 
 ## The ordinary agent path

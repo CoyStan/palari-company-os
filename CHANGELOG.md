@@ -13,7 +13,7 @@ repository milestones, not a production Company OS release.
   Claude and Codex. Pass `--no-git-hook` to keep only the advisory Cursor rule.
   `--strict-git` remains a no-op alias.
 - Added `palari inbox` as the human front door for work waiting on a yes or no.
-  Default `--help` now leads with `demo`, `init`, `work`, `agent`, `approve`,
+  Default `--help` now leads with `demo`, `init`, `do`, `work`, `agent`, `approve`,
   `inbox`, `queue`, `detail`, and `validate`.
 - Local R1/R2 work without an external-write surface skips independent agent
   review and still stops for one human. The narrow R1/light/zero-count/no-external
@@ -24,6 +24,8 @@ repository milestones, not a production Company OS release.
 - Commands accept a unique `WORK-` or `IDEA-` prefix of the stored opaque ID.
   Queue, inbox, detail, and emitted `approve` commands show that short form.
   JSON keeps the full ID. Ambiguous prefixes fail closed.
+- `palari do TITLE PATH` and `work add TITLE PATH` infer `create` vs `modify`
+  from Git HEAD. `--delete` stays explicit. Stored `path_intents` remain exact.
 
 ## [0.2.1] - 2026-08-05
 

@@ -135,6 +135,41 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(work["allowed_sources"], ["SOURCE-REPO-FOUNDATION"])
         self.assertEqual(payload["workbench_outputs_added"], ["docs/cli-boundary.md"])
 
+    def test_do_and_work_add_infer_path_intents(self) -> None:
+        created = self.run_json(
+            "do",
+            "Create an inferred note",
+            "docs/inferred.md",
+            "--as",
+            PALARI_ID,
+            "--goal",
+            "GOAL-REPO-0001",
+            "--workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            "--json",
+        )
+        self.assertEqual(
+            created["path_intents"],
+            [{"path": "docs/inferred.md", "intent": "create"}],
+        )
+        touched = self.run_json(
+            "work",
+            "add",
+            "Touch the fixture readme",
+            "README.md",
+            "--as",
+            PALARI_ID,
+            "--goal",
+            "GOAL-REPO-0001",
+            "--workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            "--json",
+        )
+        self.assertEqual(
+            touched["path_intents"],
+            [{"path": "README.md", "intent": "modify"}],
+        )
+
     def test_history_command_verifies_only_the_current_v2_fixture(self) -> None:
         payload = self.run_json("history", "--json")
 

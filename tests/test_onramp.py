@@ -585,6 +585,7 @@ class WorkAddTests(unittest.TestCase):
         self.assertIn("--create", help_text)
         self.assertIn("--modify", help_text)
         self.assertIn("--delete", help_text)
+        self.assertIn("PATH", help_text)
         self.assertNotIn("--write", help_text)
         self.assertNotIn("--id", help_text.split())
 
@@ -649,6 +650,79 @@ class WorkAddTests(unittest.TestCase):
         packet = build_agent_brief(workspace, work["id"], "PALARI-CLAUDE", "execute")
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/summary.md"])
         self.assertIn("research/raw.md", packet["allowed_paths"]["read"])
+
+    def test_positional_paths_infer_create_and_modify_without_git(self) -> None:
+        present = self.project / "docs" / "present.md"
+        present.parent.mkdir(parents=True, exist_ok=True)
+        present.write_text("present\n", encoding="utf-8")
+
+        result = quick_add_work(
+            self.project,
+            "Edit present and add missing",
+            paths=["docs/present.md", "docs/missing.md"],
+        )
+
+        self.assertEqual(
+            result["path_intents"],
+            [
+                {"path": "docs/present.md", "intent": "modify"},
+                {"path": "docs/missing.md", "intent": "create"},
+            ],
+        )
+        self.assertEqual(result["work_item"]["path_intents"], result["path_intents"])
+
+    def test_git_head_decides_create_versus_modify(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.email", "test@example.invalid"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.name", "Test"],
+            check=True,
+        )
+        tracked = self.project / "docs" / "tracked.md"
+        tracked.parent.mkdir(parents=True, exist_ok=True)
+        tracked.write_text("tracked\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.project), "add", "--", "docs/tracked.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "commit", "-qm", "track file"],
+            check=True,
+        )
+        untracked = self.project / "docs" / "untracked.md"
+        untracked.write_text("untracked\n", encoding="utf-8")
+
+        result = quick_add_work(
+            self.project,
+            "Infer from Git HEAD",
+            paths=["docs/tracked.md", "docs/untracked.md", "docs/brand-new.md"],
+        )
+
+        self.assertEqual(
+            result["path_intents"],
+            [
+                {"path": "docs/tracked.md", "intent": "modify"},
+                {"path": "docs/untracked.md", "intent": "create"},
+                {"path": "docs/brand-new.md", "intent": "create"},
+            ],
+        )
+
+    def test_positional_path_cannot_repeat_an_explicit_flag(self) -> None:
+        with self.assertRaisesRegex(WorkspaceError, "already declared"):
+            quick_add_work(
+                self.project,
+                "Duplicate path",
+                create=["docs/dup.md"],
+                paths=["docs/dup.md"],
+            )
+
+    def test_directory_path_is_rejected(self) -> None:
+        (self.project / "docs").mkdir(parents=True, exist_ok=True)
+        with self.assertRaisesRegex(WorkspaceError, "directory"):
+            quick_add_work(self.project, "Directory", paths=["docs"])
 
     def test_work_ids_are_unique_and_do_not_encode_creation_order(self) -> None:
         first = quick_add_work(self.project, "One", create=["docs/a.md"])

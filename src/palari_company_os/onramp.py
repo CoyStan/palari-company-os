@@ -2,8 +2,9 @@
 
 ``palari init`` creates a small but complete starter workspace (one human,
 one builder agent, one distinct review-only agent, one goal, one project, and
-one repository source) in an existing repository. ``palari work add`` creates
-an agent-startable task from a title and its write paths. Together with
+one repository source) in an existing repository. ``palari do`` and
+``palari work add`` create an agent-startable task from a title and write
+paths, inferring create vs modify when a bare path is given. Together with
 ``palari claude install`` they take a repo from "never heard of Palari" to an
 enforced write boundary in three commands.
 
@@ -27,7 +28,7 @@ from .authority_plan import build_authority_plan
 from .command_surface import palari_workspace_command
 from .governance_journal import MutationMetadata, utc_timestamp
 from .path_policy import validate_workspace_path
-from .store import WorkspaceStore, load_store, write_store
+from .store import WorkspaceStore, load_store, workspace_file_path, write_store
 from .validation import ALL_COLLECTION_KEYS
 from .work_identity import generate_proposal_id, generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
@@ -351,6 +352,7 @@ def quick_add_work(
     create: list[str] | None = None,
     modify: list[str] | None = None,
     delete: list[str] | None = None,
+    paths: list[str] | None = None,
     read: list[str] | None = None,
     palari_id: str = "",
     goal_id: str = "",
@@ -369,22 +371,15 @@ def quick_add_work(
     clean_title = title.strip()
     if not clean_title:
         raise WorkspaceError("work title is required")
-    intent_inputs = {
-        "create": _normalized_paths(create or [], "--create"),
-        "modify": _normalized_paths(modify or [], "--modify"),
-        "delete": _normalized_paths(delete or [], "--delete"),
-    }
-    path_intents = [
-        {"path": path, "intent": intent}
-        for intent, paths in intent_inputs.items()
-        for path in paths
-    ]
+    path_intents = compile_path_intents(
+        workspace_path,
+        paths=paths,
+        create=create,
+        modify=modify,
+        delete=delete,
+    )
     exact_paths = [str(item["path"]) for item in path_intents]
-    if len(exact_paths) != len(set(exact_paths)):
-        raise WorkspaceError("an exact path may declare only one create, modify, or delete intent")
     write_paths = exact_paths
-    if not write_paths:
-        raise WorkspaceError("at least one --create, --modify, or --delete path is required")
     read_paths = _normalized_paths(read or [], "--read")
     store = load_store(workspace_path)
     workbench = _resolve_optional_default(store.data, "workbenches", workbench_id, "--workbench")
@@ -979,6 +974,71 @@ def _current_cli_executable() -> str:
         except OSError:
             pass
     return "palari"
+
+
+def compile_path_intents(
+    workspace_path: str | Path,
+    *,
+    paths: list[str] | None = None,
+    create: list[str] | None = None,
+    modify: list[str] | None = None,
+    delete: list[str] | None = None,
+) -> list[dict[str, str]]:
+    """Compile exact stored path intents from flags and inferred PATH arguments."""
+
+    claimed: dict[str, str] = {}
+    ordered: list[dict[str, str]] = []
+
+    def claim(path: str, intent: str) -> None:
+        existing = claimed.get(path)
+        if existing is not None and existing != intent:
+            raise WorkspaceError(
+                f"path {path} has conflicting intents {existing} and {intent}"
+            )
+        if existing is not None:
+            return
+        claimed[path] = intent
+        ordered.append({"path": path, "intent": intent})
+
+    for intent, flag in (("create", "--create"), ("modify", "--modify"), ("delete", "--delete")):
+        values = create if intent == "create" else modify if intent == "modify" else delete
+        for path in _normalized_paths(values or [], flag):
+            claim(path, intent)
+    for path in _normalized_paths(paths or [], "PATH"):
+        if path in claimed:
+            raise WorkspaceError(
+                f"path {path} is already declared with --{claimed[path]}; "
+                "do not also pass it as a positional PATH"
+            )
+        claim(path, _infer_path_intent(workspace_path, path))
+    if not ordered:
+        raise WorkspaceError(
+            "at least one path is required; pass PATH, --create, --modify, or --delete"
+        )
+    return ordered
+
+
+def _infer_path_intent(workspace_path: str | Path, relative: str) -> str:
+    data_path = workspace_file_path(workspace_path)
+    root = _git_root(data_path.parent)
+    if root is not None:
+        head = _git_output(root, ["rev-parse", "--verify", "HEAD^{commit}"])
+        if head:
+            kind = _git_output(root, ["cat-file", "-t", f"{head}:{relative}"])
+            if kind == "blob":
+                return "modify"
+            if kind in {"tree", "commit"}:
+                raise WorkspaceError(
+                    f"PATH {relative} is a Git {kind}; declare a regular file"
+                )
+    candidate = data_path.parent / relative
+    if candidate.is_symlink():
+        raise WorkspaceError(f"PATH {relative} is a symlink; declare a regular file")
+    if candidate.is_dir():
+        raise WorkspaceError(f"PATH {relative} is a directory; declare a regular file")
+    if root is None and candidate.is_file():
+        return "modify"
+    return "create"
 
 
 def _normalized_paths(paths: list[str], flag: str) -> list[str]:

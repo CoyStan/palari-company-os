@@ -17,7 +17,7 @@ palari init [REPOSITORY] [--host claude|codex|cursor]
 ```
 
 `demo` uses a throwaway workspace and no network. `demo --journey` narrates the
-local R2 closeout: init, work add, start, advance, inbox, and one founder
+local R2 closeout: init, do, start, advance, inbox, and one founder
 approve. Independent review stays for R3+ and external writes. `init` creates
 `workspace.json`, the current tamper-evident journal, a builder, a distinct
 reviewer, and a founder. A host selection also installs its tested local
@@ -28,15 +28,19 @@ from default `--help`.
 ## Tasks
 
 ```bash
-palari work add "Update the guide" --modify docs/guide.md --json
-palari work add "Create a note" --create notes/new.md --approvals 1 --json
-palari work add "Draft the next note" --idea --create notes/next.md --json
+palari do "Update the guide" docs/guide.md
+palari work add "Create a note" notes/new.md --approvals 1 --json
+palari work add "Draft the next note" --idea notes/next.md --json
 ```
 
-Use repeatable `--create`, `--modify`, and `--delete` options for exact path
-intent. Other task options include `--read`, `--as`, `--goal`, `--workbench`,
-`--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`, `--depends-on`,
-`--parallel-policy`, and `--approvals`.
+Bare `PATH` arguments infer `create` when the path is not a regular file at Git
+HEAD, and `modify` when it is. Without Git, an existing regular file is
+`modify` and a missing path is `create`. `--delete` stays explicit. Repeatable
+`--create`, `--modify`, and `--delete` remain the exact override. Other task
+options include `--read`, `--as`, `--goal`, `--workbench`, `--risk`,
+`--intensity`, `--scope`, `--acceptance`, `--verify`, `--depends-on`,
+`--parallel-policy`, and `--approvals`. `palari do` is the same add path with a
+shorter name.
 
 `--idea` stores the same bounded plan without creating a task or granting
 authority. The response emits `palari approve IDEA-ID --as HUMAN-ID --json` for

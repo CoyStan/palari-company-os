@@ -41,7 +41,7 @@ task with exact allowed files, and let Palari take the next safe task:
 ```bash
 cd your-repository
 palari init --palari Agent --host codex --json
-palari work add "Clean up launch notes" --create docs/notes.md --json
+palari do "Clean up launch notes" docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
