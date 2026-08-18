@@ -23,10 +23,10 @@ class PalariAdoptSkillTests(unittest.TestCase):
     def test_skill_teaches_one_fresh_and_one_existing_init_path(self) -> None:
         text = SKILL_PATH.read_text(encoding="utf-8")
         self.assertIn("palari init --palari Agent --host HOST --json", text)
-        self.assertIn("palari init REPO-ROOT --host HOST --as PALARI-ID --json", text)
+        self.assertIn("palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json", text)
         self.assertEqual(text.count("palari init --palari Agent"), 1)
-        self.assertEqual(text.count("palari init REPO-ROOT"), 1)
-        self.assertIn("palari validate --json", text)
+        self.assertEqual(text.count("palari init WORKSPACE-DIR"), 1)
+        self.assertIn("palari --workspace WORKSPACE-DIR validate --json", text)
         self.assertIn("stop and ask the human to review `/hooks`", text)
         self.assertIn("Never invent", text)
         self.assertNotIn("palari claude install", text)

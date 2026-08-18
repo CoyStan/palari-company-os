@@ -33,12 +33,12 @@ reimplement them in the skill.
    palari init --palari Agent --host HOST --json
    ```
 
-5. For an existing workspace, use its repository path and an existing Palari
-   identity supplied by the user or shown by current Palari output. Never invent
-   the identity:
+5. For an existing workspace, target the exact directory that contains its
+   `workspace.json` and use an existing Palari identity supplied by the user or
+   shown by current Palari output. Never invent the identity:
 
    ```bash
-   palari init REPO-ROOT --host HOST --as PALARI-ID --json
+   palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
    ```
 
    Add `--strict-git` only with `--host cursor` and only when structural commit
@@ -49,7 +49,7 @@ reimplement them in the skill.
 7. Verify the adopted workspace and re-inspect Git state:
 
    ```bash
-   palari validate --json
+   palari --workspace WORKSPACE-DIR validate --json
    git status --short
    ```
 
