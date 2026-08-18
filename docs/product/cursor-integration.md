@@ -4,10 +4,10 @@ Palari's agent rules ask agents to inspect `palari agent status` before saying a
 task is done. Cursor does not expose a Claude-style pre-write deny hook, so this
 integration is honest about what it can enforce:
 
-- **Session boundary (default):** an always-applied project rule at
+- **Session boundary:** an always-applied project rule at
   `.cursor/rules/palari-boundary.mdc` that tells the agent how to start work,
   stay inside `allowed_paths.write`, and recover from a stuck claim.
-- **Commit boundary (opt-in):** the same IDE-agnostic git pre-commit gate used
+- **Commit boundary (default):** the same IDE-agnostic git pre-commit gate used
   by other hosts. It rejects commits that stage files outside an active claim.
   With no active claim, commits are allowed.
 
@@ -20,15 +20,20 @@ the [Glossary](glossary.md) for the full mapping.
 palari init --host cursor
 ```
 
-That installs the portable `AGENTS.md` contract and the advisory Cursor rule.
-It does **not** install the git pre-commit hook, so Cloud/agent environments
-cannot brick ordinary commits by default.
+That installs the portable `AGENTS.md` contract, the advisory Cursor rule, and
+the git pre-commit hook. Humans are not bricked: with no active claim, commits
+are allowed.
 
-Opt into structural commit gating explicitly:
+Skip the commit gate when a Cloud/agent environment must not install hooks:
 
 ```bash
-palari init --host cursor --strict-git
-# or later, on an existing workspace:
+palari init --host cursor --no-git-hook
+```
+
+`--strict-git` is kept as a no-op alias for the default gate. On an existing
+workspace:
+
+```bash
 palari cursor install
 palari git install
 ```
@@ -42,7 +47,7 @@ palari git install
 | Layer | Default for `init --host cursor` | Behavior |
 | --- | --- | --- |
 | Project rule | on | Advisory instructions always applied in Cursor |
-| Git pre-commit | off | Structural commit gate when installed |
+| Git pre-commit | on | Structural commit gate; skip with `--no-git-hook` |
 | Pre-write deny | unavailable | Cursor has no Claude-style PreToolUse deny |
 
 When the git hook is installed:
@@ -82,7 +87,7 @@ and any active claims with their allowed write paths.
 
 - Cursor cannot deny an edit before it happens. Treat the project rule as
   advisory guidance, not a sandbox.
-- Structural enforcement, when opted in, is at **commit** time only.
+- Structural enforcement is at **commit** time only.
 - Adoption grants no review, approval, merge, push, deployment, provider, or
   external-write authority.
 - For Claude Code's structural pre-write hooks, see

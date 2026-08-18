@@ -92,9 +92,10 @@ does not hit this.
 
 **Solo-maintainer guarantee:** after a normal `palari init`, the first R2 task
 added for the seeded builder has a viable authority plan (builder +
-`PALARI-REVIEWER` + `HUMAN-FOUNDER`). Product commands can carry that task
-through advance, independent review, and one founder approval without hitting
-`AUTHORITY_PLAN_UNSATISFIABLE`. See `palari demo --journey --no-pause`.
+`PALARI-REVIEWER` + `HUMAN-FOUNDER`). Product commands can carry that local
+task through advance, inbox, and one founder approval without hitting
+`AUTHORITY_PLAN_UNSATISFIABLE`. Independent review stays for R3+ and external
+writes. See `palari demo --journey --no-pause`.
 
 ## `lacks required approval capability`
 
@@ -108,8 +109,9 @@ Completion always needs current, exact, passing check results for the final
 run, run record, commit, and outputs. Only R1/light work with zero required
 approvals, completed dependencies, no open linked questions, and no allowed,
 planned, queued, or actual external write may omit independent review and human
-approval. Every other task needs both a current exact review and the required
-human approvals.
+approval. Other local R1/R2 work skips agent review and still needs one human.
+R3+ work and any external write still need both a current exact review and the
+required human approvals.
 
 After committing work within the task limits, use `agent advance` as the normal
 run-to-checks path. For a diagnosis, use:

@@ -22,7 +22,11 @@ from palari_company_os.cli_parser import build_parser
 from palari_company_os.governance_journal import checkpoint_workspace_journal
 from palari_company_os.onramp import initialize_starter_workspace, quick_add_work
 from palari_company_os.store import load_store, write_store
-from palari_company_os.work_identity import generate_work_id
+from palari_company_os.work_identity import (
+    generate_work_id,
+    resolve_opaque_id,
+    short_opaque_id,
+)
 from palari_company_os.workspace import Workspace, WorkspaceError, default_workspace_path
 
 
@@ -539,7 +543,7 @@ class WorkAddTests(unittest.TestCase):
             self.project,
             "Create a governed draft",
             create=["docs/draft.md"],
-            risk="R2",
+            risk="R3",
             intensity="standard",
             approvals=1,
         )
@@ -581,6 +585,7 @@ class WorkAddTests(unittest.TestCase):
         self.assertIn("--create", help_text)
         self.assertIn("--modify", help_text)
         self.assertIn("--delete", help_text)
+        self.assertIn("PATH", help_text)
         self.assertNotIn("--write", help_text)
         self.assertNotIn("--id", help_text.split())
 
@@ -646,6 +651,79 @@ class WorkAddTests(unittest.TestCase):
         self.assertEqual(packet["allowed_paths"]["write"], ["docs/summary.md"])
         self.assertIn("research/raw.md", packet["allowed_paths"]["read"])
 
+    def test_positional_paths_infer_create_and_modify_without_git(self) -> None:
+        present = self.project / "docs" / "present.md"
+        present.parent.mkdir(parents=True, exist_ok=True)
+        present.write_text("present\n", encoding="utf-8")
+
+        result = quick_add_work(
+            self.project,
+            "Edit present and add missing",
+            paths=["docs/present.md", "docs/missing.md"],
+        )
+
+        self.assertEqual(
+            result["path_intents"],
+            [
+                {"path": "docs/present.md", "intent": "modify"},
+                {"path": "docs/missing.md", "intent": "create"},
+            ],
+        )
+        self.assertEqual(result["work_item"]["path_intents"], result["path_intents"])
+
+    def test_git_head_decides_create_versus_modify(self) -> None:
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.email", "test@example.invalid"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "config", "user.name", "Test"],
+            check=True,
+        )
+        tracked = self.project / "docs" / "tracked.md"
+        tracked.parent.mkdir(parents=True, exist_ok=True)
+        tracked.write_text("tracked\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(self.project), "add", "--", "docs/tracked.md"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.project), "commit", "-qm", "track file"],
+            check=True,
+        )
+        untracked = self.project / "docs" / "untracked.md"
+        untracked.write_text("untracked\n", encoding="utf-8")
+
+        result = quick_add_work(
+            self.project,
+            "Infer from Git HEAD",
+            paths=["docs/tracked.md", "docs/untracked.md", "docs/brand-new.md"],
+        )
+
+        self.assertEqual(
+            result["path_intents"],
+            [
+                {"path": "docs/tracked.md", "intent": "modify"},
+                {"path": "docs/untracked.md", "intent": "create"},
+                {"path": "docs/brand-new.md", "intent": "create"},
+            ],
+        )
+
+    def test_positional_path_cannot_repeat_an_explicit_flag(self) -> None:
+        with self.assertRaisesRegex(WorkspaceError, "already declared"):
+            quick_add_work(
+                self.project,
+                "Duplicate path",
+                create=["docs/dup.md"],
+                paths=["docs/dup.md"],
+            )
+
+    def test_directory_path_is_rejected(self) -> None:
+        (self.project / "docs").mkdir(parents=True, exist_ok=True)
+        with self.assertRaisesRegex(WorkspaceError, "directory"):
+            quick_add_work(self.project, "Directory", paths=["docs"])
+
     def test_work_ids_are_unique_and_do_not_encode_creation_order(self) -> None:
         first = quick_add_work(self.project, "One", create=["docs/a.md"])
         second = quick_add_work(self.project, "Two", create=["docs/b.md"])
@@ -673,6 +751,45 @@ class WorkAddTests(unittest.TestCase):
         )
 
         self.assertEqual(result, f"WORK-{fresh.hex.upper()}")
+
+    def test_unique_prefixes_shorten_and_resolve_hex_work_ids(self) -> None:
+        first = "WORK-" + "ABCDEF12" + "1" * 24
+        second = "WORK-" + "ABCDEF99" + "2" * 24
+        ids = [first, second]
+
+        self.assertEqual(short_opaque_id(first, ids), "WORK-ABCDEF12")
+        self.assertEqual(short_opaque_id(second, ids), "WORK-ABCDEF99")
+        self.assertEqual(resolve_opaque_id("WORK-ABCDEF12", ids), first)
+        self.assertEqual(resolve_opaque_id("work-abcdef99", ids), second)
+        with self.assertRaisesRegex(ValueError, "ambiguous id"):
+            resolve_opaque_id("WORK-ABCDEF", ids)
+        self.assertEqual(resolve_opaque_id("WORK-MISSING", ids), "WORK-MISSING")
+        self.assertEqual(short_opaque_id("WORK-CLI", ["WORK-CLI"]), "WORK-CLI")
+
+    def test_short_id_lengthens_when_the_minimum_prefix_collides(self) -> None:
+        first = "WORK-" + "ABCDEF12AA" + "1" * 22
+        second = "WORK-" + "ABCDEF12BB" + "2" * 22
+        ids = [first, second]
+
+        self.assertEqual(short_opaque_id(first, ids), "WORK-ABCDEF12A")
+        self.assertEqual(short_opaque_id(second, ids), "WORK-ABCDEF12B")
+        self.assertEqual(resolve_opaque_id("WORK-ABCDEF12A", ids), first)
+
+    def test_detail_accepts_a_unique_work_id_prefix(self) -> None:
+        from palari_company_os.cli import main as cli_main
+
+        added = quick_add_work(self.project, "Prefix lookup", create=["docs/prefix.md"])
+        work_id = added["work_item"]["id"]
+        short = short_opaque_id(work_id, [work_id])
+        self.assertNotEqual(short, work_id)
+        self.assertTrue(work_id.startswith(short))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exit_code = cli_main(["--workspace", str(self.project), "detail", short])
+        self.assertEqual(exit_code, 0)
+        text = output.getvalue()
+        self.assertIn(f"Task {short}:", text)
+        self.assertNotIn(f"Task {work_id}:", text)
 
     def test_work_add_records_only_explicit_dependencies(self) -> None:
         first = quick_add_work(self.project, "One", create=["docs/a.md"])

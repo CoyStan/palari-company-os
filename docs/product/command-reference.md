@@ -16,28 +16,40 @@ palari demo --journey --no-pause
 palari init [REPOSITORY] [--host claude|codex|cursor]
 ```
 
-`demo` uses a throwaway workspace and no network. `init` creates
+`demo` uses a throwaway workspace and no network. `demo --journey` narrates the
+local R2 closeout: init, do, start, advance, inbox, and one founder
+approve. Independent review stays for R3+ and external writes. `init` creates
 `workspace.json`, the current tamper-evident journal, a builder, a distinct
 reviewer, and a founder. A host selection also installs its tested local
-boundary. Cursor's Git gate remains opt-in with `--strict-git`.
+boundary. Cursor's Git gate is installed by default; pass `--no-git-hook` to
+skip it. Linear and MCP remain available as named commands; they are omitted
+from default `--help`.
 
 ## Tasks
 
 ```bash
-palari work add "Update the guide" --modify docs/guide.md --json
-palari work add "Create a note" --create notes/new.md --approvals 1 --json
-palari work add "Draft the next note" --idea --create notes/next.md --json
+palari do "Update the guide" docs/guide.md
+palari work add "Create a note" notes/new.md --approvals 1 --json
+palari work add "Draft the next note" --idea notes/next.md --json
 ```
 
-Use repeatable `--create`, `--modify`, and `--delete` options for exact path
-intent. Other task options include `--read`, `--as`, `--goal`, `--workbench`,
-`--risk`, `--intensity`, `--scope`, `--acceptance`, `--verify`, `--depends-on`,
-`--parallel-policy`, and `--approvals`.
+Bare `PATH` arguments infer `create` when the path is not a regular file at Git
+HEAD, and `modify` when it is. Without Git, an existing regular file is
+`modify` and a missing path is `create`. `--delete` stays explicit. Repeatable
+`--create`, `--modify`, and `--delete` remain the exact override. Other task
+options include `--read`, `--as`, `--goal`, `--workbench`, `--risk`,
+`--intensity`, `--scope`, `--acceptance`, `--verify`, `--depends-on`,
+`--parallel-policy`, and `--approvals`. `palari do` is the same add path with a
+shorter name.
 
 `--idea` stores the same bounded plan without creating a task or granting
 authority. The response emits `palari approve IDEA-ID --as HUMAN-ID --json` for
 a human to create the active task. Agents may add and show ideas; they may not
 approve them.
+
+`detail`, `approve`, `inbox --select`, and agent commands that take a task id
+accept a unique `WORK-` or `IDEA-` prefix of the stored opaque ID. Human text
+shows that short form. JSON keeps the full ID. Ambiguous prefixes fail closed.
 
 Generic record creation and update commands are deliberately absent. Palari
 creates run, run-record, and check-result records through `agent advance` so
@@ -149,7 +161,15 @@ non-batchable: the one-task command does not widen it into an Approval Pack
 batch. External or irreversible work is not eligible for this local completion
 path. Agents may display the command; they may not execute it.
 
-The advanced batch path remains:
+The ordinary human view is:
+
+```bash
+palari inbox [--json]
+palari inbox --select WORK-ID --json
+```
+
+`inbox` is an alias for `queue --approval-inbox`. The advanced batch path
+remains:
 
 ```bash
 palari queue --approval-inbox --json
@@ -165,6 +185,7 @@ palari human-decision pack --pack-digest DIGEST \
 ## Operator Views
 
 ```bash
+palari inbox [--json]
 palari queue [--include-closed] [--json]
 palari detail WORK-ID [--json]
 palari state [--json]

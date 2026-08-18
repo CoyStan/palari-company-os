@@ -12,7 +12,8 @@ code change must match them. See
 - Workspace writes are one-writer-at-a-time. If the file changed after a
   command loaded it, the command must fail closed and ask the agent to retry.
 - Task IDs are identity only. New work uses collision-resistant opaque IDs.
-  Dependency authority exists only through explicit, reference-valid,
+  Commands accept a unique prefix of the stored ID; ambiguous prefixes fail
+  closed. Dependency authority exists only through explicit, reference-valid,
   duplicate-free, acyclic `dependency_ids` edges.
 - New workspaces begin replayable v2 tamper-evident history. Existing
   workspaces without it require an explicit v2 restore point. Prepared and
@@ -33,8 +34,10 @@ code change must match them. See
   only an in-memory request context. Persistent caches never become authority.
 - Declared `path_intents` are exact, normalized, duplicate-free, and
   prefix-disjoint. Create/modify require the intended regular-file Git state;
-  delete requires an absent exact path plus an observed Git deletion. Every
-  task and proposal must store this field, even when the list is empty.
+  delete requires an absent exact path plus an observed Git deletion. Bare
+  `PATH` arguments infer create or modify from Git HEAD (or the working tree
+  when Git is absent); `--delete` stays explicit. Every task and proposal must
+  store this field, even when the list is empty.
 - Repo examples must not contain raw secrets or machine-local absolute paths.
 - V2 verification streams records and retains one replay projection rather than
   all records or projections. Request-local reuse may remove duplicate scans
@@ -186,8 +189,9 @@ code change must match them. See
   to the exact attempt, receipt, head, and output artifacts and evaluated
   against the current work contract.
   Only R1/light/0-approval work with no allowed, planned, queued, or actual
-  external writes may omit independent review and human acceptance; every
-  other item stops at the next required authority boundary.
+  external writes may omit independent review and human acceptance. Other local
+  R1/R2 work omits only the agent review and still stops for one human. R3+ and
+  any external write keep independent review.
   After a current separate review and qualified human decision already exist,
   the shared bounded fixed-point driver may derive the acceptance record and
   terminalize the work mechanically. Authority-producing functions invoke that
@@ -247,8 +251,8 @@ code change must match them. See
 - Supported host adoption installs or reuses the portable repository contract.
   Claude and Codex also install the claim-bound Git commit gate and tested
   session hooks (strict no-claim on adoption); Codex requires explicit
-  repository-hook trust. Cursor is a tested advisory host profile — the Git
-  commit gate is opt-in (`--strict-git`, `cursor install`, or `git install`).
+  repository-hook trust. Cursor is a tested host profile — the Git
+  commit gate is on by default (`init --host cursor`; skip with `--no-git-hook`).
   No profile may grant review or human authority.
 - Latest trust records are selected by timezone-normalized instants, then stable
   record id, never by the lexical spelling of an ISO timestamp offset.

@@ -52,6 +52,9 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(queue["queue"][0]["id"], WORK_ID)
         self.assertEqual(detail["work_item"]["id"], WORK_ID)
         self.assertEqual(detail["next_step_type"], "start-work")
+        inbox = self.run_json("inbox", "--json")
+        queue_inbox = self.run_json("queue", "--approval-inbox", "--json")
+        self.assertEqual(inbox, queue_inbox)
 
     def test_plain_text_uses_simple_vocabulary_without_changing_json_contract(self) -> None:
         queue_json = self.run_json("queue", "--json")
@@ -68,11 +71,19 @@ class CliSmokeTests(unittest.TestCase):
         self.assertIn(f"Task {WORK_ID}:", detail_text)
         self.assertIn("Task limits", detail_text)
         self.assertIn("bounded task briefs", help_text)
+        self.assertIn("inbox", help_text)
         self.assertNotIn("work item", help_text.lower())
 
         self.assertEqual(queue_json["queue"][0]["attention"], "ready-for-ai-work")
         self.assertEqual(detail_json["attention"], "ready-for-ai-work")
         self.assertIn("work_item", detail_json)
+        self.assertEqual(detail_json["work_item"]["id"], WORK_ID)
+
+    def test_detail_accepts_case_insensitive_exact_ids_and_rejects_short_guesses(self) -> None:
+        matched = self.run_cli("detail", "work-cli")
+        self.assertIn(f"Task {WORK_ID}:", matched.stdout)
+        guessed = self.run_cli("detail", "WORK-CL", check=False)
+        self.assertNotEqual(guessed.returncode, 0)
 
     def test_scope_command_translates_allow_and_deny_decisions(self) -> None:
         allowed = self.run_json("scope", WORK_ID, "--changed", "README.md", "--json")
@@ -123,6 +134,41 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(work["path_intents"], payload["path_intents"])
         self.assertEqual(work["allowed_sources"], ["SOURCE-REPO-FOUNDATION"])
         self.assertEqual(payload["workbench_outputs_added"], ["docs/cli-boundary.md"])
+
+    def test_do_and_work_add_infer_path_intents(self) -> None:
+        created = self.run_json(
+            "do",
+            "Create an inferred note",
+            "docs/inferred.md",
+            "--as",
+            PALARI_ID,
+            "--goal",
+            "GOAL-REPO-0001",
+            "--workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            "--json",
+        )
+        self.assertEqual(
+            created["path_intents"],
+            [{"path": "docs/inferred.md", "intent": "create"}],
+        )
+        touched = self.run_json(
+            "work",
+            "add",
+            "Touch the fixture readme",
+            "README.md",
+            "--as",
+            PALARI_ID,
+            "--goal",
+            "GOAL-REPO-0001",
+            "--workbench",
+            "WORKBENCH-REPO-FOUNDATION",
+            "--json",
+        )
+        self.assertEqual(
+            touched["path_intents"],
+            [{"path": "README.md", "intent": "modify"}],
+        )
 
     def test_history_command_verifies_only_the_current_v2_fixture(self) -> None:
         payload = self.run_json("history", "--json")

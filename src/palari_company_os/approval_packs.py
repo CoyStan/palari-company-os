@@ -912,16 +912,35 @@ def apply_pack_decision(
         review = latest_for_work(workspace.review_verdicts, member_id)
         evidence = latest_for_work(workspace.evidence_runs, member_id)
         if action == "approve":
-            if review is None or attempt is None or evidence is None:
+            if attempt is None or evidence is None:
                 raise WorkspaceError(f"approval pack member {member_id} lacks current proof")
-            if human_id in {attempt.actor, review.reviewer}:
+            if review is None:
+                plan = build_authority_plan(
+                    workspace,
+                    member_id,
+                    builder_id=attempt.actor,
+                    reviewer_id="",
+                )
+                if plan["requires_review"]:
+                    raise WorkspaceError(
+                        f"approval pack member {member_id} lacks current proof"
+                    )
+            collision_ids = {attempt.actor}
+            if review is not None:
+                collision_ids.add(review.reviewer)
+            if human_id in collision_ids:
                 raise WorkspaceError(
-                    f"approval pack human {human_id} must be distinct from builder and reviewer for {member_id}"
+                    f"approval pack human {human_id} must be distinct from builder"
+                    + (
+                        " and reviewer"
+                        if review is not None
+                        else ""
+                    )
+                    + f" for {member_id}"
                 )
         _assert_pack_human_authority(work, human, human_id)
         decision_record_id = _decision_id(pack_digest, human_id, member_id)
         if action == "approve":
-            assert review is not None
             decision_transition = assert_transition_allowed(
                 workspace,
                 "human_decision_accept",
@@ -929,7 +948,7 @@ def apply_pack_decision(
                 actor=human_id,
                 context={
                     "work_item_id": member_id,
-                    "reviewed_head": review.reviewed_head,
+                    "reviewed_head": _approval_reviewed_head(attempt, review),
                     "timestamp": timestamp,
                     "acceptance_mode": "approval-pack",
                     "decision": "accepted",
@@ -1043,7 +1062,7 @@ def apply_pack_decision(
             receipt = latest_for_work(
                 workspace_after_decisions.receipts, member_id
             )
-            if review is None or evidence is None:
+            if evidence is None:
                 raise WorkspaceError(
                     f"approval pack member {member_id} lacks current proof"
                 )
@@ -1052,11 +1071,11 @@ def apply_pack_decision(
                     "id": acceptance_id,
                     "work_item_id": member_id,
                     "human_id": human_id,
-                    "reviewed_head": review.reviewed_head,
+                    "reviewed_head": str(approval_decision["reviewed_head"]),
                     "status": "accepted",
                     "decision_id": approval_decision["id"],
                     "evidence_reference": evidence.id,
-                    "review_reference": review.id,
+                    "review_reference": review.id if review is not None else "",
                     "receipt_hash": receipt.receipt_hash if receipt else "",
                     "authority_profile": "team-safe",
                     "quorum_status": "met",
@@ -1216,7 +1235,9 @@ def _work_member(
     )
     if not authority_plan["requires_human_approval"]:
         errors.append("work item does not require a human approval")
-    if attempt is not None and review is not None:
+    if attempt is not None and (
+        review is not None or not authority_plan["requires_review"]
+    ):
         if not authority_plan["viable"]:
             errors.append(
                 (
@@ -1267,7 +1288,7 @@ def _work_member(
         "work_contract_hash": work_contract_hash(work),
         "attempt_id": attempt.id if attempt else "",
         "attempt_hash": attempt_state_hash(attempt) if attempt else "",
-        "reviewed_head": review.reviewed_head if review else "",
+        "reviewed_head": _approval_reviewed_head(attempt, review),
         "receipt_reference": receipt.id if receipt else "",
         "receipt_hash": receipt.receipt_hash if receipt else "",
         "evidence_reference": evidence.id if evidence else "",
@@ -1715,16 +1736,26 @@ def _pack_approval_human_ids(
             return []
         attempt = current_attempt_for_work(work, workspace.attempts)
         review = latest_for_work(workspace.review_verdicts, work_id)
-        if attempt is None or review is None:
+        if attempt is None:
             return []
-        plan = build_authority_plan(
-            workspace,
-            work_id,
-            builder_id=attempt.actor,
-            reviewer_id=review.reviewer,
-        )
-        if not plan["viable"]:
-            return []
+        if review is None:
+            plan = build_authority_plan(
+                workspace,
+                work_id,
+                builder_id=attempt.actor,
+                reviewer_id="",
+            )
+            if plan["requires_review"] or not plan["viable"]:
+                return []
+        else:
+            plan = build_authority_plan(
+                workspace,
+                work_id,
+                builder_id=attempt.actor,
+                reviewer_id=review.reviewer,
+            )
+            if not plan["viable"]:
+                return []
         candidate_sets.append(set(plan["qualified_approver_ids"]))
     if not candidate_sets:
         return []
@@ -1760,10 +1791,15 @@ def _human_can_execute_pack_command(
             workspace.review_verdicts,
             decision.work_item_id,
         )
+        work = workspace.work_item(decision.work_item_id)
+        attempt = (
+            current_attempt_for_work(work, workspace.attempts)
+            if work is not None
+            else None
+        )
         if (
-            review is not None
-            and decision.review_reference == review.id
-            and decision.reviewed_head == review.reviewed_head
+            decision.reviewed_head == _approval_reviewed_head(attempt, review)
+            and decision.review_reference == (review.id if review is not None else "")
         ):
             return False
     return True
@@ -2004,3 +2040,11 @@ def _unique(values: Iterable[str]) -> list[str]:
         if value and value not in result:
             result.append(value)
     return result
+
+
+def _approval_reviewed_head(attempt: Any | None, review: Any | None) -> str:
+    if review is not None:
+        return str(review.reviewed_head or "")
+    if attempt is None:
+        return ""
+    return str(attempt.head_sha or (attempt.commits[-1] if attempt.commits else "") or "")

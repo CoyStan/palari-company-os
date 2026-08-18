@@ -41,7 +41,7 @@ task with exact allowed files, and let Palari take the next safe task:
 ```bash
 cd your-repository
 palari init --palari Agent --host codex --json
-palari work add "Clean up launch notes" --create docs/notes.md --json
+palari do "Clean up launch notes" docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
@@ -49,10 +49,14 @@ palari agent start --next --as PALARI-AGENT --json
 agent ID; `--palari Agent` produces `PALARI-AGENT` here. It also creates a
 distinct review-only `PALARI-REVIEWER` linked to the starter goal but not to
 the execution workbench. That trio is the solo-maintainer guarantee: one
-founder can finish reviewed (R2) work with ordinary product commands—builder
-start/advance, review-only accept-ready, then one founder `approve`—without
-adding identities first. Run `palari demo --journey --no-pause` to see the
-full closeout. `work add` returns an opaque, collision-resistant task ID.
+founder can finish local R2 work with ordinary product commands—builder
+start/advance, then `inbox` and one founder `approve`—without adding identities
+first. The review-only agent stays for R3+ and external-write work. Run
+`palari demo --journey --no-pause` to see the full closeout. `work add` returns
+an opaque, collision-resistant task ID. Queue, inbox, detail, and `approve`
+show a unique short prefix of that ID; you can type the prefix instead of the
+full value. JSON keeps the stored ID.
+
 `start --next` selects one eligible task, first verifies that a viable
 reviewer and qualified final approver remain, saves its task brief and portable
 session rules, and creates a local assignment. The stored files retain the
@@ -78,7 +82,8 @@ The agent follows the returned task brief, changes only allowed files, and may
 run task-specific checks while editing. After it commits the bounded change,
 Palari uses fixed built-in verification profiles for authoritative evidence
 (R1 is exact base-to-head `git diff --check` over changed paths). The agent then
-uses the opaque `WORK-...` ID returned by `start`:
+uses the opaque `WORK-...` ID returned by `start`, or the unique short prefix
+shown in queue and detail:
 
 ```bash
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
@@ -88,6 +93,10 @@ palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 safe deterministic step. It stops for independent review, human approval, an
 external action, or a concrete safety blocker; it never invents those
 judgments.
+
+For local R1/R2 work without an external-write surface, `advance` stops at
+human approval. The founder inspects `palari inbox` and runs the emitted
+`approve` command. Independent review is skipped.
 
 When review is required, the distinct review-only agent opens the returned
 review handoff, inspects the exact candidate, and runs one concrete advisory
@@ -127,8 +136,8 @@ palari init WORKSPACE-DIR --host codex --as PALARI-AGENT --json
 Claude and Codex install the portable repository rules, structural Git commit
 boundary, and tested session hooks (strict no-claim on adoption). Codex requires
 one native `/hooks` review before its repository hooks activate. Cursor installs
-an advisory project rule by default; opt into the Git gate with `--strict-git`
-or later `palari cursor install`. Other unnamed agent tools can consume the
+an advisory project rule and the Git commit gate. Skip the Git gate with
+`--no-git-hook`. Other unnamed agent tools can consume the
 provider-neutral rules and Git boundary without a named session profile.
 
 No profile grants review, human approval, merge, push, deployment, provider,

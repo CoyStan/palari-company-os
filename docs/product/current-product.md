@@ -48,9 +48,10 @@ becomes a valid run record, check result, or approval.
 
 Risk changes which approvals are required, never whether checks are required.
 R1/light work with zero required approvals and no external action may complete
-after current exact checks without independent review or human approval. Every
-other task stops for independent review. The task rules determine whether a
-qualified human must approve it afterward.
+after current exact checks without independent review or human approval. Other
+local R1/R2 work skips independent agent review and still stops for one human.
+R3+ work and any external-write surface keep independent review. The task rules
+determine the remaining human approval count.
 
 ## Ordinary paths
 
@@ -70,16 +71,16 @@ An operator initializes a repository once, creates a bounded task, and checks
 its status:
 
 ```text
-palari init [--host claude|codex|cursor] [--strict-git]
-palari work add TITLE --create PATH | --modify PATH | --delete PATH
-palari queue
+palari init [--host claude|codex|cursor]
+palari do TITLE PATH
+palari inbox
 palari detail WORK-ID
 ```
 
 Between a goal and a task, an agent may add a bounded idea:
 
 ```text
-palari work add TITLE --idea --create PATH | --modify PATH | --delete PATH
+palari work add TITLE --idea PATH
 ```
 
 The idea keeps the proposed owner, project, file limits, dependencies, checks,
@@ -108,24 +109,28 @@ it is not execution-capable through the workbench and has no human authority.
 Before execution and again before review, Palari derives an authority plan so a
 reviewer cannot consume the only qualified final approver.
 
-After the independent reviewer records the exact result, the human handoff
-shows the current presentation and an exact presentation-bound action. For one
-reversible local task whose effective final approval count can be completed by
-one person, the human runs the emitted command. Its readable form begins:
+After checks are current, the human handoff shows the presentation and an exact
+presentation-bound action. Local R1/R2 work without an external-write surface
+skips independent review and still uses this human step. When review is
+required, it happens first and remains advisory. For one reversible local task
+whose effective final approval count can be completed by one person, the human
+runs the emitted command. Its readable form begins:
 
 ```text
 palari approve WORK-ID --as HUMAN-ID --json
 ```
 
 Palari appends the presentation binding to that command; the person does not
-copy proof or presentation digests. It rechecks the artifact, evidence, review,
-journal, capability, effective final count, and exact state, and records
-approval plus local completion in one transaction. For review-required work,
-the effective final count is at least one even when the stored numeric count is
-zero. The sole exception is R1/light/zero-count work with no external effects.
+copy proof or presentation digests. It rechecks the artifact, evidence, review
+when required, journal, capability, effective final count, and exact state, and
+records approval plus local completion in one transaction. The effective final
+count is at least one even when the stored numeric count is zero, except for
+R1/light/zero-count work with no external effects. Local R1/R2 work without an
+external-write surface may skip agent review and still use this human step.
 An agent may display the human action, but cannot execute it, create a human
 decision, or manufacture approval.
 
+`inbox` is the ordinary human view of work waiting for a yes or no.
 `queue --approval-inbox` and `human-decision pack` remain the advanced surfaces
 for batching, mixed decisions, and explicit recovery. They emit executable
 commands only for viable named human actors. Current machine outputs are
@@ -140,16 +145,17 @@ role/review/presentation interactions before asking the founder again. That is
 a lower bound of nine post-build interactions and three human authority
 invocations: review, failed approval, and repeated approval.
 
-The converged path takes four post-build commands: start the review-only agent,
-run one concrete review verdict action, inspect its handoff, and run the exact
-human approval action. Only the last command is human authority. Including
-builder start and advance, the ordinary task lifecycle is five agent commands
-and one human command. No opaque ID or digest is copied.
+The ordinary local R2 path takes two post-build agent commands (start and
+advance), one inbox look, and one founder approve. Independent review is not
+on that path. Only approve is human authority. Including builder start and
+advance, the ordinary task lifecycle is two agent commands and one human
+command. No opaque ID or digest is copied. R3+ and any external write still
+stop for independent review before that human step.
 
 **Current guarantee:** `palari init` seeds `HUMAN-FOUNDER`, a builder Palari,
 and `PALARI-REVIEWER`. The first R2 task for that builder has a viable authority
 plan out of the box. CI covers the product-command closeout
-(init → work add → start → advance → review → approve). Operators can replay
+(init → do → start → advance → inbox → approve). Operators can replay
 the narration with `palari demo --journey --no-pause`.
 
 ## Supported verification and storage
@@ -206,8 +212,8 @@ Supported connections consume the same central decisions:
 - the local CLI;
 - the Git commit boundary;
 - tested Claude and Codex session setup (structural hooks + git gate);
-- tested Cursor advisory host setup (opt-in git gate via `--strict-git` /
-  `cursor install`);
+- tested Cursor host setup (advisory session rule plus default git gate; skip
+  with `--no-git-hook` / `cursor install --no-git-hook`);
 - MCP stdio with explicit capability limits;
 - Linear issue, comment, and webhook translation through the required
   plan, approval, and outbox steps;
@@ -232,8 +238,8 @@ execution backlog. The Palari Blueprint is `EXPERIMENTAL` research for possible
 future protocol work, not a supported product promise.
 
 Unsupported Devin, GLM, and generic session aliases have been removed. A
-current Cursor host profile remains (`init --host cursor`: advisory rule by
-default; git gate opt-in). Provider-specific Slack, GitHub, Jira, and email
+current Cursor host profile remains (`init --host cursor`: advisory session
+rule plus default git gate; skip with `--no-git-hook`). Provider-specific Slack, GitHub, Jira, and email
 preview shapes, the desktop prototype, its demo schema and showcase, and Pages
 deployment are also removed. Mission Control is the one supported local human
 UI, including guarded one-task Approve for eligible reversible local work.

@@ -282,7 +282,7 @@ class AgentAdoptionTests(unittest.TestCase):
         self.assertFalse((self.tmp / ".cursor").exists())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
 
-    def test_cursor_adoption_is_advisory_without_git_hook_by_default(self) -> None:
+    def test_cursor_adoption_installs_commit_gate_by_default(self) -> None:
         result = adopt_agent_host(
             self.workspace,
             project_dir=self.tmp,
@@ -292,15 +292,35 @@ class AgentAdoptionTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["enforcement"]["session_boundary"], "advisory")
+        self.assertEqual(result["enforcement"]["commit_boundary"], "structural")
+        self.assertEqual(result["git_gate"]["status"], "installed")
+        self.assertTrue((self.tmp / "AGENTS.md").exists())
+        self.assertTrue((self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").is_file())
+        self.assertTrue((self.tmp / ".git" / "hooks" / "pre-commit").is_file())
+        rule = (self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("git pre-commit hook rejects", rule)
+
+    def test_cursor_adoption_no_git_hook_skips_commit_gate(self) -> None:
+        result = adopt_agent_host(
+            self.workspace,
+            project_dir=self.tmp,
+            host="cursor",
+            palari_id="PALARI-STEWARD",
+            no_git_hook=True,
+        )
+
+        self.assertEqual(result["enforcement"]["session_boundary"], "advisory")
         self.assertEqual(result["enforcement"]["commit_boundary"], "optional")
         self.assertEqual(result["git_gate"]["status"], "skipped")
-        self.assertTrue((self.tmp / "AGENTS.md").exists())
         self.assertTrue((self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").is_file())
         self.assertFalse((self.tmp / ".git" / "hooks" / "pre-commit").exists())
         rule = (self.tmp / ".cursor" / "rules" / "palari-boundary.mdc").read_text(
             encoding="utf-8"
         )
         self.assertIn("Session boundary is advisory", rule)
+        self.assertIn("--no-git-hook", rule)
 
     def test_cursor_adoption_strict_git_installs_commit_gate(self) -> None:
         result = adopt_agent_host(
@@ -330,6 +350,27 @@ class AgentAdoptionTests(unittest.TestCase):
                 strict_git=True,
             )
 
+    def test_cursor_no_git_hook_rejected_for_other_hosts(self) -> None:
+        with self.assertRaisesRegex(WorkspaceError, "--no-git-hook is only valid"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="claude",
+                palari_id="PALARI-STEWARD",
+                no_git_hook=True,
+            )
+
+    def test_cursor_strict_git_conflicts_with_no_git_hook(self) -> None:
+        with self.assertRaisesRegex(WorkspaceError, "cannot be combined"):
+            adopt_agent_host(
+                self.workspace,
+                project_dir=self.tmp,
+                host="cursor",
+                palari_id="PALARI-STEWARD",
+                strict_git=True,
+                no_git_hook=True,
+            )
+
     def test_cursor_stuck_claim_release_allows_commits_again(self) -> None:
         from palari_company_os.agent_runtime import release_agent
         from palari_company_os.git_hooks import pre_commit
@@ -339,7 +380,6 @@ class AgentAdoptionTests(unittest.TestCase):
             project_dir=self.tmp,
             host="cursor",
             palari_id="PALARI-STEWARD",
-            strict_git=True,
         )
         create_record(
             str(self.workspace),

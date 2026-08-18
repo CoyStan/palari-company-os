@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from .governance_kernel import low_risk_completion_policy_applies
+from .governance_kernel import (
+    effective_required_approval_count,
+    independent_review_required,
+)
 from .workspace import (
     Workspace,
     WorkspaceError,
@@ -31,20 +34,21 @@ def build_authority_plan(
     builder = builder_id or (attempt.actor if attempt is not None else "") or work.palari
     declared_count = work.required_approval_count
     required_capability = work.required_approval_capability
-    requires_review = not low_risk_completion_policy_applies(
-        risk=work.risk,
-        intensity=work.intensity,
-        required_approval_count=declared_count,
-        allowed_actions=work.allowed_actions,
-        external_writes=receipt.external_writes if receipt is not None else [],
-        planned_external_writes=(
+    policy_kwargs = {
+        "risk": work.risk,
+        "intensity": work.intensity,
+        "required_approval_count": declared_count,
+        "allowed_actions": work.allowed_actions,
+        "external_writes": receipt.external_writes if receipt is not None else [],
+        "planned_external_writes": (
             receipt.planned_external_writes if receipt is not None else []
         ),
-        queued_external_writes=(
+        "queued_external_writes": (
             receipt.queued_external_writes if receipt is not None else []
         ),
-    )
-    required_count = max(declared_count, 1 if requires_review else 0)
+    }
+    requires_review = independent_review_required(**policy_kwargs)
+    required_count = effective_required_approval_count(**policy_kwargs)
     requires_human_approval = required_count > 0
     available_approvers = _qualified_approver_ids(
         workspace,
@@ -105,12 +109,26 @@ def build_authority_plan(
         message = str(proposed["message"])
         correction = str(proposed["smallest_correction"])
     elif not requires_review:
-        viable = True
         qualified_approvers = available_approvers
         approver_deficit = max(0, required_count - len(available_approvers))
-        code = ""
-        message = "This task does not require an independent review."
-        correction = ""
+        if approver_deficit:
+            viable = False
+            code = "APPROVER_ROLE_MISSING"
+            message = _approver_deficit_message(
+                approver_deficit,
+                required_count,
+                len(available_approvers),
+                required_capability,
+            )
+            correction = _approver_correction(
+                approver_deficit,
+                required_capability,
+            )
+        else:
+            viable = True
+            code = ""
+            message = "This task does not require an independent review."
+            correction = ""
     elif viable_reviewers:
         viable = True
         qualified_approvers = sorted(

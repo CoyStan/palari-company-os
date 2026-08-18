@@ -31,7 +31,7 @@ from .evidence_manifest import (
 from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
 from .governance_binding import recorded_current_review_binding_errors
-from .governance_kernel import low_risk_completion_policy_applies
+from .governance_kernel import independent_review_required, low_risk_completion_policy_applies
 from .path_policy import path_allowed, validate_workspace_path
 from .record_order import record_time_key
 from .store import load_store, workspace_file_path
@@ -149,7 +149,24 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
         queued_external_writes=list(proof.get("queued_external_writes") or []),
         external_writes=list(proof.get("external_writes") or []),
     )
-    expected_state = "completed" if low_risk else "review-required"
+    needs_review = independent_review_required(
+        risk=str(work.get("risk") or ""),
+        intensity=str(work.get("intensity") or ""),
+        required_approval_count=int(work.get("required_approval_count") or 0),
+        allowed_actions=list(work.get("allowed_actions") or []),
+        planned_external_writes=list(proof.get("planned_external_writes") or []),
+        queued_external_writes=list(proof.get("queued_external_writes") or []),
+        external_writes=list(proof.get("external_writes") or []),
+    )
+    if low_risk:
+        expected_state = "completed"
+        finish_step = "lifecycle-complete"
+    elif needs_review:
+        expected_state = "review-required"
+        finish_step = "review-handoff"
+    else:
+        expected_state = "human-decision-required"
+        finish_step = "human-handoff"
     steps: list[dict[str, Any]] = []
     for profile in profiles:
         steps.append(
@@ -169,7 +186,7 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
             {"step": "attempt-closeout", "status": _needed(proof, "attempt_closed")},
             {"step": "agent-finish", "status": "required"},
             {
-                "step": "lifecycle-complete" if low_risk else "review-handoff",
+                "step": "lifecycle-complete" if low_risk else finish_step,
                 "status": "required",
             },
             {"step": "claim-release", "status": "required"},
@@ -226,7 +243,13 @@ def plan_advance(facts: dict[str, Any]) -> dict[str, Any]:
         "blockers": blockers,
         "steps": steps,
         "expected_state": expected_state,
-        "stop_boundary": "none" if low_risk else "independent-review",
+        "stop_boundary": (
+            "none"
+            if low_risk
+            else "independent-review"
+            if needs_review
+            else "human-approval"
+        ),
         "plan_digest": _digest(digest_payload),
     }
 
@@ -391,25 +414,22 @@ def agent_advance(
     _release_claim_if_owned(final_workspace, workspace_path, work_id, palari_id, proof_steps)
     final_workspace = Workspace.load(workspace_path)
     handoff = build_agent_handoff(final_workspace, work_id, palari_id, "execute")
+    stop = _stop_after_current_proof(handoff)
     proof_steps.append(
         {
-            "step": "review-handoff",
-            "status": "ready" if handoff.get("review_handoff") else "blocked",
+            "step": stop["step"],
+            "status": stop["step_status"],
         }
     )
     return {
         **payload,
-        "status": "review-required" if handoff.get("review_handoff") else "proof-recorded",
+        "status": stop["status"],
         "would_mutate": True,
         "verification": verification_results,
         "proof_steps": proof_steps,
-        "expected_state": "review-required",
+        "expected_state": stop["expected_state"],
         "handoff": handoff,
-        "message": (
-            f"Task {work_id} has current checks and is ready for independent review."
-            if handoff.get("review_handoff")
-            else f"Task {work_id} checks were recorded; inspect the remaining blockers."
-        ),
+        "message": f"Task {work_id} {stop['message_suffix']}",
     }
 
 
@@ -1336,14 +1356,15 @@ def _completed_projection(
         _release_claim_if_owned(workspace, workspace_path, work_id, palari_id, proof_steps)
     workspace = Workspace.load(workspace_path)
     handoff = build_agent_handoff(workspace, work_id, palari_id, "execute")
+    stop = _stop_after_current_proof(handoff)
     return {
         "schema_version": SCHEMA_VERSION,
-        "status": "review-required" if handoff.get("review_handoff") else "proof-recorded",
+        "status": stop["status"],
         "work_item": work_id,
         "workspace": workspace.name,
         "can_advance": True,
         "would_mutate": False,
-        "expected_state": "review-required",
+        "expected_state": stop["expected_state"],
         "proof_steps": proof_steps,
         "handoff": handoff,
         "message": f"Task {work_id} already has current checks tied to this exact version.",
@@ -3030,6 +3051,32 @@ def _low_risk_completion_policy(work: Any, receipt: Any | None) -> bool:
         queued_external_writes=(receipt.queued_external_writes if receipt else []),
         external_writes=(receipt.external_writes if receipt else []),
     )
+
+
+def _stop_after_current_proof(handoff: dict[str, Any]) -> dict[str, str]:
+    if handoff.get("review_handoff"):
+        return {
+            "status": "review-required",
+            "expected_state": "review-required",
+            "step": "review-handoff",
+            "step_status": "ready",
+            "message_suffix": "has current checks and is ready for independent review.",
+        }
+    if handoff.get("human_approval_handoff"):
+        return {
+            "status": "human-decision-required",
+            "expected_state": "human-decision-required",
+            "step": "human-handoff",
+            "step_status": "ready",
+            "message_suffix": "has current checks and is waiting for human approval.",
+        }
+    return {
+        "status": "proof-recorded",
+        "expected_state": "human-decision-required",
+        "step": "human-handoff",
+        "step_status": "blocked",
+        "message_suffix": "checks were recorded; inspect the remaining blockers.",
+    }
 
 
 def _changes_requested_repair_candidate(

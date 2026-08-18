@@ -6,7 +6,11 @@ from functools import lru_cache
 from typing import Any, Callable, Iterable, TypeVar
 
 from .errors import WorkspaceError
-from .governance_kernel import EXTERNAL_WRITE_ACTIONS, TERMINAL_WORK_STATUSES
+from .governance_kernel import (
+    EXTERNAL_WRITE_ACTIONS,
+    TERMINAL_WORK_STATUSES,
+    independent_review_required,
+)
 from .integration_contracts import (
     SUPPORTED_INTEGRATION_ACTIONS,
     human_can_decide_integration_plan,
@@ -1528,21 +1532,11 @@ def _validate_accepted_human_decision(
         raise WorkspaceError(
             f"human_decisions.{decision.id}.evidence_reference is required for accepted decisions"
         )
-    if not decision.review_reference:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is required for accepted decisions"
-        )
     evidence = evidence_by_id[decision.evidence_reference]
-    review = reviews_by_id[decision.review_reference]
     if evidence.work_item_id != work.id:
         raise WorkspaceError(
             f"human_decisions.{decision.id}.evidence_reference points to "
             f"evidence for {evidence.work_item_id}, not {work.id}"
-        )
-    if review.work_item_id != work.id:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference points to "
-            f"review for {review.work_item_id}, not {work.id}"
         )
     attempt = attempts_by_id[evidence.attempt_id]
     if require_current and work.current_attempt and evidence.attempt_id != work.current_attempt:
@@ -1551,26 +1545,43 @@ def _validate_accepted_human_decision(
             f"current attempt {work.current_attempt}"
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
-    _require_fresh_accept_ready_review(work.id, evidence, review)
-    if decision.evidence_reference != review.evidence_reference:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.evidence_reference does not match "
-            f"bound review evidence {review.evidence_reference}"
-        )
-    if review.attempt_id != evidence.attempt_id:
-        raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is bound to a different attempt"
-        )
-    from .governance_binding import work_contract_hash
+    if decision.review_reference:
+        review = reviews_by_id[decision.review_reference]
+        if review.work_item_id != work.id:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.review_reference points to "
+                f"review for {review.work_item_id}, not {work.id}"
+            )
+        _require_fresh_accept_ready_review(work.id, evidence, review)
+        if decision.evidence_reference != review.evidence_reference:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.evidence_reference does not match "
+                f"bound review evidence {review.evidence_reference}"
+            )
+        if review.attempt_id != evidence.attempt_id:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.review_reference is bound to a different attempt"
+            )
+        from .governance_binding import work_contract_hash
 
-    if require_current and review.work_contract_hash != work_contract_hash(work):
+        if require_current and review.work_contract_hash != work_contract_hash(work):
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.review_reference is stale for the work contract"
+            )
+        if decision.reviewed_head != review.reviewed_head:
+            raise WorkspaceError(
+                f"human_decisions.{decision.id}.reviewed_head does not match "
+                f"review_reference head {review.reviewed_head}"
+            )
+        return
+    if _review_required_for_work(work):
         raise WorkspaceError(
-            f"human_decisions.{decision.id}.review_reference is stale for the work contract"
+            f"human_decisions.{decision.id}.review_reference is required for accepted decisions"
         )
-    if decision.reviewed_head != review.reviewed_head:
+    if decision.reviewed_head != _attempt_head(attempt):
         raise WorkspaceError(
             f"human_decisions.{decision.id}.reviewed_head does not match "
-            f"review_reference head {review.reviewed_head}"
+            f"attempt head {_attempt_head(attempt)}"
         )
 
 
@@ -1615,10 +1626,7 @@ def _validate_acceptance_record(
         raise WorkspaceError(f"acceptance_records.{acceptance.id}.decision_id is required")
     if not acceptance.evidence_reference:
         raise WorkspaceError(f"acceptance_records.{acceptance.id}.evidence_reference is required")
-    if not acceptance.review_reference:
-        raise WorkspaceError(f"acceptance_records.{acceptance.id}.review_reference is required")
     evidence = evidence_by_id[acceptance.evidence_reference]
-    review = reviews_by_id[acceptance.review_reference]
     decision = human_decisions_by_id[acceptance.decision_id]
     if not _is_acceptance(decision):
         raise WorkspaceError(
@@ -1642,11 +1650,6 @@ def _validate_acceptance_record(
             f"acceptance_records.{acceptance.id}.evidence_reference points to "
             f"evidence for {evidence.work_item_id}, not {work.id}"
         )
-    if review.work_item_id != work.id:
-        raise WorkspaceError(
-            f"acceptance_records.{acceptance.id}.review_reference points to "
-            f"review for {review.work_item_id}, not {work.id}"
-        )
     attempt = attempts_by_id[evidence.attempt_id]
     if work.current_attempt and evidence.attempt_id != work.current_attempt:
         raise WorkspaceError(
@@ -1654,26 +1657,47 @@ def _validate_acceptance_record(
             f"current attempt {work.current_attempt}"
         )
     _require_fresh_passed_evidence(work.id, attempt, evidence)
-    _require_fresh_accept_ready_review(work.id, evidence, review)
     stored_errors = _stored_evidence_integrity_errors(workspace, evidence)
     if stored_errors:
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.evidence_reference fails exact "
             f"evidence or receipt integrity: {stored_errors[0]}"
         )
-    if acceptance.evidence_reference != review.evidence_reference:
+    if acceptance.review_reference:
+        review = reviews_by_id[acceptance.review_reference]
+        if review.work_item_id != work.id:
+            raise WorkspaceError(
+                f"acceptance_records.{acceptance.id}.review_reference points to "
+                f"review for {review.work_item_id}, not {work.id}"
+            )
+        _require_fresh_accept_ready_review(work.id, evidence, review)
+        if acceptance.evidence_reference != review.evidence_reference:
+            raise WorkspaceError(
+                f"acceptance_records.{acceptance.id}.evidence_reference does not match "
+                f"bound review evidence {review.evidence_reference}"
+            )
+        if not acceptance.receipt_hash or acceptance.receipt_hash != review.receipt_hash:
+            raise WorkspaceError(
+                f"acceptance_records.{acceptance.id}.receipt_hash does not match bound review"
+            )
+        if acceptance.reviewed_head != review.reviewed_head:
+            raise WorkspaceError(
+                f"acceptance_records.{acceptance.id}.reviewed_head does not match "
+                f"review_reference head {review.reviewed_head}"
+            )
+        return
+    if _review_required_for_work(work):
         raise WorkspaceError(
-            f"acceptance_records.{acceptance.id}.evidence_reference does not match "
-            f"bound review evidence {review.evidence_reference}"
+            f"acceptance_records.{acceptance.id}.review_reference is required"
         )
-    if not acceptance.receipt_hash or acceptance.receipt_hash != review.receipt_hash:
-        raise WorkspaceError(
-            f"acceptance_records.{acceptance.id}.receipt_hash does not match bound review"
-        )
-    if acceptance.reviewed_head != review.reviewed_head:
+    if acceptance.reviewed_head != _attempt_head(attempt):
         raise WorkspaceError(
             f"acceptance_records.{acceptance.id}.reviewed_head does not match "
-            f"review_reference head {review.reviewed_head}"
+            f"attempt head {_attempt_head(attempt)}"
+        )
+    if not acceptance.receipt_hash or acceptance.receipt_hash != evidence.receipt_hash:
+        raise WorkspaceError(
+            f"acceptance_records.{acceptance.id}.receipt_hash does not match current evidence"
         )
 
 
@@ -2069,6 +2093,15 @@ def _require_fresh_passed_evidence(
         )
     if evidence.head_sha != _attempt_head(attempt):
         raise WorkspaceError(f"work_items.{work_id} evidence {evidence.id} is stale")
+
+
+def _review_required_for_work(work: WorkItem) -> bool:
+    return independent_review_required(
+        risk=work.risk,
+        intensity=work.intensity,
+        required_approval_count=work.required_approval_count,
+        allowed_actions=work.allowed_actions,
+    )
 
 
 def _require_fresh_accept_ready_review(

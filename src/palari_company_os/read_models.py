@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Iterable, TypeVar
 
 from .models import to_plain
+from .work_identity import resolve_opaque_id
+from .workspace import Workspace
 from .pcaw_workspace import (
     RecordedGovernanceProjectionProvider,
 )
@@ -20,7 +22,6 @@ from .read_model_coordination import (
     group_active_attempts,
     group_warning_messages,
 )
-from .workspace import Workspace
 
 
 T = TypeVar("T")
@@ -138,7 +139,8 @@ def coordination_warnings(workspace: Workspace) -> list[dict[str, Any]]:
 
 def detail(workspace: Workspace, work_id: str) -> dict[str, Any]:
     context = _read_context(workspace)
-    work = context.work_by_id.get(work_id)
+    resolved = resolve_opaque_id(work_id, context.work_by_id)
+    work = context.work_by_id.get(resolved)
     if work is None:
         known = ", ".join(sorted(item.id for item in workspace.work_items))
         raise KeyError(f"unknown work item {work_id}; known work items: {known}")
@@ -631,12 +633,19 @@ def _lifecycle_view(work: Any, context: _ReadContext) -> _LifecycleView:
             **common,
         )
     if state == "human-decision-required":
-        return _LifecycleView(
-            attention="needs-human-decision",
-            why=(
+        if candidate_properties["independent_review"] == "not-required":
+            why = (
+                "Current checks are ready, but approval quorum is incomplete "
+                f"({approval_progress})."
+            )
+        else:
+            why = (
                 "Review is accept-ready, but approval quorum is incomplete "
                 f"({approval_progress})."
-            ),
+            )
+        return _LifecycleView(
+            attention="needs-human-decision",
+            why=why,
             next_action="Collect the required current decision from a qualified human.",
             integration_ready=False,
             **common,

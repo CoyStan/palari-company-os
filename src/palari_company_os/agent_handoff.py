@@ -17,6 +17,7 @@ from .review_guides import build_review_guide
 from .transition_checks import check_transition
 from .workspace import Workspace, WorkspaceError
 from .workspace_read_models import approval_inbox
+from .work_identity import short_opaque_id
 
 
 def simple_approval_offer_for_human(
@@ -562,6 +563,9 @@ def _approval_pack_handoff(
         and commands
         and item.get("state") in {"eligible", "approved", "non-batchable"}
     )
+    known_ids = [item.id for item in workspace.work_items]
+    known_ids.extend(item.id for item in workspace.proposals)
+    display_work_id = short_opaque_id(work_id, known_ids)
     simple_commands = [
         {
             "human_id": str(candidate["id"]),
@@ -571,7 +575,7 @@ def _approval_pack_handoff(
             "command": palari_workspace_command(
                 workspace.data_path,
                 "approve",
-                work_id,
+                display_work_id,
                 "--as",
                 str(candidate["id"]),
                 "--presented",

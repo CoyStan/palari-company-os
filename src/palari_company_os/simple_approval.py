@@ -197,7 +197,21 @@ def approve_work(
     _require_ready_item(item, work_id, human_id)
 
     review = latest_for_work(workspace.review_verdicts, work_id)
-    if attempt is None or review is None:
+    if attempt is None:
+        raise _error(
+            "APPROVAL_PROOF_INVALID",
+            f"task {work_id} lacks a current checked run",
+            "Finish current checks before approving.",
+            work_id=work_id,
+            human_id=human_id,
+        )
+    authority_plan = build_authority_plan(
+        workspace,
+        work_id,
+        builder_id=attempt.actor,
+        reviewer_id=review.reviewer if review is not None else "",
+    )
+    if review is None and authority_plan["requires_review"]:
         raise _error(
             "APPROVAL_REVIEW_REQUIRED",
             f"task {work_id} lacks a current independently reviewed run",
@@ -205,12 +219,16 @@ def approve_work(
             work_id=work_id,
             human_id=human_id,
         )
-    if human_id in {attempt.actor, review.reviewer}:
+    collision_ids = {attempt.actor}
+    if review is not None:
+        collision_ids.add(review.reviewer)
+    if human_id in collision_ids:
         role = "builder" if human_id == attempt.actor else "reviewer"
         raise _error(
             "APPROVAL_IDENTITY_COLLISION",
             f"human {human_id} is the current {role} for {work_id}",
-            "Use a qualified human who is distinct from both builder and reviewer.",
+            "Use a qualified human who is distinct from the builder"
+            + (" and reviewer." if review is not None else "."),
             work_id=work_id,
             human_id=human_id,
         )
@@ -220,13 +238,13 @@ def approve_work(
         work_id,
         human_id,
         builder_id=attempt.actor,
-        reviewer_id=review.reviewer,
+        reviewer_id=review.reviewer if review is not None else "",
     )
     _require_completing_quorum(
         workspace,
         work_id,
         human_id,
-        reviewed_head=review.reviewed_head,
+        reviewed_head=_approval_reviewed_head(attempt, review),
     )
 
     if _before_apply is not None:
@@ -476,8 +494,6 @@ def _require_authority_plan(
     builder_id: str,
     reviewer_id: str,
 ) -> None:
-    from .authority_plan import build_authority_plan
-
     try:
         plan = build_authority_plan(
             workspace,
@@ -1173,3 +1189,9 @@ def _default_next_commands(work_id: str) -> list[str]:
 
 def _raw_model(value: Any) -> dict[str, Any]:
     return dict(vars(value))
+
+
+def _approval_reviewed_head(attempt: Any, review: Any | None) -> str:
+    if review is not None:
+        return str(review.reviewed_head or "")
+    return str(attempt.head_sha or (attempt.commits[-1] if attempt.commits else "") or "")

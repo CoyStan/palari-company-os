@@ -39,7 +39,7 @@ class PalariAdoptSkillTests(unittest.TestCase):
         text = (SKILL_DIR / "references" / "hosts.md").read_text(encoding="utf-8")
         for host in ("claude", "codex", "cursor"):
             self.assertIn(f"`{host}`", text)
-        self.assertIn("`--strict-git`", text)
+        self.assertIn("`--no-git-hook`", text)
         self.assertIn("through `/hooks`", text)
         self.assertIn("No host profile grants permission", text)
 

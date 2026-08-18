@@ -72,7 +72,8 @@ risk to a required approval count.
 
 Approval rules never waive current check results. Independent review and human
 approval may both be omitted only for R1/light/0-approval work with no allowed,
-planned, queued, or actual external write.
+planned, queued, or actual external write. Other local R1/R2 work omits only
+independent review and still requires one human.
 
 ## External Connection (`integration`)
 
@@ -122,7 +123,10 @@ playbooks.
 
 New quick-created tasks use opaque UUIDv4-backed IDs. An ID identifies a task;
 it does not set priority or order. Explicit dependency edges determine order.
-Historical and externally assigned IDs remain compatible.
+Historical and externally assigned IDs remain compatible. Commands accept a
+unique `WORK-` or `IDEA-` prefix of the stored ID; ambiguous prefixes fail
+closed. Human text shows that short unique prefix. JSON keeps the full stored
+ID.
 
 ## Work Idea (`proposal`)
 

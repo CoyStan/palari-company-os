@@ -5,14 +5,15 @@ does, so this adapter pairs two complementary layers:
 
 - An instructional project rule written to ``.cursor/rules/palari-boundary.mdc``
   that is always applied to the agent's context (advisory session boundary).
-- The optional IDE-agnostic git pre-commit hook (see
+- The IDE-agnostic git pre-commit hook (see
   :mod:`palari_company_os.git_hooks`) that *structurally* rejects a commit
   staging files outside the active claim's write boundary.
 
-``palari init --host cursor`` installs the advisory rule only. Structural
-commit gating is opt-in via ``--strict-git``, ``palari cursor install`` (git
-hook on by default), or ``palari git install``. With no active claim, commits
-are allowed even when the hook is installed.
+``palari init --host cursor`` installs the advisory rule and the git
+pre-commit gate. Pass ``--no-git-hook`` (or ``palari cursor install
+--no-git-hook``) to skip the hook. ``--strict-git`` remains a no-op alias
+for the default Cursor gate. With no active claim, commits are allowed
+even when the hook is installed.
 """
 
 from __future__ import annotations
@@ -62,9 +63,9 @@ Recovery:
 """
 
 ENFORCEMENT_ADVISORY = """Session boundary is advisory: this project rule is always applied, but
-Cursor cannot deny edits before they happen. Structural commit enforcement is
-optional — run `palari cursor install` (or `palari git install`) to install the
-git pre-commit hook."""
+Cursor cannot deny edits before they happen. The git pre-commit hook was skipped
+(`--no-git-hook`). Run `palari cursor install` or `palari git install` for
+structural commit enforcement."""
 
 ENFORCEMENT_STRUCTURAL = """A Palari git pre-commit hook rejects any commit that stages files outside
 the active claim's write boundary, regardless of editor or model. With no

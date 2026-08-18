@@ -140,8 +140,9 @@ the same action as `palari init WORKSPACE-DIR --host HOST --as PALARI-ID`,
 where `HOST` is `claude`, `codex`, or `cursor`. Claude and Codex install the
 portable session rules, commit-time Git boundary, and tested session hooks
 (strict no-claim behavior on adoption); Codex requires explicit `/hooks` trust.
-Cursor installs an advisory project rule by default — the Git commit gate is
-opt-in via `--strict-git`, `palari cursor install`, or `palari git install`.
+Cursor installs an advisory project rule and the Git commit gate by default.
+Pass `--no-git-hook` to skip the gate. `palari cursor install` and
+`palari git install` remain available.
 `palari claude install` remains the Claude hook-only management surface; see
 `docs/product/claude-code-integration.md` and
 `docs/product/cursor-integration.md`.

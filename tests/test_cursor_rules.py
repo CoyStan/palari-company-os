@@ -129,6 +129,7 @@ class CursorRulesTests(unittest.TestCase):
         self.assertTrue(self._rule_path().exists())
         hook_path = Path(self._tmp) / ".git" / "hooks" / "pre-commit"
         self.assertFalse(hook_path.exists())
+        self.assertIn("--no-git-hook", self._rule_path().read_text(encoding="utf-8"))
 
     def test_install_then_remove(self) -> None:
         install_cursor_rules(self._tmp, self.workspace_path)

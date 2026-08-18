@@ -5,9 +5,9 @@ the assignment boundary. Exact stored names appear in backticks when needed.
 
 ## Operate Ordinary Bounded Work
 
-1. Initialize once with `palari init`, add bounded work with `palari work add`,
-   then let the assigned agent run `palari agent start --next --as PALARI-ID
-   --json`.
+1. Initialize once with `palari init`, add bounded work with `palari do TITLE
+   PATH`, then let the assigned agent run `palari agent start --next --as
+   PALARI-ID --json`.
 2. Work only inside the returned task brief, commit the bounded result, and run
    `palari agent advance WORK-ID --as PALARI-ID --json`.
 3. Stop at the returned independent-review, human, external, or blocker
@@ -33,8 +33,10 @@ the advanced/batched path.
 There is one Git repo and one Palari work list. A part is a small work area,
 not a nested repo or a separate ticket store.
 
-Use repeatable `work add --create`, `--modify`, and `--delete` paths. Every task
-must say what kind of file change it will make.
+Use `palari do TITLE PATH` or `work add TITLE PATH`. Bare paths infer create or
+modify from Git HEAD; `--delete` stays explicit. Stored `path_intents` remain
+exact. Repeatable `--create`, `--modify`, and `--delete` remain available. Every
+task must say what kind of file change it will make.
 
 To let an agent grow a goal without granting itself work, use `palari work add
 TITLE --idea` with the same file, project, dependency, check, and approval

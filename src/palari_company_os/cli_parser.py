@@ -12,8 +12,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="palari",
         description="Make AI work reviewable with clear limits, recorded checks, and human approval.",
         epilog=(
-            "Ordinary journey: init -> work add -> agent start --next -> agent advance -> "
-            "review -> approve -> proof verify.\n"
+            "Ordinary journey: init -> do -> agent start --next -> agent advance -> "
+            "inbox -> approve.\n"
             "Additional expert and recovery commands remain available through direct --help."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     demo_parser.add_argument(
         "--journey",
         action="store_true",
-        help=("Narrate the solo-maintainer R2 closeout: init through review and founder approval."),
+        help=("Narrate the solo-maintainer R2 closeout: init through inbox and founder approval."),
     )
     demo_parser.add_argument(
         "--serve",
@@ -84,8 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--strict-git",
         action="store_true",
         help=(
-            "With --host cursor, also install the git pre-commit commit gate "
-            "(opt-in; Cursor defaults to advisory-only)."
+            "Deprecated no-op with --host cursor: the git commit gate is now "
+            "installed by default. Use --no-git-hook to skip it."
+        ),
+    )
+    init_parser.add_argument(
+        "--no-git-hook",
+        action="store_true",
+        help=(
+            "With --host cursor, skip the git pre-commit commit gate and keep "
+            "only the advisory project rule."
         ),
     )
     init_parser.add_argument(
@@ -106,6 +114,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     init_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    _add_do_parser(subparsers)
 
     approve_parser = subparsers.add_parser(
         "approve",
@@ -150,6 +160,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Narrow the Approval Inbox to specific tasks. Repeatable.",
     )
     queue_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    inbox_parser = subparsers.add_parser(
+        "inbox",
+        help="Show work waiting for a human yes or no.",
+    )
+    inbox_parser.add_argument(
+        "--select",
+        action="append",
+        default=[],
+        metavar="WORK-ID",
+        help="Narrow the inbox to specific tasks. Repeatable.",
+    )
+    inbox_parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
     state_parser = subparsers.add_parser("state", help="Show compact workspace status.")
     state_parser.add_argument("--json", action="store_true", help="Emit JSON.")
@@ -251,15 +274,16 @@ def _focus_default_help(subparsers: Any) -> None:
     """Keep expert commands parseable while making the ordinary journey obvious."""
 
     ordinary = (
+        "demo",
         "init",
+        "do",
         "work",
         "agent",
         "approve",
+        "inbox",
         "queue",
         "detail",
-        "proof",
         "validate",
-        "docs",
     )
     actions = {action.dest: action for action in subparsers._choices_actions}
     subparsers._choices_actions = [actions[name] for name in ordinary]
@@ -505,7 +529,7 @@ def _add_git_parser(subparsers: Any) -> None:
 def _add_cursor_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser(
         "cursor",
-        help="Install Cursor advisory boundary rule (optional git commit gate).",
+        help="Install the Cursor boundary rule and git commit gate.",
     )
     nested = parser.add_subparsers(dest="cursor_command", required=True)
 
@@ -938,6 +962,14 @@ def _add_linear_parser(subparsers: Any) -> None:
     send.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
+def _add_do_parser(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "do",
+        help="Add a bounded task; PATH infers create or modify.",
+    )
+    _add_work_add_arguments(parser)
+
+
 def _add_work_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("work", help="Add a bounded task.")
     nested = parser.add_subparsers(dest="object_command", required=True, metavar="ACTION")
@@ -945,48 +977,58 @@ def _add_work_parser(subparsers: Any) -> None:
         "add",
         help="Add one bounded task, or add an idea that needs human approval.",
     )
-    add.add_argument("title")
-    add.add_argument(
+    _add_work_add_arguments(add)
+
+
+def _add_work_add_arguments(parser: Any) -> None:
+    parser.add_argument("title")
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        metavar="PATH",
+        help="Exact path whose create or modify intent is inferred from Git HEAD.",
+    )
+    parser.add_argument(
         "--idea",
         action="store_true",
         help="Store an authority-free idea instead of creating a task.",
     )
     for intent in ("create", "modify", "delete"):
-        add.add_argument(
+        parser.add_argument(
             f"--{intent}",
             action="append",
             default=[],
             help=f"Exact path that this task must {intent} (repeatable).",
         )
-    add.add_argument(
+    parser.add_argument(
         "--read",
         action="append",
         default=[],
         help="Additional read path (repeatable).",
     )
-    add.add_argument(
+    parser.add_argument(
         "--as",
         dest="palari_id",
         default="",
         help=("Acting agent id. Defaults to the project's sole execute-authorized agent."),
     )
-    add.add_argument("--goal", default="", help="Goal id. Defaults to the only goal.")
-    add.add_argument(
+    parser.add_argument("--goal", default="", help="Goal id. Defaults to the only goal.")
+    parser.add_argument(
         "--workbench",
         default="",
         help="Project id. Defaults to the only project.",
     )
-    add.add_argument("--risk", default="R1", help="Risk level.")
-    add.add_argument("--intensity", default="light", help="Operating intensity.")
-    add.add_argument("--scope", default="", help="One-sentence task limits.")
-    add.add_argument("--acceptance", default="", help="Completion target.")
-    add.add_argument(
+    parser.add_argument("--risk", default="R1", help="Risk level.")
+    parser.add_argument("--intensity", default="light", help="Operating intensity.")
+    parser.add_argument("--scope", default="", help="One-sentence task limits.")
+    parser.add_argument("--acceptance", default="", help="Completion target.")
+    parser.add_argument(
         "--verify",
         action="append",
         default=[],
         help="Verification expectation (repeatable).",
     )
-    add.add_argument(
+    parser.add_argument(
         "--depends-on",
         dest="dependencies",
         action="append",
@@ -994,14 +1036,14 @@ def _add_work_parser(subparsers: Any) -> None:
         metavar="WORK-ID",
         help="Prerequisite task id (repeatable).",
     )
-    add.add_argument(
+    parser.add_argument(
         "--parallel-policy",
         choices=("independent", "coordinate", "exclusive"),
         default="independent",
         help="Coordination policy for overlapping active tasks.",
     )
-    add.add_argument("--approvals", type=int, default=0, help="Required approval count.")
-    add.add_argument("--json", action="store_true", help="Emit JSON.")
+    parser.add_argument("--approvals", type=int, default=0, help="Required approval count.")
+    parser.add_argument("--json", action="store_true", help="Emit JSON.")
 
 
 def _add_reviewer_parser(subparsers: Any) -> None:

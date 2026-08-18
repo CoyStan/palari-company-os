@@ -117,14 +117,14 @@ Initialize Palari, add one task, and let an agent take the next safe task:
 
 ```bash
 palari init --palari Agent --host codex --json
-palari work add "Clean up launch notes" --create docs/notes.md --json
+palari do "Clean up launch notes" docs/notes.md --json
 palari agent start --next --as PALARI-AGENT --json
 ```
 
 An agent can also add a bounded idea without creating a task:
 
 ```bash
-palari work add "Draft the next launch page" --idea --create docs/launch.md --json
+palari work add "Draft the next launch page" --idea docs/launch.md --json
 ```
 
 Palari stores the goal, owner, project, file limits, checks, and approval count,
@@ -137,9 +137,9 @@ overwriting existing instructions. In a Git worktree it also makes one local,
 path-limited starter commit containing only new Palari records and generated
 agent docs. With `--host claude` or `--host codex`, that commit includes new
 repository-local host settings and installs the assignment-bound Git commit
-check. With `--host cursor`, it installs an advisory project rule; pass
-`--strict-git` to include the Git commit check. Unrelated staged and unstaged
-work is excluded.
+check. With `--host cursor`, that commit includes the advisory project rule
+and the Git commit check. Pass `--no-git-hook` to skip the Git check.
+Unrelated staged and unstaged work is excluded.
 
 Choose `claude`, `codex`, or `cursor`. Codex asks you to trust the exact
 repository hook once through `/hooks`; Palari cannot grant that host trust
@@ -152,13 +152,14 @@ These technical names remain stable for compatibility; ordinary messages use
 the plain words.
 
 After doing and committing the bounded work, use the opaque task ID returned by
-`start`:
+`start`, or the unique short prefix shown in queue, inbox, and detail:
 
 ```bash
 palari agent advance WORK-RETURNED-BY-START --as PALARI-AGENT --json
 ```
 
 Do not infer a sequential task ID. Unrelated opaque IDs can run in parallel.
+Ambiguous prefixes fail closed.
 For a repository that already has Palari records, run this once:
 
 ```bash
@@ -167,15 +168,15 @@ palari init WORKSPACE-DIR --host HOST --as PALARI-ID --json
 
 Other agent tools can follow the provider-neutral repository rules and use the
 host-neutral Git check. Claude and Codex have tested structural session
-profiles; Cursor has a tested advisory host profile (`palari init --host cursor`)
-with an opt-in git commit gate. No profile grants permission to review, approve,
+profiles; Cursor has a tested host profile (`palari init --host cursor`)
+with a default git commit gate. No profile grants permission to review, approve,
 merge, push, deploy, call a provider, or perform an external write.
 
-Tell Palari what kind of file change the task must make:
+Tell Palari which files the task may change. Bare paths infer create or modify
+from Git HEAD; `--delete` stays explicit:
 
 ```bash
-palari work add "Replace obsolete guidance" \
-  --create docs/new.md --modify docs/current.md --delete docs/obsolete.md
+palari do "Replace obsolete guidance" docs/new.md docs/current.md --delete docs/obsolete.md
 ```
 
 ## The ordinary agent path
@@ -204,7 +205,9 @@ Most work needs two commands.
    Palari records the run, run record, and current check results. Every
    completion requires current exact checks. Only R1/light work with zero
    required approvals and no external writes may finish without independent
-   review and human approval. Every other task stops at the next real boundary.
+   review and human approval. Other local R1/R2 work skips agent review and
+   still stops for one human. R3+ and any external write keep independent
+   review.
 
 `agent advance` never records a review result or human approval. Use
 `--dry-run` to inspect its plan.
@@ -239,13 +242,19 @@ unsupported and cannot be upgraded in place.
 
 ## The ordinary human path
 
-After an independent review, inspect the concise task status and run its
-exact human action once:
+When current checks are ready, inspect `palari inbox` or execute-mode status
+and run its exact human action once:
 
 ```bash
-palari agent status WORK-ID --as PALARI-REVIEWER --mode review --json
+palari inbox --json
+# or:
+palari agent status WORK-ID --as PALARI-CLAUDE --mode execute --json
 # A human runs the exact human_action_commands[].command from this status.
 ```
+
+Independent review still happens first for R3+ work and any external write.
+After that review, the same inbox or a review-mode status shows the human
+action.
 
 Initialization provides a distinct review-only agent so a one-person
 workspace does not spend its only human authority on review. Before work
@@ -258,6 +267,7 @@ then records approval and local completion in one transaction. If relevant
 state changed, approval fails safely with the next correction. A manually
 entered bare `approve` command instead derives current state at invocation.
 
+`palari inbox` shows work waiting for a human yes or no.
 `palari queue --approval-inbox --json` and its
 `palari human-decision pack ...` actions remain available for advanced and
 batched approval. Agents may present human actions but must not run them.
@@ -282,7 +292,8 @@ Implemented now:
 - canonical path and symlink checks, including traversal and sibling-prefix
   defenses;
 - an assignment-bound Git commit check and tested Claude and Codex hooks;
-- Cursor host adoption via `palari init --host cursor` (advisory rule by default; opt-in git gate with `--strict-git` or `palari cursor install`);
+- Cursor host adoption via `palari init --host cursor` (advisory session rule plus
+  default git commit gate; skip the gate with `--no-git-hook`);
 - replayable, tamper-evident history with corruption and crash detection;
 - deterministic PCAW v1 export and offline verification;
 - an Approval Inbox that safely groups eligible human actions;
@@ -321,9 +332,12 @@ exact digest mismatch.
 ## Useful commands
 
 ```bash
+# Human inbox
+palari inbox
+palari detail WORK-ID
+
 # Status views
 palari queue
-palari detail WORK-ID
 palari state
 
 # Tamper-evident history audit and recovery
@@ -371,9 +385,8 @@ tests/                             Unit and fixture tests
 
 - **First run:** run `./bin/palari demo`, or add `--serve` for the local view.
 - **Agent workflow:** read [Agent Workflow Smoke](docs/product/agent-workflow-smoke.md).
-- **Human loop:** inspect `palari agent status WORK-ID --as PALARI-REVIEWER
-  --mode review --json`, then have the human run its exact emitted
-  `human_action_commands[].command` once.
+- **Human loop:** run `palari inbox`, inspect the current task, then have the
+  human run its exact emitted `palari approve ...` command once.
 - **Linear:** read [Linear Operating Loop](docs/product/linear-operating-loop.md).
 - **Checks and approval:** read [Checks And Approval](docs/product/authority-and-gates.md).
 - **Product map:** read [Public Surface](docs/product/public-surface.md).

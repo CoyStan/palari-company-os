@@ -576,7 +576,7 @@ def _review_required_data() -> dict[str, Any]:
     raw = _current_data()
     raw["work_items"][0].update(
         {
-            "risk": "R2",
+            "risk": "R3",
             "intensity": "standard",
             "status": "in-review",
             "required_approval_count": 1,

@@ -27,7 +27,7 @@ def _workspace(
     include_evidence: bool = True,
     include_reviewer: bool = True,
     required_approval_count: int = 1,
-    risk: str = "R2",
+    risk: str = "R3",
     intensity: str = "standard",
 ) -> Workspace:
     receipt = stamp_receipt_record(
@@ -271,7 +271,7 @@ class ReviewGuideTests(unittest.TestCase):
 
     def test_review_required_zero_quorum_reserves_one_final_human(self) -> None:
         payload = build_review_guide(
-            _workspace(required_approval_count=0),
+            _workspace(required_approval_count=0, risk="R3", intensity="standard"),
             "WORK-1",
         )
         plan = payload["authority_plan"]
@@ -333,6 +333,17 @@ class ReviewGuideTests(unittest.TestCase):
         self.assertFalse(plan["requires_review"])
         self.assertFalse(plan["requires_human_approval"])
         self.assertEqual(plan["effective_final_approval_count"], 0)
+
+    def test_local_r2_zero_quorum_skips_review_and_keeps_one_human(self) -> None:
+        payload = build_review_guide(
+            _workspace(required_approval_count=0, risk="R2", intensity="standard"),
+            "WORK-1",
+        )
+        plan = payload["authority_plan"]
+
+        self.assertFalse(plan["requires_review"])
+        self.assertTrue(plan["requires_human_approval"])
+        self.assertEqual(plan["effective_final_approval_count"], 1)
 
     def test_impossible_reviewer_approver_plan_is_blocked_with_a_correction(self) -> None:
         payload = build_review_guide(

@@ -1,7 +1,9 @@
 palari demo
 palari init
+palari do
 palari approve
 palari queue
+palari inbox
 palari state
 palari docs
 palari docs check

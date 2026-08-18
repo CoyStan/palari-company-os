@@ -492,7 +492,7 @@ class GovernanceKernelTests(unittest.TestCase):
                 self.assertEqual(result.derived_state, "blocked")
                 self.assertFalse(result.fully_verified)
                 self.assertEqual(properties["evidence_freshness"], "failed")
-                self.assertNotEqual(properties["independent_review"], "not-required")
+                self.assertEqual(properties["independent_review"], "not-required")
                 self.assertIn(expected_error, {item.code for item in result.errors})
 
     def test_review_and_human_acceptance_are_optional_only_for_narrow_policy(
@@ -577,6 +577,12 @@ class GovernanceKernelTests(unittest.TestCase):
             ),
             *external_write_cases,
         )
+        review_required_labels = {
+            "declared external write",
+            "external_writes",
+            "planned_external_writes",
+            "queued_external_writes",
+        }
 
         for label, candidate in cases:
             with self.subTest(label):
@@ -585,7 +591,36 @@ class GovernanceKernelTests(unittest.TestCase):
 
                 self.assertNotEqual(result.derived_state, "completed")
                 self.assertFalse(result.fully_verified)
-                self.assertNotEqual(properties["independent_review"], "not-required")
+                if label in review_required_labels:
+                    self.assertNotEqual(properties["independent_review"], "not-required")
+
+    def test_local_r1_r2_skip_review_and_still_require_a_human(self) -> None:
+        case = evidence_complete_low_risk_case()
+        cases = (
+            ("R2 risk", replace(case, contract=replace(case.contract, risk="R2"))),
+            (
+                "non-light intensity",
+                replace(case, contract=replace(case.contract, intensity="high")),
+            ),
+            (
+                "approval required",
+                replace(
+                    case,
+                    contract=replace(case.contract, required_approval_count=1),
+                ),
+            ),
+        )
+
+        for label, candidate in cases:
+            with self.subTest(label):
+                result = evaluate_governance_case(candidate)
+                properties = {item.name: item.status for item in result.properties}
+
+                self.assertEqual(properties["independent_review"], "not-required")
+                self.assertNotEqual(properties["human_quorum"], "not-required")
+                self.assertEqual(result.derived_state, "human-decision-required")
+                self.assertFalse(result.fully_verified)
+                self.assertTrue(result.human_decision_ready)
 
     def test_only_canonical_external_write_action_disables_low_risk_completion(self) -> None:
         case = evidence_complete_low_risk_case()
@@ -890,7 +925,7 @@ class GovernanceKernelTests(unittest.TestCase):
 
         self.assertEqual(result.derived_state, "accepted")
         self.assertTrue(result.fully_verified)
-        self.assertEqual(properties["human_quorum"].status, "not-required")
+        self.assertEqual(properties["human_quorum"].status, "verified")
         self.assertEqual(properties["acceptance_currency"].status, "verified")
 
     def test_zero_numeric_quorum_rejects_stale_explicit_decision(self) -> None:
@@ -899,7 +934,7 @@ class GovernanceKernelTests(unittest.TestCase):
 
         result = evaluate_governance_case(replace(case, human_decisions=(stale,)))
 
-        self.assertEqual(result.derived_state, "blocked")
+        self.assertEqual(result.derived_state, "human-decision-required")
         self.assertIn(
             "PCAW_ACCEPTANCE_DECISION_STALE",
             {item.code for item in result.errors},
@@ -919,7 +954,7 @@ class GovernanceKernelTests(unittest.TestCase):
             replace(case, human_decisions=(*case.human_decisions, rejection))
         )
 
-        self.assertEqual(result.derived_state, "blocked")
+        self.assertEqual(result.derived_state, "human-decision-required")
         self.assertIn(
             "PCAW_ACCEPTANCE_DECISION_STALE",
             {item.code for item in result.errors},

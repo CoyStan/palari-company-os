@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .work_identity import resolve_opaque_id
 from .workspace import Workspace, WorkspaceError
 
 
@@ -19,6 +20,7 @@ class CommandResult:
 
 
 def run_command(args: argparse.Namespace) -> CommandResult:
+    _canonicalize_work_refs(args)
     if args.command == "demo":
         from .demo import run_demo
         from .demo import run_solo_journey_demo
@@ -98,6 +100,16 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         return CommandResult(
             "queue",
             {"workspace": workspace, "items": items},
+            args.json,
+        )
+
+    if args.command == "inbox":
+        from .workspace_read_models import approval_inbox
+
+        workspace = Workspace.load(args.workspace)
+        return CommandResult(
+            "approval-inbox",
+            approval_inbox(workspace, selected_work_ids=args.select),
             args.json,
         )
 
@@ -842,8 +854,13 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
 
         strict_git = bool(getattr(args, "strict_git", False))
+        no_git_hook = bool(getattr(args, "no_git_hook", False))
         if strict_git and args.host != "cursor":
             raise WorkspaceError("--strict-git is only valid with --host cursor")
+        if no_git_hook and args.host != "cursor":
+            raise WorkspaceError("--no-git-hook is only valid with --host cursor")
+        if strict_git and no_git_hook:
+            raise WorkspaceError("--strict-git and --no-git-hook cannot be combined")
 
         if workspace_file_path(args.path).exists() and args.host:
             return CommandResult(
@@ -854,6 +871,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                     host=args.host,
                     palari_id=args.palari_id,
                     strict_git=strict_git,
+                    no_git_hook=no_git_hook,
                 ),
                 args.json,
             )
@@ -868,11 +886,12 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 palari_name=args.palari,
                 host=args.host,
                 strict_git=strict_git,
+                no_git_hook=no_git_hook,
             ),
             args.json,
         )
 
-    if args.command == "work" and args.object_command == "add":
+    if args.command == "do" or (args.command == "work" and args.object_command == "add"):
         from .onramp import quick_add_work
 
         return CommandResult(
@@ -883,6 +902,7 @@ def run_command(args: argparse.Namespace) -> CommandResult:
                 create=args.create,
                 modify=args.modify,
                 delete=args.delete,
+                paths=args.paths,
                 read=args.read,
                 palari_id=args.palari_id,
                 goal_id=args.goal,
@@ -968,6 +988,32 @@ def run_command(args: argparse.Namespace) -> CommandResult:
         )
 
     raise WorkspaceError("unknown command")
+
+
+def _canonicalize_work_refs(args: argparse.Namespace) -> None:
+    """Resolve unique WORK-/IDEA- prefixes before command handlers see stored IDs."""
+
+    list_fields = ("select", "approve", "reject", "defer", "pack_member")
+    work_id = getattr(args, "work_id", None)
+    lists = {name: list(getattr(args, name, None) or []) for name in list_fields}
+    if not (isinstance(work_id, str) and work_id) and not any(lists.values()):
+        return
+    if getattr(args, "command", "") in {"demo", "init"}:
+        return
+    workspace_path = getattr(args, "workspace", None)
+    if not workspace_path:
+        return
+    try:
+        workspace = Workspace.load(workspace_path)
+    except (OSError, WorkspaceError):
+        return
+    known = [item.id for item in workspace.work_items]
+    known.extend(item.id for item in workspace.proposals)
+    if isinstance(work_id, str) and work_id:
+        args.work_id = resolve_opaque_id(work_id, known)
+    for name, values in lists.items():
+        if values:
+            setattr(args, name, [resolve_opaque_id(item, known) for item in values])
 
 
 def _workspace_counts(workspace: Workspace) -> dict[str, int]:
