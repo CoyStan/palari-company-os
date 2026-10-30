@@ -184,6 +184,54 @@ them with an autonomous agent framework. The deterministic control plane
 remains authoritative. Models propose plans and perform bounded work, while
 ordinary code decides whether a requested transition or action is permitted.
 
+The operating rule is therefore:
+
+> **Models propose. Deterministic gates dispose. Humans retain sovereignty.**
+
+### Research update: how the evidence changed the thesis
+
+The research strengthened the company-of-Palaris direction but changed the
+proposed architecture in important ways:
+
+| Earlier prior | Updated direction |
+| --- | --- |
+| Governance mainly inspects work after execution. | Palari should govern the whole loop: authority before action, enforcement during action, and proof after action. |
+| PACT might become a separate token and authority subsystem. | The existing portable session contract is the root capability. Delegation creates a strictly narrower **derived session contract**, avoiding a second source of authority. PACT may remain a public protocol name for portable or signed representations. |
+| One hierarchy could describe the company. | Three graphs are required: an authority tree, a work dependency DAG, and a cross-branch review graph. Conflating them makes independence and delegation ambiguous. |
+| The strongest model naturally becomes a standing super-agent. | The orchestrator is an ordinary, replaceable Palari with broad planning context but a narrow pen: it may propose governance objects only within its charter and cannot grant itself authority. |
+| Model identity and company role could be treated together. | A durable Palari role and a replaceable runtime descriptor are separate. Replacing Claude, Codex, a local model, or a deterministic program must not change the role's governed authority. |
+| Budget primarily means money or compute. | Budget is an attenuating authority dimension covering money, compute, time, tool calls, external effects, and scarce human attention. |
+| Agent memory could become institutional memory. | Models may suggest records, but only governed, attributed, reviewable company artifacts become institutional memory. |
+| Palari should compete as another orchestration runtime. | Palari should own the provider-neutral authority, policy, evidence, and proof layer around runtimes such as agent teams, coding hosts, sandboxes, and deterministic tools. A small native orchestrator remains useful as a reference implementation, not the product moat. |
+
+This is not a blockchain thesis. The valuable pattern is capability-style
+attenuation: every descendant receives a smaller, inspectable envelope of
+authority. Cryptographic signatures become valuable when a contract crosses a
+process, machine, provider, or custody boundary, but cryptography cannot make a
+bad policy good or turn an agent-accessible key into genuine human presence.
+
+### Current state and target state
+
+The roadmap must not present target architecture as shipped behavior:
+
+| Property | Current foundation | Target direction |
+| --- | --- | --- |
+| Durable organizational identity | Palaris, work items, attempts, claims, and provider-neutral session contracts exist. | Add explicit runtime descriptors so changing models does not change role identity or authority. |
+| Delegated authority | Packets and contracts bind one session; policy and transition gates fail closed in covered paths. | Derive child contracts mechanically with monotonic attenuation and bounded delegation depth. |
+| Action enforcement | CLI gates, checks, and selected host hooks enforce known boundaries; coverage depends on the adapter. | Publish conformance-tested action-boundary profiles for every runtime and tool integration. |
+| Verification | PCAW v1 can verify governance consistency and artifact bytes offline. | Preserve deterministic offline verification while adding portable delegation-chain properties. |
+| Identity | Actor attribution is declared and local controls assume their documented trust boundary. | Signed envelopes and external human key custody provide authenticated trust profiles without placing founder keys in agent reach. |
+| Human authority | Current policy can require explicit, current human decisions. | Budget human attention, bind consequential decisions to exact presentations, and reserve true human powers to externally controlled custody. |
+| Company operation | Work DAGs, claims, receipts, reviews, decisions, and outcomes support bounded concurrent work. | Compile one charter into a temporary organization with derived contracts, runtime selection, chain-independent review, and concise capability/evidence read models. |
+
+### Durable company, temporary organization
+
+The company is durable; the organization instantiated for a charter is
+temporary. Palari identities, policies, evidence, and history remain after an
+individual model session ends. Each charter may create a different bounded
+authority tree and work graph, then dissolve that temporary structure without
+erasing its proof.
+
 ### The company hierarchy
 
 The initial conceptual hierarchy is:
@@ -191,7 +239,7 @@ The initial conceptual hierarchy is:
 | Level | Governed role | Typical occupant | Maximum authority shape |
 | --- | --- | --- | --- |
 | L0 | Human authority | Founder or qualified human quorum | Charter goals, issue or revoke root authority, authorize consequential effects, and make reserved human decisions |
-| L1 | Company orchestrator Palari | Highest-capability planning model appropriate to the work | Interpret a charter, create a work graph, allocate bounded budgets, appoint subordinate Palaris, and escalate uncertainty |
+| L1 | Company orchestrator Palari | Highest-capability planning model appropriate to the work | Interpret a charter, propose governance objects, create a work graph, allocate bounded budgets, appoint subordinate Palaris inside the charter, and escalate uncertainty |
 | L2 | Domain-lead Palari | Strong specialist model | Design and coordinate work inside one delegated domain, and create narrower executor assignments |
 | L3 | Executor Palari | Smaller or cheaper model suited to a bounded task | Read and write exact resources, run declared checks, and produce receipts without expanding scope |
 | L4 | Tool action | Deterministic function or tightly constrained tool | Perform one normalized operation authorized by one current capability |
@@ -213,6 +261,26 @@ secret, merge, deployment, or external-write authority. A small model may
 receive exact write authority for a narrow task. Runtime selection is an
 operational decision; authority is a governance decision.
 
+### Three graphs, not one org chart
+
+Palari needs three related but distinct structures:
+
+1. **Authority tree.** For one charter, every delegated contract has one
+   parent and no child is more powerful than that parent. This graph answers
+   “who may authorize this?”
+2. **Work dependency DAG.** Work items may execute concurrently whenever their
+   declared dependencies and write boundaries permit it. Opaque IDs do not
+   imply order. This graph answers “what must finish before what?”
+3. **Review graph.** Independent review crosses authority branches. A reviewer
+   must not descend from the builder's delegation chain and receives only the
+   read and verdict authority required for the exact candidate. This graph
+   answers “who is sufficiently independent to assess this?”
+
+The shared governed workspace is the information plane connecting these
+graphs. Work items, claims, receipts, evidence, reviews, decisions, and journal
+events should carry the necessary links. Palari does not need an informal
+agent-to-agent message bus to establish company truth.
+
 ### The missing layer
 
 Current Palari primitives already cover much of the organizational foundation:
@@ -229,17 +297,25 @@ Current Palari primitives already cover much of the organizational foundation:
 - the governance journal and PCAW statements make history and results
   independently inspectable.
 
-The candidate missing layer is **portable pre-action authorization**. A session
-contract declares what an agent should be able to do, and current adapters
-enforce some of those declarations. A portable capability would let a
-participating tool require exact, current, mechanically verifiable authority
-before performing an action, without trusting the model's narration.
+The candidate missing layer is **portable derived authority at the action
+boundary**. The existing session contract is the root capability for a bounded
+session. A parent Palari should be able to derive a child contract only through
+a deterministic attenuation function. A participating tool can then require
+exact, current authority before acting without trusting the model's narration.
 
-Working research name: **PACT — Palari Attenuating Capability Tokens**. This is
-not a cryptocurrency, financial instrument, tradable asset, blockchain token,
-or source of human authority. “Token” means a compact authorization object.
-The name remains provisional until comparison with existing capability systems
-shows that it is accurate and not misleading.
+Working protocol name: **PACT — Palari Attenuating Capability Tokens**. The
+internal primitive should be called a **derived session contract**, not a new
+token record or second authority database. “Token” is reserved for a compact
+portable envelope used across a process, provider, host, or tool boundary. It
+is not a cryptocurrency, financial instrument, tradable asset, blockchain
+token, or source of human authority.
+
+Within one local trusted control plane, the authoritative answer should be
+re-derived from the current root contract and governed state. A portable child
+envelope becomes useful only when the verifier cannot safely query that state.
+Structural validity and current authorization are separate questions: a
+well-formed derivation may still be stale, expired, revoked, exhausted, or
+bound to the wrong current state.
 
 ### Delegation and attenuation
 
@@ -275,18 +351,18 @@ A child must never:
 Every child should identify its parent digest. Revocation or expiry of a parent
 must invalidate its descendants unless a future specification explicitly and
 safely defines another result. Delegation should form an inspectable authority
-graph rather than an informal chain of prompts.
+tree rather than an informal chain of prompts.
 
-### Candidate capability statement
+### Candidate derived-contract extension
 
-A future normative design should determine whether to reuse the PCAW envelope,
-DSSE, an established capability-token format, or a separate canonical object.
-The candidate semantic content includes:
+A future normative design should extend the current session-contract schema
+before considering another object model. A portable envelope may later reuse
+PCAW, DSSE, or an established capability format. The smallest useful derived
+contract adds:
 
 - schema and protocol version;
-- capability identifier and parent digest;
-- issuer and holder/session public-key identities under an explicit trust
-  profile;
+- contract identifier, parent digest, root digest, and derivation depth;
+- issuer Palari, holder Palari, runtime session, and explicit trust profile;
 - Palari identity, company role, work item, attempt, and session binding;
 - exact work-contract and relevant workspace/checkpoint digests;
 - allowed tools and normalized action classes;
@@ -294,15 +370,37 @@ The candidate semantic content includes:
 - approved sources, data classes, freshness, and redaction constraints;
 - argument and parameter constraints;
 - monetary, compute, time, and external-effect budgets;
+- human-attention budget and escalation obligations;
 - allowed child roles and maximum delegation depth;
 - required receipts, evidence, reviewer class, quorum, and human presence;
-- issue, not-before, expiry, revocation, and verification-time semantics;
+- issue, not-before, expiry, revocation, exhaustion, and verification-time
+  semantics;
 - nonce, request identifier, or another replay-control mechanism;
-- signature suite, key identifier, and explicit security limitations.
+- optional signature suite and key identifier only under a defined trust
+  profile;
+- explicit security limitations and an honest enforcement profile.
 
 The exact schema must be small, canonical, deterministic, reject unknown or
 ambiguous fields, and have a language-independent conformance corpus. No field
 should be added merely because it sounds comprehensive.
+
+### Five product primitives to add
+
+The strategic design now identifies five focused primitives rather than a new
+agent framework:
+
+1. **Derived session contracts** mechanically attenuate authority from an
+   existing root contract.
+2. **Runtime descriptors** record provider, model class, tool surface,
+   sandbox/enforcement profile, cost class, and capability claims without
+   making the runtime the durable company identity.
+3. **Attenuating budgets** treat money, compute, time, retries, external
+   effects, and human attention as bounded resources inherited by descendants.
+4. **Chain-independent review** proves the reviewer is outside the builder's
+   authority branch and binds the verdict to the exact candidate.
+5. **Capability-evidence read models** answer, concisely and mechanically,
+   what a Palari may do now, why, what it has spent, what proof is current, and
+   what single safe action comes next.
 
 ### Action-boundary evaluation
 
@@ -489,41 +587,112 @@ post-action receipts. Blockchain, shared consensus, TEEs, zero-knowledge
 proofs, or zkVMs should be considered only after a concrete adversary and
 deployment profile requires their cost.
 
+### Strategic product boundary
+
+The market already contains increasingly capable agent runtimes, coding hosts,
+team coordinators, sandboxes, and “AI company” interfaces. Palari should not
+win by reproducing every scheduler, chat surface, model adapter, or virtual
+computer. It should make those systems governable and interchangeable.
+
+The integration boundary is:
+
+```text
+human charter and custody
+          ↓
+Palari authority, policy, state, evidence, and proof
+          ↓
+replaceable orchestration and execution runtimes
+          ↓
+tools, sandboxes, repositories, and external systems
+```
+
+Palari may ship a small reference orchestrator so the protocol is usable and
+testable without another framework. That orchestrator is evidence that the
+control plane works, not the exclusive execution engine. External runtimes
+remain subordinate to Palari's current contracts and enforcement profiles;
+their internal conversation is never company truth by itself.
+
+Current non-claims remain explicit:
+
+- PCAW v1 verifies governance consistency and governed artifact bytes, but its
+  declared actors are not cryptographically authenticated;
+- host enforcement is only as complete as the documented adapter, sandbox, and
+  action boundary;
+- a process with the same OS-user privileges may remain inside the local trust
+  boundary unless keys and effects are isolated externally;
+- signed envelopes alone do not prove human understanding or presence; and
+- Palari does not yet autonomously instantiate or operate the full temporary
+  company described here.
+
 ### Staged roadmap
 
 This report does not place implementation into the execution queue. If promoted
 later, the safe sequence is:
 
-1. **Terminology and threat model.** Define Palari identity, runtime identity,
-   role, capability profile, authority profile, delegation, attenuation,
-   custody, revocation, replay, and human presence. Decide whether PACT is the
-   right name.
-2. **Comparative design.** Map current session contracts and claims to
-   Macaroons, Biscuit, UCAN, OAuth, and the emerging IETF agent-delegation work.
-   Reuse an established format when it satisfies Palari's deterministic,
-   offline, minimal-dependency contract.
-3. **Normative structural specification.** Publish canonical schemas, an
-   attenuation algorithm, stable diagnostics, valid vectors, and adversarial
-   invalid vectors. Any unsigned form is declaration or simulation only.
-4. **Signed-gate and custody design.** Specify issuer and holder proof,
-   algorithms, external human custody, rotation, revocation, threshold policy,
-   verification time, recovery, and explicit trust profiles before enabling
-   authority-bearing execution.
-5. **Read-only delegation simulation.** Compile a human charter into a proposed
-   authority tree, prove every child is a subset, estimate model and budget
-   routing, and show escalations without launching agents or invoking tools.
-6. **Local action-boundary prototype.** Enforce a tiny reversible set of local
-   operations in fixtures or temporary workspaces. Bind each operation to a
-   capability and receipt. No external writes.
-7. **Bounded orchestration pilot.** Run an L1 orchestrator with L2/L3 workers on
-   independent local work items, sibling review, deterministic recovery, and a
-   single human charter. Keep merge, push, deployment, payments, and providers
-   outside the pilot.
-8. **Provider and tool adapters.** Add integrations only when each can publish
-   an honest enforcement profile and pass the same conformance corpus.
-9. **External-effect gate.** Consider a broker only through a separate R5 work
-   item after signed custody, revocation, audit, quorum, idempotence, and
-   rollback or compensation semantics are proven.
+1. **Terminology, threat model, and graph invariants.** Define Palari identity,
+   runtime identity, capability versus authority, delegation, attenuation,
+   custody, revocation, replay, and human presence. Specify the authority tree,
+   work DAG, and review graph as separate structures.
+2. **Derived session contract specification.** Extend the existing contract,
+   define a deterministic monotonic-attenuation algorithm, and publish stable
+   diagnostics, valid vectors, and adversarial invalid vectors. Do not create a
+   parallel authority store.
+3. **Runtime descriptors.** Record the replaceable runtime's capabilities,
+   provider, tool surface, sandbox and enforcement profile, cost class, and
+   limitations independently from its durable Palari role.
+4. **Budget and attention accounting.** Define conserved or explicitly
+   allocated descendant budgets for money, compute, time, retries, tool calls,
+   external effects, and human attention. Deny oversubscription deterministically.
+5. **Chain-independent review.** Mechanically reject a reviewer descended from
+   the builder's authority branch, bind review to the exact candidate, and
+   invalidate it after substantive change.
+6. **Capability-evidence read models.** Add concise operator and agent views for
+   current authority, consumed budget, proof currency, blockers, conflicts,
+   and the one next safe action.
+7. **Read-only charter simulation.** Compile a charter into a proposed
+   temporary authority tree and work DAG, prove every child is a subset,
+   estimate runtime and budget routing, and show escalations without launching
+   agents or invoking tools.
+8. **Local multi-runtime reference demonstration.** Use temporary workspaces to
+   run independent workers, including a deterministic program, through one
+   charter, narrow derived contracts, exact receipts, chain-independent review,
+   runtime replacement, and one meaningful human decision. No external writes.
+9. **Orchestration-runtime adapters.** Integrate coding hosts, agent teams, and
+   sandboxes only when each publishes an honest enforcement profile and passes
+   the same conformance corpus. Palari owns governance and proof; the adapter
+   remains replaceable.
+10. **Signed authority and authenticated proof.** Design external human key
+    custody, issuer and holder proof, rotation, revocation, thresholds,
+    recovery, and a possible authenticated PCAW successor. Unsigned contracts
+    remain declaration and structural enforcement inside their stated trust
+    boundary.
+11. **External-effect gate.** Consider a broker only through a separate R5 work
+    item after signed custody, audit, quorum, idempotence, and rollback or
+    compensation semantics are proven.
+
+### Flagship falsifiable demonstration
+
+The architecture earns implementation cost only if a network-free reference
+scenario can show all of the following with inspectable artifacts:
+
+1. a human supplies one charter, authority budget, and risk boundary;
+2. an ordinary orchestrator Palari proposes an authority tree and parallel work
+   DAG without receiving founder, merge, deployment, or secret authority;
+3. two interchangeable workers, at least one of them a deterministic program,
+   receive narrower derived contracts and produce exact receipts;
+4. an out-of-scope action is denied before its effect with a stable,
+   actionable diagnostic;
+5. one worker runtime is replaced without changing the durable Palari role or
+   silently inheriting the former session's authority;
+6. a chain-independent reviewer checks the exact candidate;
+7. the human sees and decides one genuinely consequential question rather than
+   performing routine ceremony; and
+8. an offline verifier derives the final state and detects an altered governed
+   artifact.
+
+This scenario should measure supervision burden, denied unsafe actions,
+recovery behavior, proof completeness, and runtime replaceability. A theatrical
+multi-agent demo without these falsifiable properties is not sufficient.
 
 ### Falsifiable acceptance direction
 
@@ -531,7 +700,8 @@ A future implementation contract should require negative tests proving that:
 
 - a child cannot broaden any parent permission;
 - changed, expired, revoked, or replayed authority fails closed;
-- a token for another session, role, state, or request is rejected;
+- a derived contract or portable envelope for another session, role, state, or
+  request is rejected;
 - stale review, evidence, contract, or human authority cannot authorize action;
 - canonical path checks reject traversal, symlink escape, and sibling prefixes;
 - the builder's delegation branch cannot satisfy independent review;
@@ -554,6 +724,7 @@ more than the unsafe actions it mechanically prevents.
 
 The long-term product promise captured by this report is:
 
-> **Give Palari a goal and an authority budget. It organizes a temporary,
-> auditable company of model-agnostic AI workers to accomplish it, while no
-> descendant can gain more power than the human charter granted.**
+> **Give Palari a charter and an authority budget. It organizes a temporary,
+> auditable company of interchangeable AI workers: authority flows down through
+> derived contracts, proof flows up through verifiable receipts, and no member
+> can grant itself power the human charter never contained.**
