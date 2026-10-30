@@ -45,6 +45,22 @@
       "linked_goals": [
         "GOAL-0001"
       ]
+    },
+    {
+      "linked_goals": [
+        "GOAL-0001"
+      ],
+      "forbidden_actions": [
+        "build",
+        "approve",
+        "external-write"
+      ],
+      "id": "PALARI-ARCHITECT",
+      "name": "Architect",
+      "role": "Independent review agent",
+      "scope": "Review exact task proof without build or approval authority.",
+      "owner_human": "HUMAN-FOUNDER",
+      "default_worker": "codex"
     }
   ],
   "sources": [
@@ -1637,6 +1653,23 @@
       "reviewer": "HUMAN-FOUNDER",
       "verdict": "changes-requested",
       "timestamp": "2026-07-21T00:44:30Z"
+    },
+    {
+      "id": "REVIEW-PLAIN-LANGUAGE-BA23352-FOUNDER",
+      "work_item_id": "WORK-AEA240C5ED8E490BBA5DC7495587D2DB",
+      "reviewed_head": "ba23352b1574cd8f9c5d19b4e5fe1f9ee60974d7",
+      "reviewer": "HUMAN-FOUNDER",
+      "verdict": "accept-ready",
+      "timestamp": "2026-07-21T01:12:28.848769Z",
+      "binding_version": "palari.review_binding.v1",
+      "attempt_id": "ATTEMPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-BA23352B1574",
+      "attempt_hash": "sha256:fb915439bc84bcbf33713f9d9be97aa8debad6c57f57f12e98c1cb746ed22510",
+      "evidence_reference": "EVIDENCE-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-BA23352B1574",
+      "evidence_manifest_hash": "sha256:9d3e30e7a815974235180422b6a5b16628928088329445ef40d4b5f381805b6a",
+      "receipt_reference": "RECEIPT-ADVANCE-WORK-AEA240C5ED8E490BBA5DC7495587D2DB-BA23352B1574",
+      "receipt_hash": "sha256:307e1d24db32d89cb930c3af93df050c7c4c89c6983ac9e21991c213e9312bda",
+      "work_contract_hash": "sha256:d6af991f5405c9cdc7b659ea68a5cc5d8667be52ee720fa3119b92bea966ab5f",
+      "proof_hash": "sha256:0d84b5ca445ff4906d59b85a5f4f211ccb410d03afeac2640304d46279054fbf"
     }
   ],
   "human_decisions": [],
