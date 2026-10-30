@@ -99,14 +99,18 @@ copy proof or presentation digests. It rechecks the artifact, evidence, review,
 journal, capability, effective final count, and exact state, and records
 approval plus local completion in one transaction. For review-required work,
 the effective final count is at least one even when the stored numeric count is
-zero. The sole exception is R1/light/zero-count work with no external effects.
-An agent may display the human action, but cannot execute it, create a human
-decision, or manufacture approval.
+zero. The sole ordinary-workspace exception is R1/light/zero-count work with no
+external effects; Maintainer Profile v1 does not use it. An agent may display
+the human action, but cannot execute it, create a human decision, or manufacture
+approval.
 
 `queue --approval-inbox` and `human-decision pack` remain the advanced surfaces
 for batching, mixed decisions, and explicit recovery. They emit executable
 commands only for viable named human actors. Current machine outputs are
-Approval Inbox v2, Approval Pack v3 (with a v2 reader), and Review Guide v2.
+Approval Inbox v3, Approval Pack v3 (with a v2 pack reader), and Review Guide
+v2. Inbox v3 replaces placeholder `actions` with explicitly non-executable
+structured `command_templates`; concrete exact-bound actions remain in
+`approval_commands`.
 
 ### Single-maintainer interaction measurement
 
@@ -148,6 +152,14 @@ maintainer`. It is never selected by repository name or current-directory
 discovery. Its strict `binding.json` and Git-common-directory repository
 identifier bind the hidden state to one repository; they are local safety
 preconditions, not workspace schema, human identity, or approval.
+
+Maintainer work keeps its declared R1/R2 risk and intensity, but task creation
+enforces at least one human approval. Every task has one authoritative `complete`
+profile (`./scripts/verify.sh`, encompassing install and documentation), one
+independent agent review, and at least one human approval. Focused checks are
+attributable development feedback rather than separately persisted authority,
+and exact source/evidence currency is rechecked at review, Approval Inbox, and
+final prewrite.
 
 New projects write v2 directly. Existing projects without journal continuity
 need an explicit v2 checkpoint before mutation. The v1 filename accepts only

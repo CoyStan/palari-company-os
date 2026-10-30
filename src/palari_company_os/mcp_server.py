@@ -19,6 +19,7 @@ from .models import to_plain
 from .read_models import active_parallel_work, coordination_warnings, detail, queue_items
 from .repo_docs import check_docs
 from .workspace import Workspace, WorkspaceError, default_workspace_path
+from .workspace_layout import is_maintainer_workspace, workspace_data_path
 
 
 MCP_PROTOCOL_VERSION = "2025-06-18"
@@ -278,9 +279,9 @@ def _tool_call_response(
 
 
 def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict[str, Any]:
-    workspace_path = str(arguments.get("workspace") or context.workspace)
     if name == "palari_docs_check":
         return check_docs(Path(str(arguments.get("repo") or context.repo)))
+    workspace_path = _tool_workspace_path(arguments, context)
 
     workspace = Workspace.load(workspace_path)
     if name == "palari_queue":
@@ -398,6 +399,23 @@ def call_tool(name: str, arguments: dict[str, Any], context: McpContext) -> dict
             _required_string(arguments, "palari_id"),
         )
     raise ValueError(f"unsupported tool: {name}")
+
+
+def _tool_workspace_path(
+    arguments: dict[str, Any],
+    context: McpContext,
+) -> str:
+    requested = str(arguments.get("workspace") or context.workspace)
+    if not is_maintainer_workspace(context.workspace):
+        return requested
+    bound_path = workspace_data_path(context.workspace)
+    requested_path = workspace_data_path(requested)
+    if requested_path != bound_path:
+        raise WorkspaceError(
+            "a Maintainer Profile MCP session is bound to its exact workspace; "
+            "per-call workspace overrides are unavailable"
+        )
+    return str(bound_path)
 
 
 def _initialize_result(message: dict[str, Any]) -> dict[str, Any]:

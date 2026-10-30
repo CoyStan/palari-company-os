@@ -32,9 +32,10 @@ from palari_company_os.governance_convergence import (
     _governance_projection_paths as _convergence_projection_paths,
 )
 from palari_company_os.linear_webhook import linear_webhook_event_log_path
+from palari_company_os.mcp_server import McpContext, call_tool
 from palari_company_os.store import load_store
 from palari_company_os.verification_attestations import _cache_directory
-from palari_company_os.workspace import Workspace
+from palari_company_os.workspace import Workspace, WorkspaceError
 from tests.maintainer_profile_fixture import create_git_repository
 
 
@@ -63,6 +64,34 @@ class MaintainerProfileRoutingTests(unittest.TestCase):
         )
         self.assertFalse((self.repo.root / ".palari" / "verification").exists())
         self.assertEqual(self.repo.status(), "")
+
+    def test_maintainer_mcp_rejects_ordinary_workspace_override_before_start(
+        self,
+    ) -> None:
+        root_governance_before = self.repo.root_governance_snapshot()
+        context = McpContext(
+            workspace=str(self.repo.workspace_file),
+            repo=str(self.repo.root),
+        )
+
+        with self.assertRaisesRegex(
+            WorkspaceError,
+            "bound to its exact workspace",
+        ):
+            call_tool(
+                "palari_agent_start",
+                {
+                    "workspace": str(self.repo.root / "workspace.json"),
+                    "next": True,
+                    "palari_id": "PALARI-STEWARD",
+                },
+                context,
+            )
+
+        self.assertEqual(
+            self.repo.root_governance_snapshot(),
+            root_governance_before,
+        )
 
     def test_hidden_state_is_never_a_git_projection_or_governed_output(self) -> None:
         state_journal = (

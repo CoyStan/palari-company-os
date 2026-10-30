@@ -98,6 +98,13 @@ canonical digest. The matching Git-common-directory record prevents accidental
 reuse in another clone. Neither record is a secret, signature, human identity,
 or approval.
 
+Initialization serializes on a token-owned Git-common-directory lock and
+rechecks the original clean source `HEAD` and status before the first workspace
+replacement and before activation. Failure removes only state still owned by
+that initialization attempt. Concurrent `info/exclude` additions and foreign
+replacement files are preserved and reported rather than overwritten or
+recursively deleted.
+
 The command does not read, import, rewrite, add, or commit an existing root
 `workspace.json` or root `.palari`; it creates no agent docs or authority-anchor
 commit and performs no host adoption. `--host`, `--as`, host-hook installation
@@ -116,14 +123,23 @@ palari --workspace /repo/.palari-company-os.json agent start --next \
 The JSON initialization result identifies `profile`, `workspace_file`,
 `state_root`, `runtime_root`, and `binding_file`. Its `agent_docs`,
 `adoption`, and `authority_anchor` fields explicitly report that those ordinary
-initialization actions were not required.
+initialization actions were not required. Its sole `next_commands` entry is an
+exact-selector, immediately executable `work add ... --json` command.
+Initialization does not suggest `agent start` before a task exists; successful
+task creation emits that later action.
 
 Maintainer task briefs reject work that allows or already contains push,
 merge, release, deployment, publication, provider/external writes, credential
 or secret access, or profile/Git state outputs. Split collection files are also
 unsupported. The profile is for reversible local source work only; it does not
 weaken current checks, independent review, human approval, path boundaries, or
-journal continuity.
+journal continuity. `local_write` is the only supported non-empty
+`allowed_actions` capability in version 1; unknown labels fail closed.
+
+When the exact maintainer workspace is selected, the entire `integration` and
+`linear` command families fail before credential lookup, provider access,
+planning, queueing, or integration-state mutation. Those commands remain
+available for ordinary workspaces.
 
 `work add` creates one agent-startable task from a title and its writable
 files. `--write` paths become the enforced write boundary (and are declared on
@@ -140,6 +156,13 @@ coordination. Missing, repeated, self-referential, and cyclic dependencies fail
 closed. Pass `--as`, `--goal`, `--workbench`, `--risk`, `--intensity`,
 `--scope`, `--acceptance`, `--verify`,
 `--id`, or `--approvals` to override.
+
+In a maintainer workspace, `work add` preserves the requested R1/R2 risk and
+intensity but enforces `required_approval_count >= 1`. When it raises a
+zero-count request, the result reports
+`profile_adjustments: ["required human approvals elevated to one"]`.
+Maintainer work is never eligible for the ordinary low-risk automatic-
+completion exemption.
 
 `--write PATH` is the presence-required form. When the exact change type
 matters, use repeatable `--create PATH`, `--modify PATH`, and
@@ -186,11 +209,15 @@ command string.
 current committed history status. JSON retains one subject, output, run record
 (`receipt`), check results (`evidence`), and review binding per member while
 grouping the operator summary and approval interaction. It also emits one
-strict canonical presentation file and digest per pack. Approval Inbox v2
-emits only actor-specific executable commands. New packs use v3 and carry both
-the declared numeric count and effective final human count; the reader remains
-compatible with v2 packs. The exact advanced human command names both the pack
-and presentation digests. Every direct dependency also carries a
+strict canonical presentation file and digest per pack. Approval Inbox v3
+keeps concrete actor-specific, exact-bound human actions in
+`approval_commands`. It replaces v2's executable-looking placeholder `actions`
+with structured `command_templates`; every template has `executable: false`
+and argument metadata, so it is documentation rather than an action to run.
+Approval Inbox output is derived and has no legacy authority reader. Approval
+Packs use v3, carry both the declared numeric count and effective final human
+count, and retain the v2 pack reader. The exact advanced human command names
+both the pack and presentation digests. Every direct dependency also carries a
 recursive state digest over its current task rules, verification, outputs, and
 own dependencies. `--select` narrows the pack without changing work. Each JSON pack
 has an `approval_commands` entry containing its exact
@@ -881,6 +908,16 @@ term for recorded Palari state); any substantive repository path fails closed.
 A repeated exact-state call reuses current records without duplicating them or
 rerunning profiles.
 
+Maintainer Profile v1 is the explicit exception to those ordinary profile
+choices and the low-risk authority shortcut. It preserves the task's declared
+R1/R2 label, but every maintainer task has exactly one authoritative profile:
+`complete`, whose argument vector is `./scripts/verify.sh`. That script already
+encompasses install and documentation checks, so they are not recorded as
+additional task profiles. Focused checks may be run and reported as
+attributable development feedback, but are not separately persisted task
+authority. A distinct eligible agent review and at least one qualified human
+approval remain mandatory for R1/light maintainer work.
+
 Local verification-cache files are advisory: even a structurally valid cached
 pass is rerun before new check results are created. `--refresh-verification` ignores
 the advisory record, including a prior failure, and reruns the profiles. When
@@ -1211,6 +1248,14 @@ that anything was sent or changed externally. `queued_external_writes` must
 reference currently queued outbox items; canceled outbox items fail closed so a
 run record cannot imply a canceled write is still waiting to execute.
 
+That exemption applies only to ordinary workspaces. Maintainer task creation
+enforces one required human approval, and the shared maintainer evaluator
+rechecks the full static policy at assignment, evidence, review, acceptance,
+Approval Pack, and completion. Review, Approval Inbox, and final transaction
+prewrite additionally compare the current exact source and authoritative
+evidence; drift emits no executable approval action and writes no terminal
+authority.
+
 ## History
 
 ```bash
@@ -1398,8 +1443,9 @@ fail closed if:
 Completion fails closed unless current exact passing check results are bound to
 the final clean run, run record, commit, and output files; dependencies are
 final; and no linked question remains open. In addition, either independent
-review and explicit human approval must be current, or the task must satisfy
-the exact R1/light/0-approval/no-external exemption.
+review and explicit human approval must be current, or an ordinary task must
+satisfy the exact R1/light/0-approval/no-external exemption. Maintainer Profile
+v1 never satisfies that exemption.
 
 ## External Maintainer Status
 

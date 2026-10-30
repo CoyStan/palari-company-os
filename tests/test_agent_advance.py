@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -20,6 +21,7 @@ from palari_company_os.agent_advance import (
     agent_advance,
     plan_advance,
 )
+from palari_company_os import store as store_module
 from palari_company_os.agent_finish import build_agent_finish
 from palari_company_os.agent_next import build_agent_next
 from palari_company_os.agent_runtime import (
@@ -1074,6 +1076,104 @@ class AgentAdvanceIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(repeated["status"], "completed")
         self.assertFalse(repeated["would_mutate"])
+
+    def test_convergence_rechecks_source_after_staging_before_replace(self) -> None:
+        with patch(
+            "palari_company_os.agent_advance.run_or_reuse",
+            side_effect=self._passing_attestation,
+        ):
+            first = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+        self.assertEqual(first["status"], "review-required")
+        self._record_current_authority()
+        original_replace = store_module._atomic_replace_text
+        injected = False
+
+        def inject_after_completion_is_staged(
+            data_path: Path,
+            text: str,
+            *,
+            pre_replace_check: Callable[[], None] | None = None,
+            publication_callback: Callable[[object], None] | None = None,
+        ) -> None:
+            nonlocal injected
+            candidate = json.loads(text)
+            work = next(
+                (
+                    item
+                    for item in candidate.get("work_items", [])
+                    if item.get("id") == self.work_id
+                ),
+                {},
+            )
+            if not injected and work.get("status") == "completed":
+                injected = True
+                (self.temp_dir / "CONCURRENT.md").write_text(
+                    "unreviewed concurrent candidate\n",
+                    encoding="utf-8",
+                )
+                subprocess.run(
+                    ["git", "-C", str(self.temp_dir), "add", "--", "CONCURRENT.md"],
+                    check=True,
+                )
+                subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(self.temp_dir),
+                        "commit",
+                        "-qm",
+                        "inject after staging",
+                    ],
+                    check=True,
+                )
+            original_replace(
+                data_path,
+                text,
+                pre_replace_check=pre_replace_check,
+                publication_callback=publication_callback,
+            )
+
+        with patch.object(
+            store_module,
+            "_atomic_replace_text",
+            side_effect=inject_after_completion_is_staged,
+        ):
+            result = agent_advance(
+                Ws.load(self.temp_dir),
+                self.temp_dir,
+                self.work_id,
+                "PALARI-STEWARD",
+            )
+
+        final = Ws.load(self.temp_dir)
+        work = final.work_item(self.work_id)
+        report = verify_workspace_journal(self.temp_dir)
+        self.assertTrue(injected)
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(
+            result["blockers"][0]["code"],
+            "ACCEPTED_COMPLETION_INVALID",
+        )
+        self.assertIsNotNone(work)
+        assert work is not None
+        self.assertNotIn(work.status, {"completed", "closed", "done"})
+        self.assertTrue(report["ok"], report)
+        self.assertIsNone(report["pending"])
+        self.assertGreaterEqual(report["aborted_transactions"], 1)
+        self.assertEqual(
+            subprocess.run(
+                ["git", "-C", str(self.temp_dir), "status", "--short", "--", "CONCURRENT.md"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout,
+            "",
+        )
 
     def test_substantive_commit_after_proof_blocks_convergence(self) -> None:
         with patch(

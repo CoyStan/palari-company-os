@@ -25,6 +25,9 @@ from palari_company_os.governance_binding import (
 from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.store import WorkspaceStore, load_store, write_store
 from palari_company_os.transition_checks import check_transition
+from palari_company_os.verification_attestations import (
+    expected_verification_commands,
+)
 from palari_company_os.workspace import Workspace, WorkspaceError
 from tests.workspace_fixture import current_recommendation_data
 
@@ -483,7 +486,10 @@ class TransitionCheckTests(unittest.TestCase):
             workspace = Workspace.load(root)
             verification = verify_evidence(workspace, "EVIDENCE-1")
 
-        self.assertEqual(evidence["summary"], "Focused exact verification passed.")
+        self.assertEqual(
+            evidence["summary"],
+            "3 exact-state verification profile(s) passed.",
+        )
         self.assertEqual(edited_evidence["summary"], "Current proof note clarified.")
         self.assertTrue(verification["ok"], verification)
         self.assertEqual(review["residual_risks"], ["Review must still be rerun."])
@@ -620,16 +626,27 @@ def _evidence_record(
     head_sha: str = "head-1",
     base_ref: str = "",
 ) -> dict[str, Any]:
+    work = raw["work_items"][0]
+    attempt = raw["attempts"][0]
+    base_sha = base_ref or str(attempt.get("base_sha") or "")
+    commands = expected_verification_commands(
+        str(work["risk"]),
+        list(attempt.get("changed_files") or []),
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
     record: dict[str, Any] = {
         "id": "EVIDENCE-1",
         "work_item_id": "WORK-1",
         "attempt_id": "ATTEMPT-1",
         "head_sha": head_sha,
         "status": "passed",
-        "commands": ["python3 -m unittest tests.test_governance_kernel"],
+        "commands": commands,
         "artifacts": ["notes/summary.md"],
         "receipt_hash": raw["receipts"][0]["receipt_hash"],
-        "summary": "Focused exact verification passed.",
+        "summary": (
+            f"{len(commands)} exact-state verification profile(s) passed."
+        ),
         "freshness": "exact-head",
         "timestamp": "2026-07-18T00:02:00Z",
     }

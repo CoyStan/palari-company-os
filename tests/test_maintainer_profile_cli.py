@@ -92,12 +92,19 @@ class MaintainerProfileCliTests(unittest.TestCase):
         )
         self.assertEqual(self.snapshot(self.root / ".palari"), control_before)
         self.assertEqual(self.git_output("status", "--porcelain", "--untracked-files=all"), "")
+        self.assertEqual(len(payload["next_commands"]), 1)
         for command in payload["next_commands"]:
             tokens = shlex.split(command)
             self.assertEqual(
                 tokens[:3],
                 ["palari", "--workspace", str(workspace_file)],
             )
+            self.assertNotIn("agent start", command)
+            self.cli(*tokens[1:])
+        self.assertEqual(
+            self.git_output("status", "--porcelain", "--untracked-files=all"),
+            "",
+        )
 
         ordinary = json.loads(self.cli("validate", "--json").stdout)
         explicit = json.loads(
@@ -277,6 +284,15 @@ class MaintainerProfileCliTests(unittest.TestCase):
         )
 
         self.assertEqual(result["authority_anchor"]["status"], "not-required")
+        self.assertEqual(result["work_item"]["risk"], "R1")
+        self.assertEqual(result["work_item"]["intensity"], "light")
+        self.assertEqual(result["work_item"]["required_approval_count"], 1)
+        self.assertEqual(
+            result["profile_adjustments"],
+            [
+                "required human approvals elevated to one",
+            ],
+        )
         self.assertEqual(self.git_output("rev-parse", "HEAD"), head_before)
         self.assertEqual(self.git_output("status", "--porcelain", "--untracked-files=all"), "")
         for command in result["next_commands"]:

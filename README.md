@@ -164,8 +164,29 @@ Every generated Palari action carries the exact resolved path to
 the root-relative equivalent. Version 1 permits local, reversible source
 maintenance only: tasks that involve credentials or secrets, external writes,
 push, merge, release, deploy, Git metadata, or the profile's own control state
-are blocked. Host installation and removal and `agent start --isolate` are
-unsupported for this profile.
+are blocked. `local_write` is the only supported non-empty action capability;
+unknown capability labels fail closed. Host installation and removal and
+`agent start --isolate` are unsupported for this profile. With the exact
+maintainer workspace selected, the `integration` and `linear` command families
+are also unavailable before any credential, provider, planning, queueing, or
+integration-state access.
+
+Initialization emits only the exact, immediately executable `work add` command;
+there is no task to start until that command succeeds. Maintainer `work add`
+preserves the declared R1/R2 risk and intensity while enforcing at least one
+required human approval and reporting that adjustment. Every maintainer task
+uses exactly one authoritative `complete` verification profile,
+`./scripts/verify.sh`, which already encompasses install and documentation
+checks. Focused checks remain useful attributable development feedback, but are
+not separately persisted task authority. Independent agent review and one
+or more human approvals are always required, including for R1/light work; the ordinary
+low-risk automatic-completion exemption does not apply.
+
+The same maintainer policy evaluator runs at assignment, evidence, review,
+acceptance, Approval Pack, and completion boundaries. Review, Approval Inbox,
+and final prewrite checks also revalidate the exact current verification
+binding and source candidate, so stale proof emits no executable authority
+action and cannot be terminalized.
 
 Use `--write PATH` when only final presence matters. When the kind of change
 matters, declare it exactly:

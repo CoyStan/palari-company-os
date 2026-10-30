@@ -5,7 +5,6 @@ import io
 import json
 import os
 import re
-import shlex
 import sys
 from typing import Any
 
@@ -13,9 +12,10 @@ from .cli_dispatch import run_command
 from .cli_output import print_result
 from .cli_output_utils import plain_message
 from .cli_parser import build_parser
-from .command_surface import palari_workspace_command
+from .command_surface import palari_command_parts, palari_workspace_command
 from .mutation_context import mutation_context
 from .workspace import WorkspaceError, default_workspace_path
+from .workspace_layout import is_maintainer_workspace
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -176,7 +176,7 @@ def _approval_parse_error_payload(
         },
         "next_action": "Fix the approval arguments, then retry one exact task.",
         "next_allowed_commands": (
-            _approval_error_next_commands(work_id, workspace_path)
+            _approval_error_next_commands("", workspace_path)
             if workspace_path is not None
             else []
         ),
@@ -192,6 +192,10 @@ def _linear_parse_error_payload(raw_argv: list[str], parser_message: str) -> dic
     message = _clean_parse_error(parser_message)
     issue_key = _raw_linear_issue_key(raw_argv)
     palari_id = _raw_palari_id(raw_argv)
+    workspace_path = _raw_workspace_path(raw_argv)
+    maintainer = bool(
+        workspace_path and is_maintainer_workspace(workspace_path)
+    )
     payload: dict[str, Any] = {
         "ok": False,
         "error": {
@@ -199,8 +203,21 @@ def _linear_parse_error_payload(raw_argv: list[str], parser_message: str) -> dic
             "message": message,
             "command": " ".join(raw_argv),
         },
-        "next_action": "Fix the Linear command arguments, then rerun with --json.",
-        "next_allowed_commands": _linear_error_next_commands(issue_key, palari_id),
+        "next_action": (
+            "Maintainer Profile v1 cannot use Linear; select an explicit "
+            "ordinary workspace for provider work."
+            if maintainer
+            else "Fix the Linear command arguments, then rerun with --json."
+        ),
+        "next_allowed_commands": (
+            []
+            if maintainer or workspace_path is None
+            else _linear_error_next_commands(
+                issue_key,
+                palari_id,
+                workspace_path,
+            )
+        ),
     }
     if issue_key:
         payload["error"]["linear_issue"] = issue_key
@@ -261,6 +278,10 @@ def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
     issue_key = str(getattr(args, "issue_key", "") or "")
     outbox_id = str(getattr(args, "outbox_id", "") or "")
     palari_id = str(getattr(args, "palari_id", "") or "")
+    workspace_path = str(
+        getattr(args, "workspace", "") or default_workspace_path()
+    )
+    maintainer = is_maintainer_workspace(workspace_path)
     command = " ".join(
         item
         for item in [
@@ -271,12 +292,18 @@ def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
         ]
         if item
     )
-    next_action = str(getattr(exc, "next_action", "") or "")
+    next_action = (
+        "Maintainer Profile v1 cannot use Linear; select an explicit ordinary "
+        "workspace for provider work."
+        if maintainer
+        else str(getattr(exc, "next_action", "") or "")
+    )
     if not next_action:
         next_action = _linear_error_next_action(
             linear_command,
             issue_key,
             palari_id,
+            workspace_path,
         )
     payload: dict[str, Any] = {
         "ok": False,
@@ -286,7 +313,15 @@ def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
             "command": command,
         },
         "next_action": next_action,
-        "next_allowed_commands": _linear_error_next_commands(issue_key, palari_id),
+        "next_allowed_commands": (
+            []
+            if maintainer
+            else _linear_error_next_commands(
+                issue_key,
+                palari_id,
+                workspace_path,
+            )
+        ),
     }
     if issue_key:
         payload["error"]["linear_issue"] = issue_key
@@ -299,6 +334,10 @@ def _linear_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
 
 def _approval_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
     message = _clean_error_message(exc)
+    code = str(
+        getattr(exc, "code", "")
+        or "APPROVAL_COMMAND_ERROR"
+    )
     work_id = str(
         getattr(exc, "work_id", "")
         or getattr(args, "work_id", "")
@@ -313,25 +352,30 @@ def _approval_error_payload(args: Any, exc: BaseException) -> dict[str, Any]:
         getattr(exc, "next_action", "")
         or "Inspect the task's current proof and authority plan before retrying."
     )
+    workspace_path = str(
+        getattr(args, "workspace", "") or default_workspace_path()
+    )
     next_commands = getattr(exc, "next_allowed_commands", None)
-    if not isinstance(next_commands, list):
+    if code == "APPROVAL_WORK_NOT_FOUND":
+        next_action = (
+            "Choose an existing task from the selected workspace's current task queue."
+        )
+        next_commands = _approval_error_next_commands("", workspace_path)
+    elif not isinstance(next_commands, list):
         next_commands = _approval_error_next_commands(
             work_id,
-            str(getattr(args, "workspace", "") or default_workspace_path()),
+            workspace_path,
         )
     else:
         next_commands = _bind_approval_error_commands(
             next_commands,
-            str(getattr(args, "workspace", "") or default_workspace_path()),
+            workspace_path,
         )
     payload: dict[str, Any] = {
         "schema_version": "palari.simple-approval-error.v1",
         "ok": False,
         "error": {
-            "code": str(
-                getattr(exc, "code", "")
-                or "APPROVAL_COMMAND_ERROR"
-            ),
+            "code": code,
             "message": message,
             "command": " ".join(
                 item for item in ["approve", work_id] if item
@@ -486,26 +530,94 @@ def _raw_linear_issue_key(raw_argv: list[str]) -> str:
     return ""
 
 
-def _linear_error_next_action(subcommand: str, issue_key: str, palari_id: str) -> str:
+def _linear_error_next_action(
+    subcommand: str,
+    issue_key: str,
+    palari_id: str,
+    workspace_path: str,
+) -> str:
+    doctor = palari_workspace_command(
+        workspace_path,
+        "linear",
+        "doctor",
+        "--json",
+    )
     if subcommand in {"issue", "import", "start", "inspect-block"}:
-        return "Run `palari linear doctor --json`, then retry after Linear access and block validation pass."
+        return (
+            f"Run `{doctor}`, then retry after Linear access and block "
+            "validation pass."
+        )
     if subcommand == "send":
         return "Check the approved outbox item, fix the drift or provider access issue, then resend with --confirm."
     if subcommand == "block-template":
         return "Fix the local Palari, goal, risk, intensity, or source references and rerun block-template."
     if issue_key and palari_id:
-        return f"Run `palari linear inspect-block {issue_key} --as {palari_id} --json`."
-    return "Run `palari linear doctor --json` for adapter readiness."
+        inspect = palari_workspace_command(
+            workspace_path,
+            "linear",
+            "inspect-block",
+            issue_key,
+            "--as",
+            palari_id,
+            "--json",
+        )
+        return f"Run `{inspect}`."
+    return f"Run `{doctor}` for adapter readiness."
 
 
-def _linear_error_next_commands(issue_key: str, palari_id: str) -> list[str]:
-    commands = ["palari linear doctor --json", "palari linear linked --json"]
+def _linear_error_next_commands(
+    issue_key: str,
+    palari_id: str,
+    workspace_path: str,
+) -> list[str]:
+    commands = [
+        palari_workspace_command(
+            workspace_path,
+            "linear",
+            "doctor",
+            "--json",
+        ),
+        palari_workspace_command(
+            workspace_path,
+            "linear",
+            "linked",
+            "--json",
+        ),
+    ]
     if issue_key:
-        commands.append(f"palari linear status {issue_key} --json")
+        commands.append(
+            palari_workspace_command(
+                workspace_path,
+                "linear",
+                "status",
+                issue_key,
+                "--json",
+            )
+        )
         if palari_id:
-            commands.append(f"palari linear inspect-block {issue_key} --as {palari_id} --json")
+            commands.append(
+                palari_workspace_command(
+                    workspace_path,
+                    "linear",
+                    "inspect-block",
+                    issue_key,
+                    "--as",
+                    palari_id,
+                    "--json",
+                )
+            )
         else:
-            commands.append(f"palari linear import {issue_key} --as PALARI-ID --json")
+            commands.append(
+                palari_workspace_command(
+                    workspace_path,
+                    "linear",
+                    "import",
+                    issue_key,
+                    "--as",
+                    "PALARI-ID",
+                    "--json",
+                )
+            )
     return commands
 
 
@@ -591,22 +703,13 @@ def _bind_approval_error_commands(
 ) -> list[str]:
     bound: list[str] = []
     for command in commands:
-        try:
-            tokens = shlex.split(str(command))
-        except ValueError:
-            continue
-        if not tokens or tokens[0] != "palari":
-            continue
-        if len(tokens) > 1 and (
-            tokens[1] == "--workspace"
-            or tokens[1].startswith("--workspace=")
-        ):
-            bound.append(str(command))
+        arguments = palari_command_parts(str(command))
+        if not arguments:
             continue
         bound.append(
             palari_workspace_command(
                 workspace_path,
-                *tokens[1:],
+                *arguments,
             )
         )
     return bound

@@ -17,6 +17,9 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from palari_company_os.governance_journal import verify_journal
 from palari_company_os.store import WorkspaceStore, write_store
 from palari_company_os.validation import COLLECTION_FILE_KEYS
+from palari_company_os.verification_attestations import (
+    expected_verification_commands,
+)
 
 
 WORK_ID = "WORK-CURRENT"
@@ -34,6 +37,12 @@ class GovernanceCompletionTests(unittest.TestCase):
             base_head = self.git(
                 workspace_file.parent, "rev-parse", f"{proof_head}^"
             ).stdout.strip()
+            expected_commands = expected_verification_commands(
+                "R4",
+                [ARTIFACT],
+                base_sha=base_head,
+                head_sha=proof_head,
+            )
 
             receipt = self.run_json(
                 workspace_file,
@@ -68,9 +77,9 @@ class GovernanceCompletionTests(unittest.TestCase):
                 "--status",
                 "passed",
                 "--summary",
-                "bounded verification passed",
+                f"{len(expected_commands)} exact-state verification profile(s) passed.",
                 "--list",
-                "commands=python -m unittest tests.test_governance_completion",
+                "commands=" + ",".join(expected_commands),
                 "--list",
                 f"artifacts={ARTIFACT}",
                 "--json",
@@ -233,6 +242,12 @@ class GovernanceCompletionTests(unittest.TestCase):
     def record_proof(self, workspace_file: Path, head_sha: str) -> None:
         raw = json.loads(workspace_file.read_text(encoding="utf-8"))
         base_sha = str(self.record(raw, "attempts", ATTEMPT_ID).get("base_sha") or "")
+        expected_commands = expected_verification_commands(
+            "R4",
+            [ARTIFACT],
+            base_sha=base_sha,
+            head_sha=head_sha,
+        )
         self.run_json(
             workspace_file,
             "receipt",
@@ -265,8 +280,10 @@ class GovernanceCompletionTests(unittest.TestCase):
             base_sha,
             "--status",
             "passed",
+            "--summary",
+            f"{len(expected_commands)} exact-state verification profile(s) passed.",
             "--list",
-            "commands=focused verification",
+            "commands=" + ",".join(expected_commands),
             "--list",
             f"artifacts={ARTIFACT}",
             "--json",

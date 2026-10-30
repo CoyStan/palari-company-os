@@ -9,7 +9,8 @@ from .read_models import queue_items
 from .record_order import record_time_key
 from .store import WorkspaceStore, load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
-from .workspace import WorkspaceError, latest_for_work
+from .workspace import Workspace, WorkspaceError, latest_for_work
+from .workspace_layout import is_maintainer_workspace
 
 
 class ReconciliationStateChanged(WorkspaceError):
@@ -32,6 +33,22 @@ def _assert_reconciliation_git_state(
 ) -> None:
     from .evidence_manifest import git_artifact_state
 
+    if is_maintainer_workspace(governance_workspace_path):
+        from .governance_convergence import verify_proof_projection
+
+        projection = verify_proof_projection(
+            governance_workspace_path,
+            Path(proof_root),
+            expected_git_head,
+        )
+        if not projection.get("ok"):
+            raise ReconciliationStateChanged(
+                "Repository source changed after verification: "
+                + str(
+                    projection.get("message")
+                    or "the exact proof projection is no longer current"
+                )
+            )
     artifact_state = git_artifact_state(
         Path(proof_root),
         artifacts,
@@ -166,6 +183,28 @@ class MutationResult:
 
 
 def create_record(
+    workspace_path: str,
+    kind: str,
+    record: dict[str, Any],
+    *,
+    command: str = "",
+    actor: str = "",
+) -> MutationResult:
+    if kind in {"human-decision", "acceptance"}:
+        raise WorkspaceError(
+            f"{kind} records require the dedicated human-authority command; "
+            "generic authoring cannot create acceptance authority"
+        )
+    return _create_record(
+        workspace_path,
+        kind,
+        record,
+        command=command,
+        actor=actor,
+    )
+
+
+def _create_record(
     workspace_path: str,
     kind: str,
     record: dict[str, Any],
@@ -349,6 +388,12 @@ def complete_work(
     _append_projected_acceptance_for_completion(store, workspace, work_id, actor)
     projected_workspace = validate_data(store.data_path, store.data)
     assert_work_completion_ready(projected_workspace, work_id, actor=actor)
+    final_prewrite_check = _completion_prewrite_check(
+        workspace,
+        store.data_path,
+        current,
+        prewrite_check,
+    )
     work = _find(_records(store, "work_items"), work_id)
     if work is None:
         raise WorkspaceError(f"work not found: {work_id}")
@@ -367,9 +412,61 @@ def complete_work(
             "completed",
             tuple(objects),
         ),
-        prewrite_check=prewrite_check,
+        prewrite_check=final_prewrite_check,
     )
     return MutationResult("completed", "work_items", work_id, workspace.name)
+
+
+def _completion_prewrite_check(
+    workspace: Workspace,
+    data_path: Path,
+    work: Any,
+    caller_check: Callable[[], None] | None,
+) -> Callable[[], None] | None:
+    if not is_maintainer_workspace(data_path):
+        return caller_check
+    if not work.current_attempt:
+        raise WorkspaceError(
+            "maintainer completion requires one current exact proof attempt"
+        )
+    attempt = next(
+        (item for item in workspace.attempts if item.id == work.current_attempt),
+        None,
+    )
+    if attempt is None:
+        raise WorkspaceError(
+            "maintainer completion requires one current exact proof attempt"
+        )
+    proof_head = attempt.head_sha or (
+        attempt.commits[-1] if attempt.commits else ""
+    )
+    evidence = latest_for_work(
+        (
+            item
+            for item in workspace.evidence_runs
+            if item.attempt_id == attempt.id
+            and item.head_sha == proof_head
+            and item.status == "passed"
+        ),
+        work.id,
+    )
+    if evidence is None:
+        raise WorkspaceError(
+            "maintainer completion requires current passing exact evidence"
+        )
+
+    def check() -> None:
+        if caller_check is not None:
+            caller_check()
+        _assert_reconciliation_git_state(
+            str(attempt.workspace_path or workspace.path),
+            str(data_path),
+            list(evidence.artifacts),
+            proof_head,
+            list(evidence.artifact_hashes),
+        )
+
+    return check
 
 
 def assert_work_completion_ready(
@@ -426,7 +523,7 @@ def create_human_decision(
         candidate = transition.authority_candidate
         if candidate is not None:
             record["quorum_status"] = "met" if candidate.quorum_met else "pending"
-    result = create_record(
+    result = _create_record(
         workspace_path,
         "human-decision",
         record,
@@ -1131,6 +1228,11 @@ def _latest_raw_for_attempt(
 def _reject_generic_trust_transition(
     kind: str, record_id: str, record: dict[str, Any], updates: dict[str, Any]
 ) -> None:
+    if kind in {"human-decision", "acceptance"}:
+        raise WorkspaceError(
+            f"{kind} authority records require the dedicated human-authority "
+            "command; generic updates cannot change acceptance authority"
+        )
     if kind == "work":
         terminal_statuses = {"completed", "closed", "done", "superseded", "abandoned"}
         current_status = str(record.get("status") or "")

@@ -51,7 +51,9 @@ class SimpleApprovalError(WorkspaceError):
         self.next_allowed_commands = list(
             next_allowed_commands
             if next_allowed_commands is not None
-            else _default_next_commands(work_id)
+            else _default_next_commands(
+                "" if code == "APPROVAL_WORK_NOT_FOUND" else work_id
+            )
         )
 
 
@@ -78,7 +80,7 @@ def approve_work(
         raise _error(
             "ARGUMENT_PARSE_ERROR",
             "approval requires a task id",
-            "Pass exactly one task id to `palari approve`.",
+            "Pass exactly one task id to the approval command.",
             work_id=work_id,
             human_id=human_id,
         )
@@ -108,7 +110,7 @@ def approve_work(
         raise _error(
             "APPROVAL_WORK_NOT_FOUND",
             f"task not found: {work_id}",
-            "Choose a task shown by `palari queue --json`.",
+            "Choose an existing task from the selected workspace's current task queue.",
             work_id=work_id,
             human_id=human_id,
         )
@@ -304,7 +306,7 @@ def _require_current_journal(
         )
         next_action = str(
             diagnostic.get("next_action")
-            or "Run `palari history --json`, then repair or recover governance history."
+            or "Inspect governance history, then repair or recover it."
         )
         raise _error(
             "APPROVAL_HISTORY_INVALID",
@@ -640,7 +642,7 @@ def _recover_pending_approval(
         raise _error(
             "APPROVAL_HISTORY_INVALID",
             "governance history has an unsafe pending transaction",
-            "Run `palari history --json` and recover the exact pending transaction.",
+            "Inspect governance history and recover the exact pending transaction.",
             work_id=work_id,
             human_id=human_id,
             next_allowed_commands=["palari history --json"],
@@ -651,7 +653,7 @@ def _recover_pending_approval(
         raise _error(
             "APPROVAL_HISTORY_INVALID",
             f"cannot inspect pending governance transaction: {exc}",
-            "Run `palari history --json` and recover the exact pending transaction.",
+            "Inspect governance history and recover the exact pending transaction.",
             work_id=work_id,
             human_id=human_id,
             next_allowed_commands=["palari history --json"],
@@ -1114,7 +1116,7 @@ def _mapped_pack_error(
     lowered = message.lower()
     if "journal" in lowered or "history" in lowered:
         code = "APPROVAL_HISTORY_INVALID"
-        next_action = "Run `palari history --json`, then repair or recover governance history."
+        next_action = "Inspect governance history, then repair or recover it."
     elif "presentation" in lowered or "workspace digest" in lowered or "stale" in lowered:
         code = "APPROVAL_STATE_CHANGED"
         next_action = "Refresh the task and retry approval against the current exact state."
@@ -1138,7 +1140,9 @@ def _mapped_pack_error(
         next_action = "Use the task's explicit external-action authority path."
     elif "not found" in lowered:
         code = "APPROVAL_WORK_NOT_FOUND"
-        next_action = "Choose a task shown by `palari queue --json`."
+        next_action = (
+            "Choose an existing task from the selected workspace's current task queue."
+        )
     else:
         code = "APPROVAL_PROOF_INVALID"
         next_action = "Repair current proof and review before retrying approval."

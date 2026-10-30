@@ -20,6 +20,8 @@ class CommandResult:
 
 
 def run_command(args: argparse.Namespace) -> CommandResult:
+    _reject_maintainer_external_surfaces(args)
+
     if args.command == "demo":
         from .demo import run_demo
         from .demo import serve_demo
@@ -1103,6 +1105,20 @@ def run_command(args: argparse.Namespace) -> CommandResult:
             )
 
     raise WorkspaceError("unknown command")
+
+
+def _reject_maintainer_external_surfaces(args: argparse.Namespace) -> None:
+    if args.command not in {"integration", "linear"}:
+        return
+    workspace_path = getattr(args, "workspace", "")
+    if not workspace_path or not is_maintainer_workspace(workspace_path):
+        return
+    raise WorkspaceError(
+        "maintainer profile v1 permits reversible local source work only; "
+        f"the {args.command} command surface is unavailable before credentials, "
+        "provider access, integration planning, queueing, or local integration "
+        "state can be used"
+    )
 
 
 def run_authoring_command(args: argparse.Namespace) -> Any:

@@ -178,6 +178,7 @@ class MaintainerProfileContractTests(unittest.TestCase):
                 {
                     "allowed_actions": [
                         "push",
+                        "force_push_branch",
                         "merge_pull_request",
                         "deploy",
                         "provider_write",
@@ -200,6 +201,7 @@ class MaintainerProfileContractTests(unittest.TestCase):
             denied = blockers["MAINTAINER_PROFILE_CAPABILITY_DENIED"]["message"]
             for action in (
                 "push",
+                "force_push_branch",
                 "merge_pull_request",
                 "deploy",
                 "provider_write",

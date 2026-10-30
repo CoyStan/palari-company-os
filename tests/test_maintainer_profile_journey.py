@@ -119,7 +119,7 @@ class MaintainerProfileJourneyTests(unittest.TestCase):
 
             self.assertEqual(
                 observed_profiles,
-                ["complete", "install-smoke", "docs-check"],
+                ["complete"],
             )
             self.assertEqual(advanced["status"], "review-required", advanced)
             repo.assert_exact_commands(advanced)

@@ -2231,6 +2231,7 @@ def _maintainer_proof_projection_error(
             changed_files,
             base_sha=base_sha,
             head_sha=head_sha,
+            maintainer=True,
         )
         if isinstance(changed_files, list)
         and all(isinstance(path, str) for path in changed_files)

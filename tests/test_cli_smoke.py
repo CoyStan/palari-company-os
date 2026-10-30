@@ -366,6 +366,69 @@ class CliSmokeTests(unittest.TestCase):
             next_commands[1],
         )
 
+    def test_unknown_approval_task_emits_only_valid_exact_workspace_actions(
+        self,
+    ) -> None:
+        missing_work_id = "WORK-NOT-PRESENT"
+        runtime_result = self.run_cli(
+            "approve",
+            missing_work_id,
+            "--as",
+            "HUMAN-OWNER",
+            "--json",
+            check=False,
+        )
+        payload = self.json_object(runtime_result)
+
+        self.assertEqual(runtime_result.returncode, 2)
+        self.assertEqual(payload["error"]["code"], "APPROVAL_WORK_NOT_FOUND")
+        self.assertNotIn("palari ", payload["next_action"])
+        next_commands = payload["next_allowed_commands"]
+        self.assertEqual(len(next_commands), 2)
+        self.assertEqual(json.dumps(payload).count("palari "), len(next_commands))
+        self.assertEqual(
+            [shlex.split(command)[3:] for command in next_commands],
+            [["queue", "--json"], ["validate", "--json"]],
+        )
+
+        for command in next_commands:
+            tokens = shlex.split(command)
+            self.assertEqual(
+                tokens[:3],
+                ["palari", "--workspace", str(self.workspace_file.parent)],
+            )
+            self.assertNotIn(missing_work_id, tokens)
+            recovery = self.run_emitted_command(command)
+            self.assertEqual(recovery.returncode, 0, recovery.stderr)
+
+    def test_malformed_approval_does_not_assume_the_task_exists(self) -> None:
+        missing_work_id = "WORK-NOT-PRESENT"
+        result = self.run_cli(
+            "approve",
+            missing_work_id,
+            "--as",
+            "--json",
+            check=False,
+        )
+        payload = self.json_object(result)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(payload["error"]["code"], "ARGUMENT_PARSE_ERROR")
+        self.assertEqual(
+            json.dumps(payload).count("palari "),
+            len(payload["next_allowed_commands"]),
+        )
+        self.assertEqual(
+            [shlex.split(command)[3:] for command in payload["next_allowed_commands"]],
+            [["queue", "--json"], ["validate", "--json"]],
+        )
+        self.assertTrue(
+            all(
+                missing_work_id not in shlex.split(command)
+                for command in payload["next_allowed_commands"]
+            )
+        )
+
     def test_simple_approval_cli_completes_once_and_retries_without_opaque_args(
         self,
     ) -> None:
@@ -494,6 +557,30 @@ class CliSmokeTests(unittest.TestCase):
             cwd=REPO_ROOT,
             env=environment,
             check=check,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def run_emitted_command(
+        self,
+        command: str,
+    ) -> subprocess.CompletedProcess[str]:
+        tokens = shlex.split(command)
+        self.assertTrue(tokens)
+        self.assertEqual(tokens[0], "palari")
+        environment = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")}
+        return subprocess.run(
+            [
+                sys.executable,
+                "-S",
+                "-m",
+                "palari_company_os",
+                *tokens[1:],
+            ],
+            cwd=REPO_ROOT,
+            env=environment,
+            check=False,
             capture_output=True,
             text=True,
             timeout=30,

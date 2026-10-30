@@ -33,6 +33,7 @@ from .work_identity import generate_work_id
 from .workspace import CURRENT_SCHEMA_VERSION, WorkspaceError
 from .workspace_layout import (
     MAINTAINER_PROFILE,
+    _add_exception_note,
     begin_maintainer_initialization,
     resolve_workspace_layout,
 )
@@ -273,16 +274,26 @@ def initialize_maintainer_workspace(
             palari_name=palari_name,
         )
         _apply_maintainer_capability_limits(data)
+        initialization.prepare_workspace_outputs(data)
         workspace = write_store(
             WorkspaceStore(
                 data_path=layout.data_path,
                 data=data,
                 binding_witness=layout.binding_witness,
-            )
+            ),
+            prewrite_check=initialization.prewrite_check,
+            publication_callback=initialization.capture_workspace_publication,
         )
+        initialization.capture_workspace_outputs()
         layout = initialization.complete()
-    except Exception:
-        initialization.rollback()
+    except Exception as exc:
+        cleanup_notes = initialization.rollback()
+        if cleanup_notes:
+            _add_exception_note(
+                exc,
+                "Maintainer initialization cleanup preserved concurrent changes: "
+                + "; ".join(cleanup_notes),
+            )
         raise
 
     palari_id = starter["palari_id"]
@@ -294,16 +305,8 @@ def initialize_maintainer_workspace(
             "First task",
             "--write",
             "docs/notes.md",
-        ),
-        palari_workspace_command(
-            layout.data_path,
-            "agent",
-            "start",
-            "--next",
-            "--as",
-            palari_id,
             "--json",
-        ),
+        )
     ]
     return {
         "schema_version": "palari.init.v1",
@@ -559,6 +562,14 @@ def quick_add_work(
     read_paths = _normalized_paths(read or [], "--read")
 
     store = load_store(workspace_path)
+    layout = resolve_workspace_layout(store.data_path)
+    profile_adjustments: list[str] = []
+    if layout.maintainer:
+        if approvals < 1:
+            approvals = 1
+            profile_adjustments.append(
+                "required human approvals elevated to one"
+            )
     workbench = _resolve_optional_default(store.data, "workbenches", workbench_id, "--workbench")
     palari = _resolve_default_palari(
         store.data,
@@ -634,7 +645,6 @@ def quick_add_work(
     work_items = store.data.setdefault("work_items", [])
     if any(item.get("id") == resolved_id for item in work_items):
         raise WorkspaceError(f"work already exists: {resolved_id}")
-    layout = resolve_workspace_layout(store.data_path)
     authority_anchor = (
         _maintainer_authority_anchor()
         if layout.maintainer
@@ -707,6 +717,13 @@ def quick_add_work(
         f"{resolved_id} created for {palari}: write boundary is "
         f"{', '.join(write_paths)}."
     )
+    if profile_adjustments:
+        message += (
+            " Maintainer Profile v1 enforced its verification and authority "
+            "floor: "
+            + "; ".join(profile_adjustments)
+            + "."
+        )
     if authority_blocked:
         message += (
             f" Task is blocked before agent start. {authority_plan['message']} "
@@ -719,6 +736,7 @@ def quick_add_work(
         "path_intents": path_intents,
         "authority_anchor": authority_anchor,
         "authority_plan": authority_plan,
+        "profile_adjustments": profile_adjustments,
         "workbench_outputs_added": workbench_outputs_added,
         "status": "blocked" if authority_blocked else "ready",
         "next_step_type": "blocked" if authority_blocked else "start-work",

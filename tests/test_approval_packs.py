@@ -52,6 +52,9 @@ from palari_company_os.governance_journal import (
 from palari_company_os.pcaw_canonical import canonical_sha256
 from palari_company_os.simple_approval import SimpleApprovalError, approve_work
 from palari_company_os.store import WorkspaceStore, load_store, write_store
+from palari_company_os.verification_attestations import (
+    expected_verification_commands,
+)
 from palari_company_os.workspace import Workspace, WorkspaceError
 
 
@@ -466,7 +469,7 @@ class ApprovalPackTests(unittest.TestCase):
                 "--json",
             )
 
-        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v2")
+        self.assertEqual(inbox["schema_version"], "palari.approval-inbox.v3")
         self.assertIn("Status: Needs approval", rendered_inbox)
         self.assertIn("Owner: qualified human", rendered_inbox)
         self.assertIn("Next: palari --workspace", rendered_inbox)
@@ -1546,6 +1549,12 @@ def make_ready_workspace(
             raw["receipts"],
         )
         raw["receipts"].append(receipt)
+        verification_commands = expected_verification_commands(
+            risk,
+            [output_path],
+            base_sha="base",
+            head_sha=head,
+        )
         evidence = stamp_evidence_record(
             {
                 "id": f"EVIDENCE-{index:03d}",
@@ -1554,10 +1563,13 @@ def make_ready_workspace(
                 "head_sha": head,
                 "status": "passed",
                 "base_ref": "base",
-                "commands": ["offline deterministic check"],
+                "commands": verification_commands,
                 "artifacts": [output_path],
                 "receipt_hash": receipt["receipt_hash"],
-                "summary": "Exact local bytes verified.",
+                "summary": (
+                    f"{len(verification_commands)} exact-state verification "
+                    "profile(s) passed."
+                ),
                 "freshness": "fresh",
                 "timestamp": timestamp(base_time + timedelta(seconds=index * 10 + 3)),
             },
@@ -1584,7 +1596,9 @@ def make_ready_workspace(
             "verdict": "accept-ready",
             **binding,
             "findings": [],
-            "checks_inspected": ["offline deterministic check"],
+            "checks_inspected": list(
+                raw["evidence_runs"][index - 1]["commands"]
+            ),
             "residual_risks": ["Human usefulness judgment remains required."],
             "timestamp": timestamp(base_time + timedelta(seconds=index * 10 + 4)),
         }

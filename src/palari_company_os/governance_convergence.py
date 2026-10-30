@@ -6,11 +6,13 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
+from .evidence_manifest import verify_evidence
 from .governance_kernel import TERMINAL_WORK_STATUSES
 from .governance_journal import journal_file_path, workspace_digest
 from .pcaw_workspace import evaluate_workspace_completion_authority
 from .store import load_store, validate_data
-from .workspace import WorkspaceError
+from .verification_attestations import verification_evidence_binding_error
+from .workspace import WorkspaceError, latest_for_work
 from .workspace_layout import resolve_workspace_layout
 
 
@@ -112,24 +114,80 @@ def converge_work_item(
     """
 
     path = Path(workspace_path)
+    planned_digest = ""
 
     def observe() -> ConvergenceObservation:
-        return _observe_work(path, work_id, actor)
+        nonlocal planned_digest
+        observation = _observe_work(path, work_id, actor)
+        planned_digest = observation.digest
+        return observation
 
     def apply(action: str) -> None:
         if action != "complete-work":
             raise WorkspaceError(f"unsupported automatic transition: {action}")
         from .authoring import complete_work
 
+        store = load_store(path)
+        current_digest = workspace_digest(store.data)
+        if not planned_digest or current_digest != planned_digest:
+            raise WorkspaceError(
+                "governed state changed after automatic completion was planned"
+            )
+        workspace = validate_data(store.data_path, store.data)
+        work = workspace.work_item(work_id)
+        if work is None or not work.current_attempt:
+            raise WorkspaceError("current completion proof disappeared before mutation")
+        attempt = next(
+            (
+                item
+                for item in workspace.attempts
+                if item.id == work.current_attempt
+            ),
+            None,
+        )
+        if attempt is None:
+            raise WorkspaceError("current completion attempt disappeared before mutation")
+        proof_head = attempt.head_sha or (
+            attempt.commits[-1] if attempt.commits else ""
+        )
         complete_work(
             str(path),
             work_id,
             "completed",
             command="governance convergence",
             actor=actor,
+            prewrite_check=lambda: _assert_completion_prewrite(
+                path,
+                planned_digest,
+                Path(attempt.workspace_path or path),
+                proof_head,
+            ),
         )
 
     return run_fixed_point(observe, apply, max_steps=max_steps)
+
+
+def _assert_completion_prewrite(
+    workspace_path: Path,
+    expected_workspace_digest: str,
+    proof_root: Path,
+    proof_head: str,
+) -> None:
+    store = load_store(workspace_path)
+    if workspace_digest(store.data) != expected_workspace_digest:
+        raise WorkspaceError(
+            "governed state changed before automatic completion"
+        )
+    projection = verify_proof_projection(
+        workspace_path,
+        proof_root,
+        proof_head,
+    )
+    if not projection.get("ok"):
+        raise WorkspaceError(
+            "source state changed before automatic completion: "
+            + str(projection.get("message") or "exact proof is no longer current")
+        )
 
 
 def verify_proof_projection(
@@ -147,6 +205,7 @@ def verify_proof_projection(
         "governance_paths": [],
         "committed_paths": [],
         "dirty_tracked_paths": [],
+        "untracked_paths": [],
         "substantive_paths": [],
     }
     if not proof_head or not current_head:
@@ -190,6 +249,10 @@ def verify_proof_projection(
         }
     try:
         governance_paths = _governance_projection_paths(workspace_path, git_root)
+        governance_untracked_prefixes = _governance_untracked_prefixes(
+            workspace_path,
+            git_root,
+        )
         committed = _git_paths(
             git_root,
             (
@@ -215,6 +278,16 @@ def verify_proof_projection(
                 )
             )
         )
+        untracked = _git_paths(
+            git_root,
+            (
+                "ls-files",
+                "--others",
+                "--exclude-standard",
+                "-z",
+                "--",
+            ),
+        )
     except WorkspaceError as exc:
         return {
             **base,
@@ -222,12 +295,25 @@ def verify_proof_projection(
             "code": "PROOF_CHANGE_OBSERVATION_FAILED",
             "message": str(exc),
         }
-    substantive = sorted((set(committed) | set(dirty)) - set(governance_paths))
+    untracked_substantive = {
+        path
+        for path in untracked
+        if path not in governance_paths
+        and not any(
+            path == prefix or path.startswith(prefix + "/")
+            for prefix in governance_untracked_prefixes
+        )
+    }
+    substantive = sorted(
+        ((set(committed) | set(dirty)) - set(governance_paths))
+        | untracked_substantive
+    )
     payload = {
         **base,
         "governance_paths": governance_paths,
         "committed_paths": committed,
         "dirty_tracked_paths": dirty,
+        "untracked_paths": untracked,
         "substantive_paths": substantive,
     }
     if substantive:
@@ -310,16 +396,15 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             message="The current proof attempt belongs to a different Palari.",
         )
     proof_head = attempt.head_sha or (attempt.commits[-1] if attempt.commits else "")
-    evidence = next(
+    evidence = latest_for_work(
         (
             item
-            for item in reversed(workspace.evidence_runs)
-            if item.work_item_id == work_id
-            and item.attempt_id == attempt.id
+            for item in workspace.evidence_runs
+            if item.attempt_id == attempt.id
             and item.head_sha == proof_head
             and item.status == "passed"
         ),
-        None,
+        work_id,
     )
     if evidence is None:
         return _waiting(digest, "agent-action", "Current passing evidence is missing.")
@@ -331,6 +416,22 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             boundary="error",
             code="CURRENT_PROOF_INVALID",
             message=str(projection["message"]),
+            proof=projection,
+        )
+    evidence_error = _current_evidence_error(
+        workspace,
+        work,
+        attempt,
+        evidence,
+        proof_head,
+    )
+    if evidence_error:
+        return ConvergenceObservation(
+            digest=digest,
+            status="blocked",
+            boundary="error",
+            code="CURRENT_PROOF_INVALID",
+            message=evidence_error,
             proof=projection,
         )
     try:
@@ -384,6 +485,38 @@ def _observe_work(path: Path, work_id: str, actor: str) -> ConvergenceObservatio
             else "No automatic transition is currently safe."
         ),
         proof=proof,
+    )
+
+
+def _current_evidence_error(
+    workspace: Any,
+    work: Any,
+    attempt: Any,
+    evidence: Any,
+    proof_head: str,
+) -> str:
+    try:
+        verification = verify_evidence(
+            workspace,
+            evidence.id,
+            require_output_coverage=True,
+        )
+    except WorkspaceError as exc:
+        return f"The current exact evidence cannot be verified: {exc}"
+    if not verification.get("ok"):
+        errors = verification.get("errors") or []
+        detail = "; ".join(str(item) for item in errors[:3])
+        return "The current exact evidence no longer verifies" + (
+            f": {detail}" if detail else "."
+        )
+    return verification_evidence_binding_error(
+        risk=str(work.risk),
+        changed_paths=list(attempt.changed_files),
+        base_sha=str(attempt.base_sha),
+        head_sha=proof_head,
+        commands=list(evidence.commands),
+        summary=str(evidence.summary),
+        maintainer=resolve_workspace_layout(workspace.data_path).maintainer,
     )
 
 
@@ -454,6 +587,20 @@ def _governance_projection_paths(workspace_path: Path | str, git_root: Path) -> 
             continue
         paths.append(_safe_git_path(relative))
     return sorted(set(paths))
+
+
+def _governance_untracked_prefixes(
+    workspace_path: Path | str,
+    git_root: Path,
+) -> list[str]:
+    layout = resolve_workspace_layout(load_store(workspace_path).data_path)
+    if layout.maintainer:
+        return []
+    try:
+        relative = layout.runtime_root.resolve().relative_to(git_root).as_posix()
+    except ValueError:
+        return []
+    return [_safe_git_path(relative)]
 
 
 def _git_text(root: Path, args: tuple[str, ...]) -> str:

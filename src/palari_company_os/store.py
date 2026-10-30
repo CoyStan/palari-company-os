@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
+import stat
 import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from .workspace import Workspace, WorkspaceError
 from .workspace_layout import (
+    _retire_staging_entry_at,
     assert_layout_witness,
     resolve_workspace_layout,
     runtime_path,
@@ -98,6 +99,7 @@ def write_store(
     event_kind: str = "mutation",
     crash_hook: Any | None = None,
     prewrite_check: Any | None = None,
+    publication_callback: Callable[[os.stat_result], None] | None = None,
 ) -> Workspace:
     if has_collection_files(store.data):
         raise WorkspaceError(
@@ -159,6 +161,22 @@ def write_store(
             if prewrite_check is not None:
                 prewrite_check()
 
+        def apply_workspace_text(
+            check: Callable[[], None] | None = None,
+        ) -> None:
+            keyword_arguments: dict[str, Any] = {}
+            if check is not None:
+                keyword_arguments["pre_replace_check"] = check
+            if publication_callback is not None:
+                keyword_arguments["publication_callback"] = (
+                    publication_callback
+                )
+            _atomic_replace_text(
+                store.data_path,
+                text,
+                **keyword_arguments,
+            )
+
         try:
             if store.loaded_hash is None:
                 transact(
@@ -166,7 +184,8 @@ def write_store(
                     before_data=None,
                     after_data=store.data,
                     metadata=metadata,
-                    apply=lambda: _atomic_replace_text(store.data_path, text),
+                    apply=apply_workspace_text,
+                    staged_apply=apply_workspace_text,
                     event_kind="checkpoint",
                     coverage="complete",
                     crash_hook=crash_hook,
@@ -178,7 +197,8 @@ def write_store(
                     before_data=before_data,
                     after_data=store.data,
                     metadata=metadata,
-                    apply=lambda: _atomic_replace_text(store.data_path, text),
+                    apply=apply_workspace_text,
+                    staged_apply=apply_workspace_text,
                     event_kind=event_kind,
                     crash_hook=crash_hook,
                     prewrite_check=final_prewrite_check,
@@ -449,57 +469,143 @@ def _load_current_raw(data_path: Path) -> dict[str, Any]:
     return value
 
 
-def _atomic_replace_text(data_path: Path, text: str) -> None:
+def _atomic_replace_text(
+    data_path: Path,
+    text: str,
+    *,
+    pre_replace_check: Callable[[], None] | None = None,
+    publication_callback: Callable[[os.stat_result], None] | None = None,
+) -> None:
+    initial_publication = not data_path.exists()
     data_path.parent.mkdir(parents=True, exist_ok=True)
     layout = resolve_workspace_layout(
         data_path,
-        require_workspace=data_path.exists(),
+        require_workspace=not initial_publication,
     )
-    temp_path: Path | None = None
+    root_descriptor: int | None = None
+    state_descriptor: int | None = None
+    runtime_descriptor: int | None = None
+    stage_descriptor: int | None = None
+    stage_name = f"workspace-stage-{uuid.uuid4().hex}.tmp"
+    stage_path = layout.runtime_root / stage_name
+    stage_exists = False
     try:
-        if layout.maintainer:
-            temp_path = runtime_path(
-                data_path,
-                f".palari/workspace-stage-{uuid.uuid4().hex}.tmp",
-                require_workspace=data_path.exists(),
-            )
-            descriptor = os.open(
-                temp_path,
-                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
-                0o600,
-            )
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-                handle.write(text)
-                handle.flush()
-                os.fsync(handle.fileno())
+        runtime_path(
+            data_path,
+            f".palari/{stage_name}",
+            require_workspace=not initial_publication,
+        )
+        directory_flags = os.O_RDONLY
+        if hasattr(os, "O_DIRECTORY"):
+            directory_flags |= os.O_DIRECTORY
+        if hasattr(os, "O_NOFOLLOW"):
+            directory_flags |= os.O_NOFOLLOW
+        root_descriptor = os.open(layout.repository_root, directory_flags)
+        if layout.state_root == layout.repository_root:
+            state_descriptor = os.dup(root_descriptor)
         else:
-            with tempfile.NamedTemporaryFile(
-                "w",
-                encoding="utf-8",
-                dir=data_path.parent,
-                delete=False,
-            ) as handle:
-                temp_path = Path(handle.name)
-                handle.write(text)
-                handle.flush()
-                os.fsync(handle.fileno())
-        os.replace(temp_path, data_path)
-        source_directory = temp_path.parent
-        temp_path = None
-        directory = os.open(data_path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        if source_directory != data_path.parent:
-            directory = os.open(source_directory, os.O_RDONLY)
+            state_descriptor = os.open(
+                layout.state_root.name,
+                directory_flags,
+                dir_fd=root_descriptor,
+            )
+        if not layout.maintainer:
             try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+                os.mkdir(
+                    layout.runtime_root.name,
+                    mode=0o700,
+                    dir_fd=state_descriptor,
+                )
+            except FileExistsError:
+                pass
+        runtime_descriptor = os.open(
+            layout.runtime_root.name,
+            directory_flags,
+            dir_fd=state_descriptor,
+        )
+        file_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            file_flags |= os.O_NOFOLLOW
+        stage_descriptor = os.open(
+            stage_name,
+            file_flags,
+            0o600,
+            dir_fd=runtime_descriptor,
+        )
+        stage_exists = True
+        payload = text.encode("utf-8")
+        view = memoryview(payload)
+        while view:
+            written = os.write(stage_descriptor, view)
+            if written <= 0:
+                raise OSError("short write while staging workspace")
+            view = view[written:]
+        os.fsync(stage_descriptor)
+        if pre_replace_check is not None:
+            pre_replace_check()
+        if initial_publication:
+            os.link(
+                stage_name,
+                data_path.name,
+                src_dir_fd=runtime_descriptor,
+                dst_dir_fd=root_descriptor,
+                follow_symlinks=False,
+            )
+            linked = os.fstat(stage_descriptor)
+            if publication_callback is not None:
+                publication_callback(linked)
+            if not _retire_staging_entry_at(
+                runtime_descriptor,
+                stage_name,
+                stage_descriptor,
+            ):
+                raise WorkspaceError(
+                    "cannot retire staged workspace inode safely"
+                )
+            stage_exists = False
+        else:
+            os.replace(stage_path, data_path)
+            stage_exists = False
+        published = os.stat(
+            data_path.name,
+            dir_fd=root_descriptor,
+            follow_symlinks=False,
+        )
+        staged = os.fstat(stage_descriptor)
+        if (
+            not stat.S_ISREG(published.st_mode)
+            or (published.st_dev, published.st_ino)
+            != (staged.st_dev, staged.st_ino)
+        ):
+            raise WorkspaceError(
+                "workspace publication changed before ownership was captured"
+            )
+        if publication_callback is not None:
+            publication_callback(published)
+        os.fsync(root_descriptor)
+        os.fsync(runtime_descriptor)
     finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
+        if stage_exists and runtime_descriptor is not None:
+            try:
+                if stage_descriptor is not None:
+                    _retire_staging_entry_at(
+                        runtime_descriptor,
+                        stage_name,
+                        stage_descriptor,
+                    )
+            except OSError:
+                pass
+        for descriptor in (
+            stage_descriptor,
+            runtime_descriptor,
+            state_descriptor,
+            root_descriptor,
+        ):
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
 
 
 def _workspace_lock_pid(lock_path: Path) -> int | None:

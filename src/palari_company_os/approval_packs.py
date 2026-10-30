@@ -31,6 +31,7 @@ from .governance_journal import (
     verify_journal,
     workspace_digest,
 )
+from .maintainer_policy import maintainer_profile_violations
 from .path_policy import validate_workspace_path
 from .pcaw_canonical import canonical_sha256
 from .pcaw_workspace import (
@@ -40,7 +41,9 @@ from .pcaw_workspace import (
 from .record_order import record_time_key
 from .store import load_store, validate_data, write_store
 from .transition_checks import assert_transition_allowed
+from .verification_attestations import current_verification_binding_error
 from .workspace import Workspace, current_attempt_for_work, latest_for_work
+from .workspace_layout import is_maintainer_workspace
 
 
 PACK_SCHEMA_VERSION = "palari.approval-pack.v3"
@@ -48,7 +51,7 @@ SUPPORTED_PACK_SCHEMA_VERSIONS = {
     "palari.approval-pack.v2",
     PACK_SCHEMA_VERSION,
 }
-INBOX_SCHEMA_VERSION = "palari.approval-inbox.v2"
+INBOX_SCHEMA_VERSION = "palari.approval-inbox.v3"
 DECISION_BINDING_VERSION = "palari.approval-pack-decision.v2"
 BAD_DEPENDENCY_STATES = {
     "blocked",
@@ -200,12 +203,80 @@ def build_approval_inbox(
         "approval_modes": approval_modes(counts, eligible_pack_actions),
         "primary_action": approval_primary_action(eligible_commands, counts),
         "approval_commands": approval_commands,
-        "actions": {
-            "approve_eligible": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --approve-eligible --json",
-            "approve_selected": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --approve WORK-ID --json",
-            "reject": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --reject WORK-ID --json",
-            "defer": "palari human-decision pack --pack-digest DIGEST --presentation-digest PRESENTATION --human-id HUMAN-ID --defer WORK-ID --json",
-            "narrow": "palari queue --approval-inbox --select WORK-ID --json",
+        "command_templates": {
+            "approve_eligible": {
+                "executable": False,
+                "arguments": [
+                    "human-decision",
+                    "pack",
+                    "--pack-digest",
+                    "DIGEST",
+                    "--presentation-digest",
+                    "PRESENTATION",
+                    "--human-id",
+                    "HUMAN-ID",
+                    "--approve-eligible",
+                    "--json",
+                ],
+            },
+            "approve_selected": {
+                "executable": False,
+                "arguments": [
+                    "human-decision",
+                    "pack",
+                    "--pack-digest",
+                    "DIGEST",
+                    "--presentation-digest",
+                    "PRESENTATION",
+                    "--human-id",
+                    "HUMAN-ID",
+                    "--approve",
+                    "WORK-ID",
+                    "--json",
+                ],
+            },
+            "reject": {
+                "executable": False,
+                "arguments": [
+                    "human-decision",
+                    "pack",
+                    "--pack-digest",
+                    "DIGEST",
+                    "--presentation-digest",
+                    "PRESENTATION",
+                    "--human-id",
+                    "HUMAN-ID",
+                    "--reject",
+                    "WORK-ID",
+                    "--json",
+                ],
+            },
+            "defer": {
+                "executable": False,
+                "arguments": [
+                    "human-decision",
+                    "pack",
+                    "--pack-digest",
+                    "DIGEST",
+                    "--presentation-digest",
+                    "PRESENTATION",
+                    "--human-id",
+                    "HUMAN-ID",
+                    "--defer",
+                    "WORK-ID",
+                    "--json",
+                ],
+            },
+            "narrow": {
+                "executable": False,
+                "arguments": [
+                    "queue",
+                    "--approval-inbox",
+                    "--select",
+                    "WORK-ID",
+                    "--json",
+                ],
+            },
         },
         "security_limitations": _security_limitations(),
     }
@@ -699,6 +770,10 @@ def apply_pack_decision(
                     pack_digest=pack_digest,
                     presentation_digest=presentation_digest,
                     selected_work_ids=request["pack_members"],
+                    terminalized_work_ids=_terminalized_work_ids(
+                        before_projection,
+                        pending["after_projection"],
+                    ),
                     journal_context=pending_journal_context,
                 ),
             )
@@ -1079,6 +1154,7 @@ def apply_pack_decision(
             pack_digest=pack_digest,
             presentation_digest=presentation_digest,
             selected_work_ids=request["pack_members"],
+            terminalized_work_ids=executed,
         ),
     )
     return {
@@ -1174,6 +1250,25 @@ def _work_member(
     evidence = latest_for_work(workspace.evidence_runs, work.id)
     review = latest_for_work(workspace.review_verdicts, work.id)
     errors: list[str] = []
+    maintainer_violations = maintainer_profile_violations(workspace, work)
+    errors.extend(violation.message for violation in maintainer_violations)
+    if attempt is not None and evidence is not None:
+        binding_error = current_verification_binding_error(
+            workspace,
+            work,
+            maintainer=is_maintainer_workspace(workspace.data_path),
+        )
+        if binding_error:
+            errors.append(binding_error)
+        if is_maintainer_workspace(workspace.data_path):
+            try:
+                _assert_pack_source_current(
+                    workspace,
+                    workspace.data_path,
+                    [work.id],
+                )
+            except WorkspaceError as exc:
+                errors.append(str(exc))
     if work.status in TERMINAL_WORK_STATUSES:
         errors.append("work item is already terminal")
     authority_plan = build_authority_plan(
@@ -1246,7 +1341,11 @@ def _work_member(
     }
     subject_digest = canonical_sha256(subject)
     external_effects = _external_effects(workspace, work.id, receipt)
-    policy = _batch_policy(work, external_effects)
+    policy = _batch_policy(
+        work,
+        external_effects,
+        maintainer_policy_denied=bool(maintainer_violations),
+    )
     member = {
         "id": work.id,
         "kind": "work-item",
@@ -1312,7 +1411,22 @@ def _work_member(
     return member
 
 
-def _batch_policy(work: Any, external_effects: list[str]) -> dict[str, Any]:
+def _batch_policy(
+    work: Any,
+    external_effects: list[str],
+    *,
+    maintainer_policy_denied: bool = False,
+) -> dict[str, Any]:
+    if maintainer_policy_denied:
+        return {
+            "class": "maintainer-policy-denied",
+            "batchable": False,
+            "reversibility": "capability-denied",
+            "reason": (
+                "Maintainer Profile v1 cannot classify this task as bounded "
+                "reversible local work"
+            ),
+        }
     return evaluate_approval_batch_policy(
         risk=work.risk,
         allowed_actions=work.allowed_actions,
@@ -1543,11 +1657,17 @@ def _assert_pack_prewrite_current(
     pack_digest: str,
     presentation_digest: str,
     selected_work_ids: Iterable[str],
+    terminalized_work_ids: Iterable[str] = (),
     journal_context: Any | None = None,
 ) -> None:
     """Rebuild exact proof and presentation at the locked final prewrite boundary."""
 
     workspace = validate_data(data_path, deepcopy(before_projection))
+    _assert_pack_source_current(
+        workspace,
+        data_path,
+        terminalized_work_ids,
+    )
     operation_journal: Any = journal_context
     if operation_journal is None:
         journal = verify_journal(data_path, before_projection)
@@ -1624,6 +1744,64 @@ def _assert_pack_prewrite_current(
     raise WorkspaceError(
         "approval pack proof or artifacts changed at the final prewrite boundary; "
         "refresh checks, review, and the current handoff before approving"
+    )
+
+
+def _assert_pack_source_current(
+    workspace: Workspace,
+    data_path: Any,
+    work_ids: Iterable[str],
+) -> None:
+    """Recheck every to-be-terminalized source candidate at publication time."""
+
+    if not is_maintainer_workspace(data_path):
+        return
+    from .authoring import _assert_reconciliation_git_state
+
+    for work_id in sorted(set(work_ids)):
+        work = workspace.work_item(work_id)
+        if work is None:
+            raise WorkspaceError(
+                f"approval pack work item disappeared before completion: {work_id}"
+            )
+        attempt = current_attempt_for_work(work, workspace.attempts)
+        evidence = latest_for_work(workspace.evidence_runs, work_id)
+        if attempt is None or evidence is None:
+            raise WorkspaceError(
+                f"approval pack member {work_id} lacks current source proof"
+            )
+        proof_head = attempt.head_sha or (
+            attempt.commits[-1] if attempt.commits else ""
+        )
+        if evidence.attempt_id != attempt.id or evidence.head_sha != proof_head:
+            raise WorkspaceError(
+                f"approval pack member {work_id} source proof is stale"
+            )
+        _assert_reconciliation_git_state(
+            str(attempt.workspace_path),
+            str(data_path),
+            list(evidence.artifacts),
+            proof_head,
+            list(evidence.artifact_hashes),
+        )
+
+
+def _terminalized_work_ids(
+    before_projection: dict[str, Any],
+    after_projection: dict[str, Any],
+) -> list[str]:
+    before_status = {
+        str(item.get("id") or ""): str(item.get("status") or "")
+        for item in before_projection.get("work_items", [])
+        if isinstance(item, dict)
+    }
+    return sorted(
+        str(item.get("id") or "")
+        for item in after_projection.get("work_items", [])
+        if isinstance(item, dict)
+        and str(item.get("status") or "") in TERMINAL_WORK_STATUSES
+        and before_status.get(str(item.get("id") or ""))
+        not in TERMINAL_WORK_STATUSES
     )
 
 

@@ -35,8 +35,9 @@ Safety rules:
 - Approval requires a finished clean run, complete check/run-record integrity,
   and an independent review tied to the exact run, commit, and task rules.
 - Independent review and human approval may both be omitted only for
-  R1/light/0-approval work with no allowed, planned, queued, or actual external
-  writes. That narrow policy never waives checks.
+  ordinary R1/light/0-approval work with no allowed, planned, queued, or actual
+  external writes. That narrow policy never waives checks and never applies to
+  Maintainer Profile v1.
 - Each person's latest timezone-ordered decision for the exact review and
   check results controls the required approvals; a later negative decision
   revokes an earlier approval, while contradictory or ambiguous records fail
@@ -129,8 +130,9 @@ Safety rules:
   Only current proof already reconciled into governed evidence is reusable.
   The command rechecks its plan and post-proof actor, claim, clean-tree, and
   scope boundaries, commits agent-owned proof as one journaled transaction,
-  and either completes only under the narrow R1/light/0-approval/no-external
-  exemption or stops before required independent review or human authority. A
+  and either completes ordinary work only under the narrow
+  R1/light/0-approval/no-external exemption or stops before required independent
+  review or human authority. Maintainer work always takes the latter path. A
   pending prepare is aborted before a safe retry; an already-applied pending
   commit is completed only under the exact original execution authority.
 - `agent start --next` does not introduce a second eligibility policy. It
@@ -224,9 +226,13 @@ Safety rules:
   repository-ID file beneath the Git common directory. It rejects existing,
   tracked, non-ignored, malformed, non-regular, traversing, sibling-prefix, or
   symlinked state before use and rolls back its own partial initialization
-  writes on failure. Every load and write rechecks the binding/repository
-  identity; a write also uses the loaded binding and workspace digests as
-  compare-and-swap witnesses.
+  writes on failure. A token-owned Git-common-directory lock serializes the
+  initialization transaction; the original clean source `HEAD` and status are
+  rechecked before the first workspace replacement and activation. Rollback
+  deletes only matching owned objects and uses compare-and-swap restoration for
+  `info/exclude`, preserving concurrent operator changes. Every load and write
+  rechecks the binding/repository identity; a write also uses the loaded binding
+  and workspace digests as compare-and-swap witnesses.
 - Maintainer state is never selected implicitly. Every emitted executable
   action carries the exact `.palari-company-os.json` selector; an omitted or
   directory selector continues to resolve ordinary `workspace.json`.
@@ -234,15 +240,32 @@ Safety rules:
   `agent start --isolate` before mutation. It also blocks tasks with
   push/merge/release/deployment/publication, provider or external writes,
   credentials or secrets, or output paths overlapping its own state or Git
-  metadata. These restrictions do not replace ordinary checks, independent
-  review, human approval, or exact file boundaries.
+  metadata. Version 1 treats `local_write` as the only supported non-empty
+  `allowed_actions` value after normalization; every unknown capability label
+  fails closed instead of relying on a spelling-sensitive denylist. The direct
+  `integration` and `linear` command families reject an exact maintainer
+  selector before credential, provider, plan, queue, or integration-state use.
+  These restrictions do not replace ordinary checks, independent review, human
+  approval, or exact file boundaries.
+- Maintainer `work add` preserves the requested R1/R2 risk and intensity while
+  raising a zero required-approval count to one. Every maintainer task runs
+  exactly one authoritative `complete` profile (`./scripts/verify.sh`, already
+  encompassing install and documentation checks), then requires one distinct
+  agent review and at least one human approval. Focused checks are attributable
+  development feedback, not separate durable authority.
+- The shared maintainer evaluator rechecks the full static contract at
+  assignment, evidence, review, acceptance, Approval Pack/Inbox, and completion.
+  Review, Inbox compilation, and final transaction prewrite also require exact
+  current evidence commands and summary, artifact hashes, clean source state,
+  and Git `HEAD`; a drifted candidate cannot emit or consume an authority action.
 - Starter initialization declares a second, review-only Palari linked to the
   goal but outside the execution workbench. Source and goal linkage permit
   exact advisory review; the absence of workbench execution membership and
   human capabilities prevents that identity from building the same run or
   satisfying final approval.
 - Every active accepted record re-verifies its evidence manifest, artifact
-  state, and bound receipt content even before work becomes terminal.
+  state, exact built-in verification-command binding, deterministic command
+  summary, and bound receipt content even before work becomes terminal.
 - `superseded` and `abandoned` are temporal storage boundaries. Prior linked
   proof remains readable, but later writes to the retired contract or its
   adopted proposal, attempts, receipts, evidence, reviews, decisions,

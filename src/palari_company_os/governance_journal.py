@@ -994,6 +994,7 @@ def transact(
     after_data: dict[str, Any],
     metadata: MutationMetadata,
     apply: Callable[[], None],
+    staged_apply: Callable[[Callable[[], None]], None] | None = None,
     event_kind: str = "mutation",
     coverage: str = "continuous",
     crash_hook: CrashHook | None = None,
@@ -1114,19 +1115,45 @@ def transact(
         append_record_fsync(data_path, prepared, crash_hook)
         state.record_count += 1
     _call_hook(crash_hook, "before_apply")
-    if prewrite_check is not None:
+    if staged_apply is None:
+        if prewrite_check is not None:
+            try:
+                prewrite_check()
+            except Exception:
+                aborted = abort_record(
+                    prepared,
+                    sequence=state.record_count,
+                    previous_record_digest=prepared["record_digest"],
+                    reason="final prewrite validation rejected the prepared mutation",
+                )
+                append_record_fsync(data_path, aborted)
+                raise
+        apply()
+    else:
+        validation_rejected = False
+
+        def validate_staged_replacement() -> None:
+            nonlocal validation_rejected
+            if prewrite_check is None:
+                return
+            try:
+                prewrite_check()
+            except Exception:
+                validation_rejected = True
+                raise
+
         try:
-            prewrite_check()
+            staged_apply(validate_staged_replacement)
         except Exception:
-            aborted = abort_record(
-                prepared,
-                sequence=state.record_count,
-                previous_record_digest=prepared["record_digest"],
-                reason="final prewrite validation rejected the prepared mutation",
-            )
-            append_record_fsync(data_path, aborted)
+            if validation_rejected:
+                aborted = abort_record(
+                    prepared,
+                    sequence=state.record_count,
+                    previous_record_digest=prepared["record_digest"],
+                    reason="final prewrite validation rejected the staged mutation",
+                )
+                append_record_fsync(data_path, aborted)
             raise
-    apply()
     _call_hook(crash_hook, "after_apply")
     commit = commit_record(
         prepared,

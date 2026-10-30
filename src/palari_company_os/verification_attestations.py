@@ -95,6 +95,7 @@ def verification_profiles(
     base_sha: str = "",
     head_sha: str = "",
     python_executable: str | None = None,
+    maintainer: bool = False,
 ) -> tuple[VerificationProfile, ...]:
     """Return executable, shell-free profiles; work-item prose is never executed."""
 
@@ -115,10 +116,16 @@ def verification_profiles(
             *tuple(sorted(set(changed_paths))),
         ),
     )
+    complete = VerificationProfile("complete", ("./scripts/verify.sh",), 600)
+    if maintainer:
+        # Maintainer Profile v1 deliberately has one authoritative technical
+        # gate regardless of the task's declared R1/R2 classification. The
+        # complete script already includes install and documentation checks.
+        return (complete,)
     if risk == "R1":
         return (diff_check,)
     return (
-        VerificationProfile("complete", ("./scripts/verify.sh",), 600),
+        complete,
         VerificationProfile("install-smoke", ("./scripts/install_smoke.sh",), 300),
         VerificationProfile(
             "docs-check",
@@ -151,6 +158,7 @@ def expected_verification_commands(
     *,
     base_sha: str,
     head_sha: str,
+    maintainer: bool = False,
 ) -> list[str]:
     """Return the exact persisted command bindings for one verified candidate."""
 
@@ -159,6 +167,7 @@ def expected_verification_commands(
         changed_paths,
         base_sha=base_sha,
         head_sha=head_sha,
+        maintainer=maintainer,
     )
     context = default_context(
         head_sha=head_sha,
@@ -172,6 +181,74 @@ def expected_verification_commands(
         attestation_id = f"VERIFY-{profile.id.upper()}-{key[-16:].upper()}"
         commands.append(f"{profile.id} attestation {attestation_id} {key}")
     return commands
+
+
+def verification_evidence_binding_error(
+    *,
+    risk: str,
+    changed_paths: list[str],
+    base_sha: str,
+    head_sha: str,
+    commands: list[str],
+    summary: str,
+    maintainer: bool = False,
+) -> str:
+    """Return why persisted evidence is not the exact built-in verification set."""
+
+    expected_commands = expected_verification_commands(
+        risk,
+        changed_paths,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        maintainer=maintainer,
+    )
+    if commands != expected_commands:
+        return (
+            "The current evidence commands do not match the exact verification "
+            "profiles required for this candidate."
+        )
+    expected_summary = (
+        f"{len(expected_commands)} exact-state verification profile(s) passed."
+    )
+    if summary != expected_summary:
+        return (
+            "The current evidence summary does not match the exact verification "
+            "profiles required for this candidate."
+        )
+    return ""
+
+
+def current_verification_binding_error(
+    workspace: Any,
+    work: Any,
+    *,
+    maintainer: bool = False,
+) -> str:
+    """Return why the latest evidence is not exact for the current attempt."""
+
+    from .workspace import current_attempt_for_work, latest_for_work
+
+    attempt = current_attempt_for_work(work, workspace.attempts)
+    evidence = latest_for_work(workspace.evidence_runs, work.id)
+    if attempt is None or evidence is None:
+        return ""
+    proof_head = attempt.head_sha or (
+        attempt.commits[-1] if attempt.commits else ""
+    )
+    if evidence.attempt_id != attempt.id or evidence.head_sha != proof_head:
+        return (
+            "The current evidence is not bound to the active exact attempt "
+            "and Git head."
+        )
+    return verification_evidence_binding_error(
+        risk=str(work.risk),
+        changed_paths=list(attempt.changed_files),
+        base_sha=str(attempt.base_sha),
+        head_sha=proof_head,
+        commands=list(evidence.commands),
+        summary=str(evidence.summary),
+        maintainer=maintainer,
+    )
 
 
 def run_or_reuse(

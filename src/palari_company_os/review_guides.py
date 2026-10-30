@@ -6,9 +6,15 @@ from typing import Any
 from .authority_plan import build_authority_plan
 from .command_surface import palari_workspace_command
 from .governance_binding import current_review_binding
+from .maintainer_policy import (
+    maintainer_current_proof_error,
+    maintainer_profile_violations,
+)
 from .pcaw_canonical import canonical_sha256
 from .read_models import detail
+from .verification_attestations import current_verification_binding_error
 from .workspace import Workspace
+from .workspace_layout import is_maintainer_workspace
 
 
 SUGGESTED_VERDICTS = (
@@ -47,6 +53,31 @@ def build_review_guide(workspace: Workspace, work_id: str) -> dict[str, Any]:
         work_id,
         require_output_coverage=True,
     )
+    work_record = workspace.work_item(work_id)
+    if work_record is not None:
+        exact_error = current_verification_binding_error(
+            workspace,
+            work_record,
+            maintainer=is_maintainer_workspace(workspace.data_path),
+        )
+        if exact_error and exact_error not in review_binding_errors:
+            review_binding_errors.append(exact_error)
+        maintainer_error = maintainer_current_proof_error(
+            workspace,
+            work_record,
+        )
+        if maintainer_error and maintainer_error not in review_binding_errors:
+            review_binding_errors.append(maintainer_error)
+        for violation in maintainer_profile_violations(workspace, work_record):
+            if violation.message not in review_binding_errors:
+                review_binding_errors.append(violation.message)
+    for candidate in reviewer_candidates:
+        packet_command = str(candidate.get("review_packet_command") or "")
+        candidate["review_packet_command_executable"] = bool(
+            packet_command and not review_binding_errors
+        )
+        if review_binding_errors:
+            candidate["review_packet_command"] = ""
     review_record_commands = _review_record_commands(
         workspace,
         work_id,

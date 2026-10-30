@@ -8,9 +8,18 @@ from .authority_plan import build_authority_plan
 from .command_surface import palari_workspace_command
 from .errors import WorkspaceError
 from .governance_binding import current_review_binding
+from .maintainer_policy import (
+    maintainer_current_proof_error,
+    maintainer_profile_violations,
+)
 from .pcaw_canonical import canonical_sha256
 from .read_models import detail
+from .verification_attestations import (
+    current_verification_binding_error,
+    verification_evidence_binding_error,
+)
 from .workspace import Workspace, current_attempt_for_work, latest_for_work
+from .workspace_layout import is_maintainer_workspace
 
 
 @dataclass(frozen=True)
@@ -162,9 +171,11 @@ def _check_agent_start(
     blockers: list[TransitionBlocker],
     next_commands: list[str],
 ) -> None:
-    if workspace.work_item(work_id) is None:
+    work = workspace.work_item(work_id)
+    if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return
+    _append_maintainer_profile_blockers(workspace, work, blockers)
     packet = context.get("packet")
     if not isinstance(packet, dict):
         blockers.append(TransitionBlocker("PACKET_MISSING", "agent start requires a packet"))
@@ -238,6 +249,8 @@ def _check_evidence_record(
     attempt = _attempt(workspace, attempt_id)
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
+    else:
+        _append_maintainer_profile_blockers(workspace, work, blockers)
     if attempt is None:
         blockers.append(TransitionBlocker("ATTEMPT_MISSING", f"attempt not found: {attempt_id}"))
         return
@@ -282,6 +295,7 @@ def _check_review_record(
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return
+    _append_maintainer_profile_blockers(workspace, work, blockers)
     if _review(workspace, review_id) is not None and not context.get("allow_existing"):
         blockers.append(TransitionBlocker("REVIEW_EXISTS", f"review already exists: {review_id}"))
     reviewer_human = workspace.human(reviewer_id)
@@ -357,6 +371,35 @@ def _check_review_record(
                 )
             )
     if verdict == "accept-ready":
+        exact_error = current_verification_binding_error(
+            workspace,
+            work,
+            maintainer=is_maintainer_workspace(workspace.data_path),
+        )
+        source_error = (
+            ""
+            if exact_error
+            else maintainer_current_proof_error(workspace, work)
+        )
+        current_error = exact_error or source_error
+        if current_error:
+            blockers.append(
+                TransitionBlocker(
+                    "EXACT_PROOF_NOT_READY",
+                    "accept-ready review requires current exact verification "
+                    "proof: "
+                    + current_error,
+                    palari_workspace_command(
+                        workspace.data_path,
+                        "agent",
+                        "advance",
+                        work_id,
+                        "--as",
+                        work.palari,
+                        "--json",
+                    ),
+                )
+            )
         if proof_errors:
             blockers.append(
                 TransitionBlocker(
@@ -459,6 +502,26 @@ def _check_acceptance_prerequisites(
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return None
+    _append_maintainer_profile_blockers(workspace, work, blockers)
+    if is_maintainer_workspace(workspace.data_path):
+        proof_error = maintainer_current_proof_error(workspace, work)
+        if proof_error:
+            blockers.append(
+                TransitionBlocker(
+                    "EXACT_PROOF_NOT_READY",
+                    "Maintainer acceptance requires current complete exact proof: "
+                    + proof_error,
+                    palari_workspace_command(
+                        workspace.data_path,
+                        "agent",
+                        "advance",
+                        work_id,
+                        "--as",
+                        work.palari,
+                        "--json",
+                    ),
+                )
+            )
     if human is None:
         blockers.append(TransitionBlocker("HUMAN_MISSING", f"human not found: {human_id}"))
         return None
@@ -591,6 +654,41 @@ def _check_work_complete(
     if work is None:
         blockers.append(TransitionBlocker("WORK_MISSING", f"work not found: {work_id}"))
         return
+    _append_maintainer_profile_blockers(workspace, work, blockers)
+    attempt = current_attempt_for_work(work, workspace.attempts)
+    evidence = (
+        latest_for_work(
+            (
+                item
+                for item in workspace.evidence_runs
+                if item.attempt_id == attempt.id
+            ),
+            work_id,
+        )
+        if attempt is not None
+        else None
+    )
+    if attempt is not None and evidence is not None:
+        proof_head = attempt.head_sha or (
+            attempt.commits[-1] if attempt.commits else ""
+        )
+        binding_error = verification_evidence_binding_error(
+            risk=str(work.risk),
+            changed_paths=list(attempt.changed_files),
+            base_sha=str(attempt.base_sha),
+            head_sha=proof_head,
+            commands=list(evidence.commands),
+            summary=str(evidence.summary),
+            maintainer=is_maintainer_workspace(workspace.data_path),
+        )
+        if binding_error:
+            blockers.append(
+                TransitionBlocker(
+                    "EXACT_VERIFICATION_BINDING_INVALID",
+                    binding_error,
+                    f"palari agent advance {work_id} --json",
+                )
+            )
     from .pcaw_workspace import evaluate_workspace_completion_authority
 
     authority = evaluate_workspace_completion_authority(
@@ -731,6 +829,28 @@ def _check_integration_send(
             TransitionBlocker("ACTION_MISMATCH", f"outbox action is {item.action}, not {action}")
         )
     next_commands.append(f"palari linear send {outbox_id} --by HUMAN-ID --confirm --json")
+
+
+def _append_maintainer_profile_blockers(
+    workspace: Workspace,
+    work: Any,
+    blockers: list[TransitionBlocker],
+) -> None:
+    next_command = palari_workspace_command(
+        workspace.data_path,
+        "agent",
+        "doctor",
+        work.id,
+        "--json",
+    )
+    blockers.extend(
+        TransitionBlocker(
+            violation.code,
+            violation.message,
+            next_command,
+        )
+        for violation in maintainer_profile_violations(workspace, work)
+    )
 
 
 def _attempt(workspace: Workspace, attempt_id: str) -> Any | None:

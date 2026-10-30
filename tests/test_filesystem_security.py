@@ -55,7 +55,7 @@ class FilesystemReadBoundaryTests(unittest.TestCase):
             state = load_active_claim_contexts(root)
 
             self.assertEqual(state["contexts"], [])
-            self.assertIn("escapes workspace root", state["errors"][0])
+            self.assertIn("symlink", state["errors"][0])
 
     def test_missing_artifact_never_verifies_even_when_declared_hash_matches(self) -> None:
         with tempfile.TemporaryDirectory() as root_name:

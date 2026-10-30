@@ -33,6 +33,7 @@ from .governance_journal import workspace_digest
 from .governance_convergence import converge_work_item
 from .governance_binding import recorded_current_review_binding_errors
 from .governance_kernel import low_risk_completion_policy_applies
+from .maintainer_policy import maintainer_profile_violations
 from .path_policy import path_allowed, validate_workspace_path
 from .record_order import record_time_key
 from .store import load_store, workspace_file_path
@@ -48,6 +49,7 @@ from .verification_attestations import (
 from .workspace import Workspace, WorkspaceError
 from .workspace_layout import (
     MAINTAINER_WORKSPACE_FILENAME,
+    is_maintainer_workspace,
     resolve_workspace_layout,
 )
 
@@ -133,6 +135,7 @@ def agent_advance_dry_run(
         changed,
         base_sha=base_sha,
         head_sha=head_sha,
+        maintainer=is_maintainer_workspace(data_path),
     )
     path_intent_verification = _verify_path_intents(
         Path(str(preflight.get("git_root") or workspace_path)),
@@ -576,7 +579,11 @@ def agent_advance(
     if work is None:
         raise WorkspaceError(f"work not found after proof reconciliation: {work_id}")
     current_receipt = _current_receipt(final_workspace, work)
-    low_risk = _low_risk_completion_policy(work, current_receipt)
+    low_risk = _low_risk_completion_policy(
+        work,
+        current_receipt,
+        workspace=final_workspace,
+    )
     resume_preflight = _resume_preflight(
         final_workspace, workspace_path, work, palari_id
     )
@@ -744,6 +751,7 @@ def _collect_facts(
         changed,
         base_sha=base_sha,
         head_sha=head_sha,
+        maintainer=is_maintainer_workspace(workspace_path),
     )
     context = default_context(
         head_sha=head_sha,
@@ -1390,6 +1398,7 @@ def _reconcile_proof(
         list(preflight["changed_files"]),
         base_sha=str(preflight["base_sha"]),
         head_sha=head_sha,
+        maintainer=is_maintainer_workspace(workspace_path),
     )
     if (
         commands != expected_commands
@@ -1876,7 +1885,11 @@ def _completed_projection(
     proof_steps: list[dict[str, str]] = [
         {"step": "proof-projection", "status": "already-current"}
     ]
-    low_risk = _low_risk_completion_policy(work, _current_receipt(workspace, work))
+    low_risk = _low_risk_completion_policy(
+        work,
+        _current_receipt(workspace, work),
+        workspace=workspace,
+    )
     if low_risk:
         preflight = _resume_preflight(workspace, workspace_path, work, palari_id)
         if not preflight["ok"]:
@@ -1983,6 +1996,7 @@ def _refresh_stale_projection(
         refresh["committed_paths"],
         base_sha=refresh["proof_head"],
         head_sha=refresh["head_sha"],
+        maintainer=is_maintainer_workspace(workspace_path),
     )
     context = default_context(
         head_sha=refresh["head_sha"],
@@ -2207,6 +2221,7 @@ def _changes_requested_refresh_plan(
         refresh["committed_paths"],
         base_sha=refresh["proof_head"],
         head_sha=refresh["head_sha"],
+        maintainer=is_maintainer_workspace(workspace_path),
     )
     return {
         "schema_version": SCHEMA_VERSION,
@@ -3152,7 +3167,12 @@ def _pending_advance_recovery_error(
         or evidence.get("previous_receipt_hash") not in {None, ""}
         or not isinstance(commands, list)
         or not commands
-        or not _verification_commands_bound(commands, work, preflight)
+        or not _verification_commands_bound(
+            commands,
+            work,
+            preflight,
+            maintainer=is_maintainer_workspace(workspace_path),
+        )
         or (verified_commands is not None and commands != verified_commands)
         or evidence.get("output_binding_version") != "palari.evidence_outputs.v1"
         or evidence.get("summary")
@@ -3190,6 +3210,7 @@ def _run_recovery_verification(
         changed_files,
         base_sha=str(preflight.get("base_sha") or ""),
         head_sha=str(preflight.get("head_sha") or ""),
+        maintainer=is_maintainer_workspace(workspace_path),
     )
     context = default_context(
         head_sha=str(preflight.get("head_sha") or ""),
@@ -3331,7 +3352,11 @@ def _latest_receipt_hash(projection: dict[str, Any], work_id: str) -> str:
 
 
 def _verification_commands_bound(
-    commands: list[Any], work: dict[str, Any], preflight: dict[str, Any]
+    commands: list[Any],
+    work: dict[str, Any],
+    preflight: dict[str, Any],
+    *,
+    maintainer: bool = False,
 ) -> bool:
     changed_files = list(preflight.get("changed_files") or [])
     expected = expected_verification_commands(
@@ -3339,6 +3364,7 @@ def _verification_commands_bound(
         changed_files,
         base_sha=str(preflight.get("base_sha") or ""),
         head_sha=str(preflight.get("head_sha") or ""),
+        maintainer=maintainer,
     )
     return commands == expected
 
@@ -3614,7 +3640,14 @@ def _assert_completion_source_state(
         )
 
 
-def _low_risk_completion_policy(work: Any, receipt: Any | None) -> bool:
+def _low_risk_completion_policy(
+    work: Any,
+    receipt: Any | None,
+    *,
+    workspace: Workspace | None = None,
+) -> bool:
+    if workspace is not None and maintainer_profile_violations(workspace, work):
+        return False
     return low_risk_completion_policy_applies(
         risk=work.risk,
         intensity=work.intensity,

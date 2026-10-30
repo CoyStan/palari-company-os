@@ -22,6 +22,17 @@ repository milestones, not a production Company OS release.
 - Revalidate check manifests, outputs, and run-record hashes for active
   approval records, and stop supported agent shells from invoking
   human-attributed Palari mutations or silently running opaque interpreters.
+- Bind already-current completion evidence to the exact built-in verification
+  commands, and recheck source state after workspace bytes are staged and
+  immediately before atomic replacement.
+- Serialize Maintainer Profile initialization, preserve concurrent files and
+  local Git exclude edits during rollback, recheck the clean source candidate
+  before activation, and reject direct integration or Linear command surfaces
+  before credentials, providers, or external-action state can be reached.
+- Apply one shared Maintainer Profile policy evaluator at assignment, evidence,
+  review, acceptance, Approval Pack, and completion boundaries, with exact
+  source-and-evidence compare-and-swap checks at review, Approval Inbox, and
+  final transaction prewrite.
 
 ### Changed
 
@@ -70,6 +81,15 @@ repository milestones, not a production Company OS release.
   committed ACME example or dogfood workspace.
 - Human review and approval templates are emitted only inside explicit
   read-only handoff boundaries after their prerequisite checks pass.
+- Maintainer task creation now preserves the declared R1/R2 risk and intensity,
+  enforces at least one human approval, and uses exactly one authoritative
+  `complete` verification profile (`./scripts/verify.sh`, including install and
+  documentation checks). Focused checks remain attributable development
+  feedback rather than separate task authority, and the ordinary low-risk
+  automatic-completion exemption never applies to a maintainer task.
+- Approval Inbox schema v3 replaces executable-looking placeholder `actions`
+  with structured, explicitly non-executable `command_templates`; concrete
+  exact-bound human commands remain in `approval_commands`.
 
 ### Added
 
@@ -82,6 +102,8 @@ repository milestones, not a production Company OS release.
   from candidate Git projections, and v1 rejects credentials, secrets,
   external writes, push, merge, release, deploy, profile-state output paths,
   host installation or removal, and isolated-worktree start.
+  Initialization emits an exact `work add` action only; task creation emits the
+  later `agent start` action once a bounded task actually exists.
 - Completed the governed Linear loop: `palari linear connect` verifies
   credentials and prepares the integration record (reporting a missing
   `LINEAR_API_KEY` as a structured blocker instead of an error), `palari

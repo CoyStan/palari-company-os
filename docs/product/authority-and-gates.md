@@ -35,7 +35,9 @@ journal machinery. It is eligible only for reversible local R1/R2 work when
 one qualified person's action completes the effective final approval count.
 For review-required work that count is at least one even when the stored
 numeric count is zero; the R1/light/no-external automatic exemption remains
-zero. This shortens navigation and local recordkeeping; it does not combine
+zero only for an eligible ordinary task. Maintainer task creation persists at
+least one required human approval, so that profile never enters the exemption.
+This shortens navigation and local recordkeeping; it does not combine
 review with approval, weaken final human authority, approve external actions,
 or give an agent human permission. A manually entered bare command derives
 current state at invocation rather than binding an earlier handoff.
@@ -105,8 +107,10 @@ palari authority check WORK-ID --profile team-safe --json
 
 This command is advisory until the task declares the matching approval count.
 Completion always requires current, exact, passing check results. Independent
-review and human approval may both be omitted only for R1/light/0-approval work
-with no allowed, planned, queued, or actual external write. Every other task
+review and human approval may both be omitted only for ordinary
+R1/light/0-approval work with no allowed, planned, queued, or actual external
+write. Maintainer Profile v1 always requires its one complete verification
+profile, independent agent review, and at least one human approval. Every other task
 still requires independent review, explicit human approval, no open human
 question, and no unsafe overlap with another task.
 
@@ -253,7 +257,7 @@ approver; approval, rejection, and Approval Pack actions remain attributable
 to a person.
 
 `palari work complete` retains the final status check. Outside the narrow
-R1/light/0-approval/no-external-action exception, it may derive a missing
+ordinary R1/light/0-approval/no-external-action exception, it may derive a missing
 approval record from the latest qualified human-decision record. Palari prepares that
 record before checking completion and writes both in one successful change, so
 invalid or stale approval leaves no partial record. `agent advance` may invoke

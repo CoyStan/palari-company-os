@@ -30,6 +30,11 @@ code change must match them. See
 - Maintainer Profile v1 does not support split collection files. Profile writes
   recheck the binding witness and exact workspace bytes under the local
   mutation lock before replacement.
+- Maintainer `work add` preserves the declared R1/R2 risk and intensity while
+  enforcing at least one required human approval. Every maintainer task binds
+  exactly one authoritative `complete` profile (`./scripts/verify.sh`, which
+  already encompasses install and documentation checks). Focused checks are
+  attributable development feedback, not separately persisted task authority.
 - Task IDs are identity only. New quick-created work uses collision-resistant
   opaque IDs; legacy IDs remain valid. Dependency authority exists only through
   explicit, reference-valid, duplicate-free, acyclic `dependency_ids` edges.
@@ -91,6 +96,11 @@ code change must match them. See
   authority; it cannot manufacture review, another vote, external effects, or
   expanded permission. Approval Pack v1 is unsupported; an unsupported pack or
   missing presentation binding fails closed.
+- Approval Inbox v3 exposes runnable, exact-bound human actions only through
+  `approval_commands`. Its structured `command_templates` are explicitly
+  non-executable and replace the executable-looking placeholder `actions` from
+  the prior Inbox output. Approval Pack v2 remains readable; earlier derived
+  Inbox output is not an imported authority format.
 - Agents may prepare, refresh, or summarize packs. Only a human may invoke the
   simple `approve` or pack-decision authority surface; supported agent shell
   adapters hard-deny both.
@@ -203,6 +213,11 @@ code change must match them. See
   external writes; push, merge, release, deploy, publish, or provider-write
   actions; and task paths that overlap `.palari-company-os.json`,
   `.palari-company-os/`, or `.git/`.
+- One shared Maintainer Profile evaluator must protect assignment, evidence,
+  review guidance and recording, acceptance, Approval Pack/Inbox, and
+  completion. Review, Approval Inbox, and final transaction prewrite also
+  revalidate the exact active attempt, authoritative verification command and
+  summary, artifact hashes, clean source state, and Git `HEAD`.
 - Agent packets define allowed paths, sources, actions, stop conditions, and
   required outputs.
 - `agent check` verifies proof state and, when requested, observed file changes
@@ -237,10 +252,19 @@ code change must match them. See
   the shared bounded fixed-point driver may derive the acceptance record and
   terminalize the work mechanically. Authority-producing functions invoke that
   driver immediately; `agent advance` remains an idempotent recovery surface.
+  Convergence re-derives the exact built-in verification-command bindings from
+  the attempt risk, base, head, and changed paths; manifest-valid substitute
+  command prose is not proof. The source and workspace witnesses are checked
+  again after replacement bytes are staged and immediately before the atomic
+  workspace replacement.
   Later Git state is reusable only when post-proof committed and dirty tracked
   paths are governance projection data. The driver must never create the review
   or human decision, and cycle, no-progress, or iteration-limit states fail
   closed.
+  For Maintainer Profile v1, the declared R1/R2 label does not select the
+  ordinary profile set: exactly one `complete` profile runs, and independent
+  agent review plus at least one human approval are mandatory. The ordinary
+  R1/light/zero-approval automatic-completion exemption never applies.
 - Explicit exact-head proof refresh is claimless. A current changes-requested
   review may route byte-unchanged ordinary outputs through that transaction after
   separately governed descendant commits; dry-run previews it without

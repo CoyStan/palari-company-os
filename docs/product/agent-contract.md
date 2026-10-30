@@ -95,6 +95,12 @@ recovery, history, and status actions. Palari canonicalizes command-valued
 output fields to the selected workspace instead of trusting a missing or
 foreign selector.
 
+Maintainer initialization emits only an exact, immediately executable
+`work add ... --json` next action. It cannot emit `agent start` before a task
+exists. Maintainer `work add` preserves the declared R1/R2 risk and intensity,
+enforces at least one required human approval, and reports any elevation in
+`profile_adjustments`.
+
 Maintainer Profile v1 supports reversible local source work only. Task briefs
 are blocked when task actions or current records allow, plan, queue, or report
 push, merge, release, publication, deployment, provider/external writes, or
@@ -104,7 +110,7 @@ Git-hook installation/removal, and `agent start --isolate` are unsupported and
 fail before partial mutation. Review independence, exact checks, human
 approval, journal continuity, and task path boundaries remain unchanged.
 
-The ordinary loop is deliberately short:
+The maintainer loop is deliberately short:
 
 1. Run `palari agent start --next --as PALARI-ID --json` and continue only when
    the returned task brief is ready. Read and write only its allowed paths and
@@ -112,16 +118,18 @@ The ordinary loop is deliberately short:
 2. Do the bounded work and commit it. Then run `palari agent advance WORK-ID
    --as PALARI-ID --json` once. It derives the complete change range since the
    task lock started, checks
-   exact create/modify/delete intent, runs fixed verification profiles, and
+   exact create/modify/delete intent, runs the one fixed `complete`
+   verification profile (`./scripts/verify.sh`), and
    atomically records the run, run record, check results, and closeout state.
-   R1 uses exact base-to-head `git diff --check` over the changed paths; task
-   prose is never executed as a check.
+   The script already encompasses install and documentation checks. Focused
+   checks are attributable development feedback, not separately persisted task
+   authority; task prose is never executed as a check.
    It stops at independent review, human approval, external state, or a
    concrete blocker; it never creates a review or a person's decision. Every
-   completion requires current, passing checks tied to the exact version. Only
-   R1/light work with zero required approvals and no allowed, planned, queued,
-   or actual external writes may complete without independent review and human
-   approval.
+   completion requires current, passing checks tied to the exact version.
+   Maintainer work always requires a distinct eligible agent review and one
+   or more qualified human approvals; the ordinary R1/light automatic-completion
+   exemption does not apply.
 3. Follow the one command returned at that boundary. A distinct eligible
    reviewer starts the task in `--mode review`, inspects its read-only brief,
    and records an advisory result tied to the exact candidate. The local review
@@ -136,6 +144,13 @@ The ordinary loop is deliberately short:
    state at invocation and is not bound to an earlier handoff. The Approval
    Inbox and digest-bound pack commands remain available for advanced or
    batched use.
+
+The full shared maintainer evaluator runs before assignment, evidence, review
+guidance and recording, acceptance, Approval Pack/Inbox authority, and
+completion. Review, Approval Inbox, and final transaction prewrite also
+compare-and-swap the current exact verification binding, artifact hashes,
+clean source state, and Git `HEAD`. A stale or newly policy-invalid task cannot
+reuse an earlier pass to emit or record authority.
 
 `agent advance` is the sole current run-to-verification and closeout path. Use
 `agent advance --dry-run` to inspect the plan and `agent check`, `finish`,
@@ -435,9 +450,10 @@ local task lock for ready briefs, carries the current
 `next_step_type`, and then evaluates the current workspace against the
 completion contract. It returns `ok: false` when required run-record, check,
 review, approval, source, dependency, or external-write checks fail. Light
-R1 work may omit review and human approval only when it has zero required
-approvals, current exact passing checks, and no allowed, planned, queued, or
-actual external writes. Missing run-record, check, and review checks include
+R1 work in an ordinary workspace may omit review and human approval only when
+it has zero required approvals, current exact passing checks, and no allowed,
+planned, queued, or actual external writes. Maintainer work never uses that
+exemption. Missing run-record, check, and review checks include
 the next safe command Palari can infer for the current task. Human-decision
 record commands are held back until prerequisite run records, checks, and
 review are present, so agents do not jump from missing review straight to

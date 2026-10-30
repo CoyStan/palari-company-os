@@ -18,6 +18,10 @@ It records assignments, checks, reviews, approvals, and local results beneath
 the bound hidden state root while source identity remains the exact Git
 candidate. Every emitted executable action selects the exact hidden workspace;
 omitting that selector continues to resolve only an ordinary `workspace.json`.
+The declared R1/R2 risk and intensity remain visible, but every maintainer task
+has one authoritative `complete` verification profile, one independent agent
+review, and at least one human approval. Maintainer Profile v1 never uses the
+ordinary R1/light automatic-completion exemption.
 
 The tracked root `workspace.json` and root `.palari` directory remain product
 artifacts and historical evidence. Maintainer Profile v1 neither imports nor
@@ -87,9 +91,11 @@ the following are true:
 
 1. The exact candidate is a named Git commit in the intended repository.
 2. The worktree is clean apart from explicitly excluded local maintainer state.
-3. Focused checks attributable to the change have passed.
-4. The complete repository verification profile has passed against the exact
-   candidate.
+3. Any focused checks used while developing the change are reported as
+   attributable feedback; they are not separately persisted task authority.
+4. The task's sole authoritative verification profile, `complete`, has passed
+   by running `./scripts/verify.sh` against the exact candidate. That script
+   already encompasses install and documentation checks.
 5. A fresh reviewer who did not build the candidate has inspected that exact
    commit and returned a recorded recommendation.
 6. No push, merge, deployment, release, provider call, or external write has
@@ -144,6 +150,11 @@ palari --workspace .palari-company-os.json ...
 Omitting that selector is unsafe in a repository that also contains a tracked
 root `workspace.json`. No emitted review, approval, recovery, or agent action
 may silently fall back to the tracked workspace.
+
+The successful initialization result emits only an exact, immediately
+executable `work add ... --json` action. It does not emit `agent start` before
+a task exists. A successful `work add` response may then emit the exact
+maintainer-selected `agent start` action for that new bounded task.
 
 ### Exact Workspace And Control Paths
 
@@ -207,12 +218,24 @@ The existing same-operating-system-user limitation remains: these local
 identifiers and hashes detect mismatch and accidental tampering, but do not
 authenticate a hostile process that can rewrite both state and Git metadata.
 
+Initialization holds one token-owned lock in the Git common directory from
+preflight through the first validated workspace write and either completion or
+rollback. It binds that transaction to the original clean `HEAD` and status.
+Rollback removes only objects still matching the initialization's ownership
+witnesses, uses compare-and-swap handling for `info/exclude`, and preserves
+concurrent operator files or ignore additions instead of recursively deleting
+them.
+
 ### Journal Integrity
 
 The current v2 transaction and replay rules remain unchanged:
 
 - one prepared record is fsynced before workspace replacement;
-- workspace replacement is atomic and fsynced;
+- workspace replacement is staged, the exact workspace and source witnesses
+  are checked again immediately before replacement, and the replacement is
+  atomic and fsynced;
+- a rejected final check records an abort instead of leaving a pending
+  transaction;
 - one commit record is fsynced afterward;
 - pending, truncated, reordered, divergent, or corrupt history fails closed;
   and
@@ -259,6 +282,51 @@ That witness must be rechecked on claim restart and before run reconciliation.
 It grants no review, approval, external-write, merge, push, or deployment
 authority.
 
+Current evidence must also contain the exact built-in verification-command
+binding and deterministic summary for the active attempt, base, head, and
+changed paths. In Maintainer Profile v1, that binding contains exactly one
+profile:
+
+```text
+complete: ./scripts/verify.sh
+```
+
+The script already runs the repository's install and documentation checks, so
+they are not added as separate task profiles. Focused checks may be run during
+development for fast attributable feedback, but they do not become a second
+persisted evidence or authority surface. A manifest-valid record with different
+command prose is not completion evidence.
+
+### Authority Floor And Shared Enforcement
+
+Maintainer `work add` preserves the caller's declared R1/R2 classification and
+intensity. It raises `required_approval_count` to one when the caller supplies
+zero and reports the change in `profile_adjustments`; it does not relabel R1 as
+R2. Every maintainer task then requires:
+
+1. the one current authoritative `complete` verification profile;
+2. a current review by an eligible agent distinct from the builder; and
+3. at least one qualified human approval, with any higher explicitly declared
+   count preserved.
+
+There is no low-risk automatic-completion exception for a maintainer task.
+Automatic finishing may perform only the local bookkeeping already authorized
+after the distinct review and human decision exist.
+
+One shared static evaluator enforces the profile at assignment, evidence,
+review-guide and review-record creation, acceptance, Approval Pack/Inbox, and
+completion boundaries. It evaluates the complete current task contract,
+including allowed actions, all linked run records, integration plans and
+outbox state, selected-source sensitivity, protected paths, and the approval
+floor. Passing an earlier boundary cannot launder a later-invalid task.
+
+Review, Approval Inbox compilation, and final transaction prewrite also
+revalidate the exact active attempt, authoritative command set and summary,
+artifact hashes, clean source worktree, and exact Git `HEAD`. The final
+prewrite check occurs after replacement bytes have been staged. Source or
+evidence drift therefore removes executable authority actions or aborts before
+the workspace and journal are terminalized.
+
 ### Profile Capability Limits
 
 Maintainer Profile v1 rejects tasks or actions that allow, plan, queue, or
@@ -270,6 +338,16 @@ perform:
 - changes outside the exact source task boundary; or
 - mutation of the profile's own workspace, binding, journal, assignments, or
   Git witnesses outside Palari's guarded commands.
+
+For version 1, an execution task may declare no action capability or the
+normalized capability `local_write`; any other `allowed_actions` value is
+ineligible. This allowlist makes unfamiliar spellings and newly introduced
+capabilities fail closed.
+
+The direct `integration` and `linear` command families are unavailable when the
+exact maintainer workspace is selected. Rejection occurs before credential
+lookup, provider access, integration planning, queueing, or local integration
+state mutation. Ordinary workspaces retain those command surfaces.
 
 Host installation and isolated-worktree start are explicitly unsupported in
 v1:
@@ -291,7 +369,13 @@ The profile is additive:
 - the governance journal schemas and record bytes remain unchanged;
 - PCAW v1 remains unchanged;
 - current authority formats remain supported (Approval Pack v3 with the v2
-  reader, Approval Inbox v2, Review Guide v2, and presentation v1);
+  reader, Approval Inbox v3, Review Guide v2, and presentation v1);
+- Approval Inbox v3 replaces v2's executable-looking placeholder `actions`
+  strings with structured `command_templates`. Each template is explicitly
+  marked `executable: false` and contains argument metadata only. Concrete,
+  current, exact-bound human actions remain in `approval_commands`. Approval
+  Inbox output is derived rather than imported authority; the legacy reader
+  applies only to Approval Pack v2, not to earlier Inbox output;
 - ordinary `workspace.json` storage and current-directory resolution remain
   unchanged;
 - existing explicit `--workspace FILE|DIR` invocations continue to work;
@@ -339,6 +423,19 @@ Temporary-repository tests cover:
 - initialization rolls back its binding, runtime directory, ignore additions,
   and repository identifier even when failure occurs immediately after an
   atomic replacement;
+- overlapping initialization, concurrent `info/exclude` edits, foreign
+  replacement files, and source `HEAD` or status drift fail without deleting
+  another actor's state;
+- already-current proof with substituted verification commands cannot
+  converge, and a source change injected after workspace staging is rejected
+  before replacement with an abort record;
+- R1 and R2 declarations remain unchanged while task creation enforces one
+  human approval and all maintainer tasks run only the `complete` profile;
+- focused development checks create no separate task authority, and R1/light
+  maintainer work still stops for independent review and human approval;
+- static policy violations and source/evidence drift block assignment,
+  evidence, review, Approval Inbox, acceptance, and completion without
+  executable authority guidance;
 - simple local approval remains one real human action and performs no external
   effect;
 - profile tasks with external or irreversible actions are ineligible;
@@ -398,9 +495,15 @@ The implementation is one bounded storage and lifecycle slice:
    path-type, and strict-binding preflights before use.
 4. Claims bind the authority catalog, profile and repository identifiers, Git
    witness and lease, and exact local workspace/journal witness.
-5. Review, Approval Inbox, simple approval, evidence, PCAW, history, and status
+5. Work creation preserves R1/R2 classification while enforcing at least one human
+   approval; `agent advance` binds exactly one authoritative `complete`
+   profile, followed by independent agent review and human approval.
+6. One shared evaluator protects assignment, evidence, review, acceptance,
+   Approval Pack, and completion, with exact source/evidence revalidation at
+   review, Inbox, and final prewrite.
+7. Review, Approval Inbox, simple approval, evidence, PCAW, history, and status
    operations retain the exact selected workspace.
-6. Negative path/security tests and the complete single-maintainer journey run
+8. Negative path/security tests and the complete single-maintainer journey run
    only in temporary repositories.
 
 The profile adds no workspace-schema or PCAW change, background service,
